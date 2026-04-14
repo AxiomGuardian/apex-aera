@@ -25,7 +25,7 @@ export async function GET() {
       const body = await res.json();
       if (res.ok) {
         results.elevenlabs = {
-          ...results.elevenlabs,
+          ...(results.elevenlabs as Record<string, unknown>),
           status: "✅ VALID",
           plan: (body as { subscription?: { tier?: string } }).subscription?.tier ?? "unknown",
           charactersUsed: (body as { subscription?: { character_count?: number } }).subscription?.character_count ?? 0,
@@ -33,14 +33,14 @@ export async function GET() {
         };
       } else {
         results.elevenlabs = {
-          ...results.elevenlabs,
+          ...(results.elevenlabs as Record<string, unknown>),
           status: "❌ INVALID KEY",
           httpStatus: res.status,
           error: body,
         };
       }
     } catch (err) {
-      results.elevenlabs = { ...results.elevenlabs, status: "❌ NETWORK ERROR", error: String(err) };
+      results.elevenlabs = { ...(results.elevenlabs as Record<string, unknown>), status: "❌ NETWORK ERROR", error: String(err) };
     }
   }
 
@@ -53,20 +53,20 @@ export async function GET() {
       const body = await res.json();
       if (res.ok) {
         results.deepgram = {
-          ...results.deepgram,
+          ...(results.deepgram as Record<string, unknown>),
           status: "✅ VALID",
           projects: (body as { projects?: Array<{ name: string }> }).projects?.map((p) => p.name) ?? [],
         };
       } else {
         results.deepgram = {
-          ...results.deepgram,
+          ...(results.deepgram as Record<string, unknown>),
           status: "❌ INVALID KEY",
           httpStatus: res.status,
           error: body,
         };
       }
     } catch (err) {
-      results.deepgram = { ...results.deepgram, status: "❌ NETWORK ERROR", error: String(err) };
+      results.deepgram = { ...(results.deepgram as Record<string, unknown>), status: "❌ NETWORK ERROR", error: String(err) };
     }
   }
 
