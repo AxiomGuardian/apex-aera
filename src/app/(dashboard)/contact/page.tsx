@@ -1,33 +1,71 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, MessageSquare, Video, Clock, type LucideIcon } from "lucide-react";
+import { Mail, MessageSquare, Video, Clock, ExternalLink, type LucideIcon } from "lucide-react";
 import { PagePad } from "@/components/layout/PagePad";
 
+/* ─── Real team ─────────────────────────────────────────────────────────────
+   Isaac  — Creative Lead · AERA Engineer · Strategic Director
+   Mitchell — Account Manager · Strategic Director
+──────────────────────────────────────────────────────────────────────────── */
 const team = [
-  { name: "Strategic Director", role: "Brand Strategy & Direction",    online: true,  initials: "SD" },
-  { name: "Creative Lead",      role: "Content & Campaign Design",     online: true,  initials: "CL" },
-  { name: "AERA Engineer",      role: "AI Systems & Voice Locking",    online: false, initials: "AE" },
-  { name: "Account Manager",    role: "Your primary point of contact", online: true,  initials: "AM" },
+  {
+    name: "Isaac",
+    role: "Creative Lead · AERA Engineer · Strategic Director",
+    online: true,
+    initials: "IC",
+    email: "guardian.v.artemis@gmail.com",
+    note: "Brand strategy, AI systems & creative direction",
+  },
+  {
+    name: "Mitchell",
+    role: "Account Manager · Strategic Director",
+    online: true,
+    initials: "MI",
+    email: "essequanvi1deri@gmail.com",
+    note: "Your primary point of contact for all campaign work",
+  },
 ];
 
+/* ─── Contact actions ───────────────────────────────────────────────────── */
 const contactActions = [
-  { label: "Send Message", icon: MessageSquare, desc: "Slack-integrated direct message" },
-  { label: "Email Team",   icon: Mail,          desc: "Send a detailed brief or request" },
-  { label: "Book a Call",  icon: Video,         desc: "Schedule a strategy session"      },
+  {
+    label: "Send Message",
+    icon: MessageSquare,
+    desc: "Direct message via Slack",
+    href: "https://apex-team.slack.com",
+    external: true,
+  },
+  {
+    label: "Email Team",
+    icon: Mail,
+    desc: "Send a detailed brief or request",
+    href: "mailto:guardian.v.artemis@gmail.com?subject=APEX%20AERA%20%E2%80%94%20Client%20Request&body=Hi%20Isaac%2C%0A%0A",
+    external: false,
+  },
+  {
+    label: "Book a Call",
+    icon: Video,
+    desc: "Schedule a strategy session",
+    href: "https://calendly.com/apex-team",
+    external: true,
+  },
 ];
 
 function TeamRow({
-  member, index, isLast,
+  member,
+  index,
+  isLast,
 }: {
-  member: typeof team[0];
+  member: (typeof team)[0];
   index: number;
   isLast: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
 
   return (
-    <div
+    <a
+      href={`mailto:${member.email}?subject=APEX%20AERA%20%E2%80%94%20Client%20Request`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className="relative flex items-center gap-4 sm:gap-5 px-5 sm:px-7 py-5 sm:py-[22px] opacity-0 animate-fade-in-up"
@@ -37,7 +75,9 @@ function TeamRow({
         background: hovered ? "var(--hover-fill-cyan)" : "transparent",
         borderBottom: isLast ? "none" : "1px solid var(--border)",
         transition: "background 0.22s",
-        cursor: "default",
+        cursor: "pointer",
+        textDecoration: "none",
+        display: "flex",
       }}
     >
       {/* Left accent */}
@@ -53,15 +93,15 @@ function TeamRow({
       {/* Avatar */}
       <div style={{ position: "relative", flexShrink: 0 }}>
         <div style={{
-          width: 40, height: 40, borderRadius: "50%",
-          background: hovered ? "var(--surface-3)" : "var(--surface-2)",
-          border: `1px solid ${hovered ? "var(--border-mid)" : "var(--border)"}`,
+          width: 42, height: 42, borderRadius: "50%",
+          background: hovered ? "rgba(45,212,255,0.06)" : "var(--surface-2)",
+          border: `1px solid ${hovered ? "rgba(45,212,255,0.18)" : "var(--border)"}`,
           display: "flex", alignItems: "center", justifyContent: "center",
           transition: "background 0.2s, border-color 0.2s",
         }}>
           <span style={{
-            fontSize: 10, fontWeight: 700,
-            color: hovered ? "var(--text-3)" : "var(--text-5)",
+            fontSize: 11, fontWeight: 700,
+            color: hovered ? "var(--cyan)" : "var(--text-4)",
             letterSpacing: "0.06em",
             transition: "color 0.2s",
           }}>
@@ -71,7 +111,7 @@ function TeamRow({
         {/* Online indicator */}
         <div style={{
           position: "absolute",
-          bottom: 0, right: 0,
+          bottom: 1, right: 1,
           width: 9, height: 9, borderRadius: "50%",
           background: member.online ? "#22c55e" : "var(--surface-3)",
           boxShadow: member.online ? "0 0 5px rgba(34,197,94,0.45)" : "none",
@@ -83,9 +123,9 @@ function TeamRow({
       {/* Name + role */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{
-          fontSize: 13.5, fontWeight: 500,
-          letterSpacing: "-0.012em",
-          color: hovered ? "var(--text-2)" : "var(--text-3)",
+          fontSize: 14, fontWeight: 600,
+          letterSpacing: "-0.015em",
+          color: hovered ? "var(--text)" : "var(--text-2)",
           transition: "color 0.2s",
           lineHeight: 1,
         }}>
@@ -93,35 +133,59 @@ function TeamRow({
         </p>
         <p style={{
           fontSize: 11, marginTop: 4,
-          color: hovered ? "var(--text-5)" : "var(--text-6)",
+          color: hovered ? "var(--text-4)" : "var(--text-5)",
           transition: "color 0.2s",
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
         }}>
           {member.role}
         </p>
+        <p style={{
+          fontSize: 11, marginTop: 3,
+          color: "var(--text-6)",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
+          {member.note}
+        </p>
       </div>
 
-      {/* Status badge */}
-      <span style={{
-        fontSize: 10, fontWeight: 600,
-        letterSpacing: "0.04em",
-        padding: "4px 10px", borderRadius: 20,
-        flexShrink: 0,
-        color:      member.online ? "#22c55e"              : "var(--text-6)",
-        background: member.online ? "rgba(34,197,94,0.07)" : "var(--surface-2)",
-        border: `1px solid ${member.online ? "rgba(34,197,94,0.16)" : "var(--border)"}`,
-      }}>
-        {member.online ? "Available" : "Away"}
-      </span>
-    </div>
+      {/* Right: email + status */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
+        <span style={{
+          fontSize: 10, fontWeight: 600,
+          letterSpacing: "0.04em",
+          padding: "4px 10px", borderRadius: 20,
+          color:      member.online ? "#22c55e"              : "var(--text-6)",
+          background: member.online ? "rgba(34,197,94,0.07)" : "var(--surface-2)",
+          border: `1px solid ${member.online ? "rgba(34,197,94,0.16)" : "var(--border)"}`,
+        }}>
+          {member.online ? "Available" : "Away"}
+        </span>
+        <span style={{
+          fontSize: 10, color: hovered ? "var(--text-5)" : "var(--text-6)",
+          transition: "color 0.2s",
+          display: "flex", alignItems: "center", gap: 4,
+        }}>
+          <Mail style={{ width: 9, height: 9 }} />
+          {member.email}
+        </span>
+      </div>
+    </a>
   );
 }
 
-function ContactCard({ label, icon: Icon, desc }: { label: string; icon: LucideIcon; desc: string }) {
+function ContactCard({ label, icon: Icon, desc, href, external }: {
+  label: string;
+  icon: LucideIcon;
+  desc: string;
+  href: string;
+  external: boolean;
+}) {
   const [hovered, setHovered] = useState(false);
 
   return (
-    <button
+    <a
+      href={href}
+      target={external ? "_blank" : undefined}
+      rel={external ? "noopener noreferrer" : undefined}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -139,7 +203,7 @@ function ContactCard({ label, icon: Icon, desc }: { label: string; icon: LucideI
         transition: "background 0.22s, border-color 0.22s, box-shadow 0.22s",
         position: "relative",
         overflow: "hidden",
-        width: "100%",
+        textDecoration: "none",
       }}
     >
       {/* Top cyan accent */}
@@ -177,14 +241,18 @@ function ContactCard({ label, icon: Icon, desc }: { label: string; icon: LucideI
           color: hovered ? "var(--text-2)" : "var(--text-3)",
           transition: "color 0.2s",
           lineHeight: 1,
+          display: "flex", alignItems: "center", gap: 5, justifyContent: "center",
         }}>
           {label}
+          {external && (
+            <ExternalLink style={{ width: 10, height: 10, opacity: 0.4 }} strokeWidth={1.5} />
+          )}
         </p>
         <p style={{ fontSize: 11, color: "var(--text-6)", marginTop: 5, lineHeight: 1.55 }}>
           {desc}
         </p>
       </div>
-    </button>
+    </a>
   );
 }
 
@@ -214,7 +282,7 @@ export default function ContactPage() {
           marginTop: 12, fontWeight: 400, lineHeight: 1.6,
           letterSpacing: "0.005em",
         }}>
-          Reach your dedicated team directly.
+          Reach your dedicated team directly. Click a name to email, or use the contact options below.
         </p>
       </div>
 
@@ -252,7 +320,14 @@ export default function ContactPage() {
         <p className="label-eyebrow mb-5">Get in Touch</p>
         <div className="grid sm:grid-cols-3 gap-4">
           {contactActions.map((a) => (
-            <ContactCard key={a.label} label={a.label} icon={a.icon} desc={a.desc} />
+            <ContactCard
+              key={a.label}
+              label={a.label}
+              icon={a.icon}
+              desc={a.desc}
+              href={a.href}
+              external={a.external}
+            />
           ))}
         </div>
       </div>
@@ -298,7 +373,8 @@ export default function ContactPage() {
             Response Commitment
           </p>
           <p style={{ fontSize: 12, color: "var(--text-5)", marginTop: 8, lineHeight: 1.75 }}>
-            Your APEX team responds within 4 business hours. For urgent matters, use the direct Slack integration or mark your message as Priority.
+            Your APEX team responds within 4 business hours. For urgent matters, use direct email
+            or mark your message as Priority.
           </p>
         </div>
       </div>

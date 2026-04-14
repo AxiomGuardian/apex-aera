@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { PagePad } from "@/components/layout/PagePad";
 import {
   User, Users, CreditCard, Shield, MonitorSmartphone,
@@ -71,8 +72,16 @@ function Toggle({ label, description, defaultOn = false }: { label: string; desc
 
 /* ── Profile tab ── */
 function ProfileTab() {
+  const { data: session } = useSession();
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const userName  = session?.user?.name  ?? "APEX Client";
+  const userEmail = session?.user?.email ?? "—";
+  const googleAvatar = session?.user?.image ?? null;
+  // Google avatars are safe to display; uploaded local photo takes priority
+  const displayPhoto = photoUrl ?? googleAvatar;
+  const initials = userName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -90,10 +99,10 @@ function ProfileTab() {
         <div style={{ display: "flex", alignItems: "center", gap: 20, padding: "18px 0", borderBottom: "1px solid var(--border)", marginBottom: 6 }}>
           {/* Avatar */}
           <div style={{ position: "relative", flexShrink: 0 }}>
-            <div style={{ width: 72, height: 72, borderRadius: "50%", background: photoUrl ? "transparent" : "var(--surface-3)", border: "2px solid var(--cyan-border)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {photoUrl
-                ? <img src={photoUrl} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                : <span style={{ fontSize: 22, fontWeight: 700, color: "var(--cyan)" }}>CL</span>
+            <div style={{ width: 72, height: 72, borderRadius: "50%", background: displayPhoto ? "transparent" : "var(--surface-3)", border: "2px solid var(--cyan-border)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {displayPhoto
+                ? <img src={displayPhoto} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} referrerPolicy="no-referrer" />
+                : <span style={{ fontSize: 22, fontWeight: 700, color: "var(--cyan)" }}>{initials}</span>
               }
             </div>
             {/* Upload overlay */}
@@ -110,8 +119,8 @@ function ProfileTab() {
           </div>
 
           <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.02em" }}>APEX Client</p>
-            <p style={{ fontSize: 12, color: "var(--text-5)", marginTop: 3 }}>client@apexera.com</p>
+            <p style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.02em" }}>{userName}</p>
+            <p style={{ fontSize: 12, color: "var(--text-5)", marginTop: 3 }}>{userEmail}</p>
             <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
               <button onClick={() => fileRef.current?.click()} style={{ fontSize: 11, padding: "5px 12px", borderRadius: 7, border: "1px solid var(--border)", background: "transparent", color: "var(--text-4)", cursor: "pointer", transition: "all 0.15s" }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--cyan-border)"; e.currentTarget.style.color = "var(--cyan)"; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-4)"; }}>
                 Upload photo
@@ -129,11 +138,11 @@ function ProfileTab() {
           </span>
         </div>
 
-        <FieldRow label="Full Name"    value="APEX Client"                    action="Edit" />
-        <FieldRow label="Email"        value="client@apexera.com"             action="Change" />
-        <FieldRow label="Phone"        value="+1 (212) 555-0147"              action="Edit" />
+        <FieldRow label="Full Name"    value={userName}                       action="Edit" />
+        <FieldRow label="Email"        value={userEmail}                      badge="Google" />
+        <FieldRow label="Phone"        value="—"                              action="Add" />
         <FieldRow label="Time Zone"    value="America/New_York (ET)"          action="Change" />
-        <FieldRow label="Member Since" value="January 2025"                   badge="1 year" />
+        <FieldRow label="Member Since" value="April 2026"                     badge="Active" />
       </Card>
 
       <Card>

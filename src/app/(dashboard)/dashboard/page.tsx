@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { ArrowUpRight, TrendingUp, Zap, Target, BarChart3, Users, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Greeting } from "@/components/dashboard/Greeting";
@@ -16,10 +18,10 @@ type MetricItem = {
 };
 
 const activity = [
-  { type: "Campaign", name: "Q2 Brand Launch — Video Series",        status: "Active",   time: "2h ago"     },
-  { type: "Content",  name: "8 × Instagram carousel posts delivered", status: "Complete", time: "Yesterday"  },
-  { type: "Analysis", name: "AERA voice audit — March report ready",  status: "Complete", time: "2 days ago" },
-  { type: "Campaign", name: "Email nurture sequence — Phase 2",       status: "Review",   time: "3 days ago" },
+  { type: "Campaign", name: "Q2 Brand Launch — Video Series",        status: "Active",   time: "2h ago",     href: "/campaigns"  },
+  { type: "Content",  name: "8 × Instagram carousel posts delivered", status: "Complete", time: "Yesterday",  href: "/history"    },
+  { type: "Analysis", name: "AERA voice audit — March report ready",  status: "Complete", time: "2 days ago", href: "/history"    },
+  { type: "Campaign", name: "Email nurture sequence — Phase 2",       status: "Review",   time: "3 days ago", href: "/campaigns"  },
 ];
 
 /* ─────────────────────────────────────────────────────────────
@@ -468,10 +470,14 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-2.5 sm:shrink-0 sm:pb-1">
-            <Button variant="outline" size="sm">Full Report</Button>
-            <Button variant="primary" size="sm">
-              Brief AERA <ArrowUpRight className="h-3.5 w-3.5" />
-            </Button>
+            <Link href="/history">
+              <Button variant="outline" size="sm">Full Report</Button>
+            </Link>
+            <Link href="/chat?brief=1">
+              <Button variant="primary" size="sm">
+                Brief AERA <ArrowUpRight className="h-3.5 w-3.5" />
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
@@ -520,7 +526,9 @@ export default function DashboardPage() {
             style={{ borderBottom: "1px solid var(--border)" }}
           >
             <span className="section-label">Recent Activity</span>
-            <Button variant="ghost" size="sm">View all</Button>
+            <Link href="/history">
+              <Button variant="ghost" size="sm">View all</Button>
+            </Link>
           </div>
           <div>
             {activity.map((item, i) => (
@@ -546,13 +554,13 @@ export default function DashboardPage() {
           </div>
           <div className="p-3 flex flex-col gap-1">
             {[
-              { label: "Brief a new campaign", accent: false },
-              { label: "Ask AERA", accent: true },
-              { label: "View deliverables", accent: false },
-              { label: "Download Q1 report", accent: false },
-              { label: "Contact team", accent: false },
-            ].map(({ label, accent }) => (
-              <QuickAction key={label} label={label} accent={accent} />
+              { label: "Brief a new campaign", accent: false, href: "/campaigns" },
+              { label: "Ask AERA",             accent: true,  href: "/chat"       },
+              { label: "View deliverables",    accent: false, href: "/history"    },
+              { label: "Download Q1 report",   accent: false, href: "/history"    },
+              { label: "Contact team",         accent: false, href: "/contact"    },
+            ].map(({ label, accent, href }) => (
+              <QuickAction key={label} label={label} accent={accent} href={href} />
             ))}
           </div>
         </div>
@@ -564,11 +572,13 @@ export default function DashboardPage() {
 
 function ActivityRow({ item, i }: { item: typeof activity[0]; i: number }) {
   const [hovered, setHovered] = useState(false);
+  const router = useRouter();
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="flex items-center gap-3 px-4 sm:px-7 py-4 cursor-default"
+      onClick={() => router.push(item.href)}
+      className="flex items-center gap-3 px-4 sm:px-7 py-4 cursor-pointer"
       style={{
         borderBottom: i < activity.length - 1 ? "1px solid var(--border)" : "none",
         background: hovered ? "var(--hover-fill-cyan)" : "transparent",
@@ -619,12 +629,14 @@ function ActivityRow({ item, i }: { item: typeof activity[0]; i: number }) {
   );
 }
 
-function QuickAction({ label, accent }: { label: string; accent: boolean }) {
+function QuickAction({ label, accent, href }: { label: string; accent: boolean; href: string }) {
   const [hovered, setHovered] = useState(false);
+  const router = useRouter();
   return (
     <button
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={() => router.push(href)}
       className="w-full text-left px-4 py-3 rounded-[10px] border transition-all duration-150"
       style={{
         fontSize: 13,
