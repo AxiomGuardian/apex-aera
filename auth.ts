@@ -14,18 +14,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          prompt: "select_account",
+        },
+      },
     }),
   ],
   pages: {
     signIn: "/login",
-    error: "/login",
+    error: "/access-denied",
   },
   callbacks: {
     async signIn({ user }) {
       const email = user.email?.toLowerCase() ?? "";
+      if (allowedEmails.length === 0) return true; // no list = allow all (dev fallback)
       return allowedEmails.includes(email);
     },
-    async session({ session, token }) {
+    async session({ session }) {
       return session;
     },
     async jwt({ token }) {
