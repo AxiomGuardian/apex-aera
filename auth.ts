@@ -1,14 +1,6 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 
-// ── Allowlist ────────────────────────────────────────────────────
-// Add approved email addresses to ALLOWED_EMAILS in Vercel env vars.
-// Comma-separated: "email1@gmail.com,email2@gmail.com"
-const allowedEmails = (process.env.ALLOWED_EMAILS ?? "")
-  .split(",")
-  .map((e) => e.trim().toLowerCase())
-  .filter(Boolean);
-
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Google({
@@ -27,8 +19,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   callbacks: {
     async signIn({ user }) {
+      // Read fresh on every request — avoids serverless module caching issues
+      const allowedEmails = (process.env.ALLOWED_EMAILS ?? "")
+        .split(",")
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+
       const email = user.email?.toLowerCase() ?? "";
-      if (allowedEmails.length === 0) return true; // no list = allow all (dev fallback)
+
+      // If no allowlist is configured, allow all (dev fallback)
+      if (allowedEmails.length === 0) return true;
+
       return allowedEmails.includes(email);
     },
     async session({ session }) {
