@@ -336,8 +336,8 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* ── Main chat area ── */}
-      <div style={{ flex: 1, display: "flex", borderRadius: 18, border: "1px solid var(--border)", overflow: "hidden", background: "var(--surface)", boxShadow: "var(--shadow-card)", minHeight: 0 }}>
+      {/* ── Main chat area — always dark regardless of theme ── */}
+      <div className="force-dark" style={{ flex: 1, display: "flex", borderRadius: 18, border: "1px solid rgba(45,212,255,0.10)", overflow: "hidden", background: "#0a0a0e", boxShadow: "var(--shadow-card)", minHeight: 0 }}>
 
         {/* ── Left: orb + identity — always dark regardless of theme ── */}
         <div className="hidden md:flex force-dark" style={{ width: 270, minWidth: 270, borderRight: "1px solid rgba(255,255,255,0.05)", flexDirection: "column", alignItems: "center", padding: "36px 20px 24px", background: "#0a0a0c", position: "relative", overflow: "hidden" }}>
@@ -435,7 +435,7 @@ export default function ChatPage() {
         </div>
 
         {/* ── Right: messages + input ── */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, background: "#0d0d10" }}>
 
           {/* Messages */}
           <div className="pt-[62px] md:pt-0" style={{ flex: 1, overflowY: "auto", padding: "28px 24px", display: "flex", flexDirection: "column", gap: 24 }}>
