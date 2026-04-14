@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
+import { SessionProvider } from "@/components/layout/SessionProvider";
 import "./globals.css";
 
 // ── Premium display font — editorial, confident, modern ──────────
@@ -31,7 +32,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={`${spaceGrotesk.variable} ${inter.variable}`}>
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <SessionProvider>
+          <ThemeProvider>{children}</ThemeProvider>
+        </SessionProvider>
       </body>
     </html>
   );
