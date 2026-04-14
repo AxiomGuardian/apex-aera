@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { BrandIcon, brandColor } from "@/components/ui/BrandIcon";
 import { Plus, Calendar, TrendingUp, ArrowLeft, BarChart3, Users, Target, Zap, CheckCircle2, Clock, Circle } from "lucide-react";
 import { useState } from "react";
 import { PagePad } from "@/components/layout/PagePad";
@@ -271,20 +272,32 @@ function CampaignRow({
         </div>
       </div>
 
-      {/* Channel tags */}
+      {/* Channel tags with brand icons */}
       <div className="flex flex-col gap-1.5 shrink-0 pt-0.5">
         {c.channels.map((ch) => (
           <span
             key={ch}
-            className="text-[10px] font-medium px-2.5 py-1 rounded-[6px]"
             style={{
-              color: hovered || active ? "var(--text-4)" : "var(--text-6)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              fontSize: 10,
+              fontWeight: 500,
+              padding: "4px 8px",
+              borderRadius: 6,
+              color: hovered || active ? "var(--text-3)" : "var(--text-5)",
               background: "var(--surface-2)",
               border: `1px solid ${hovered || active ? "var(--border-mid)" : "var(--border)"}`,
               transition: "color 0.2s, border-color 0.2s",
-              letterSpacing: "0.03em",
+              letterSpacing: "0.02em",
+              whiteSpace: "nowrap",
             }}
           >
+            <BrandIcon
+              name={ch}
+              size={11}
+              color={hovered || active ? brandColor(ch) : "var(--text-6)"}
+            />
             {ch}
           </span>
         ))}

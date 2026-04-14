@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Mail, MessageSquare, Video, Clock, ExternalLink, type LucideIcon } from "lucide-react";
+import { BrandIcon } from "@/components/ui/BrandIcon";
 import { PagePad } from "@/components/layout/PagePad";
 
 /* ─── Real team ─────────────────────────────────────────────────────────────
@@ -30,14 +31,16 @@ const team = [
 /* ─── Contact actions ───────────────────────────────────────────────────── */
 const contactActions = [
   {
-    label: "Send Message",
+    label: "Message on Slack",
+    brandIcon: "Slack",
     icon: MessageSquare,
-    desc: "Direct message via Slack",
+    desc: "Direct message via Slack workspace",
     href: "https://apex-team.slack.com",
     external: true,
   },
   {
     label: "Email Team",
+    brandIcon: "Gmail",
     icon: Mail,
     desc: "Send a detailed brief or request",
     href: "mailto:guardian.v.artemis@gmail.com?subject=APEX%20AERA%20%E2%80%94%20Client%20Request&body=Hi%20Isaac%2C%0A%0A",
@@ -45,6 +48,7 @@ const contactActions = [
   },
   {
     label: "Book a Call",
+    brandIcon: "Calendly",
     icon: Video,
     desc: "Schedule a strategy session",
     href: "https://calendly.com/apex-team",
@@ -172,8 +176,9 @@ function TeamRow({
   );
 }
 
-function ContactCard({ label, icon: Icon, desc, href, external }: {
+function ContactCard({ label, brandIcon, desc, href, external }: {
   label: string;
+  brandIcon: string;
   icon: LucideIcon;
   desc: string;
   href: string;
@@ -216,21 +221,21 @@ function ContactCard({ label, icon: Icon, desc, href, external }: {
         transition: "opacity 0.22s",
       }} />
 
-      {/* Icon */}
+      {/* Brand icon badge */}
       <div style={{
-        width: 44, height: 44, borderRadius: 12,
-        background: hovered ? "rgba(45,212,255,0.07)" : "var(--surface-2)",
-        border: `1px solid ${hovered ? "rgba(45,212,255,0.18)" : "var(--border)"}`,
+        width: 52, height: 52, borderRadius: 14,
+        background: hovered ? "var(--surface-3)" : "var(--surface-2)",
+        border: `1px solid ${hovered ? "var(--border-mid)" : "var(--border)"}`,
         display: "flex", alignItems: "center", justifyContent: "center",
         transition: "background 0.22s, border-color 0.22s",
+        position: "relative",
+        overflow: "hidden",
       }}>
-        <Icon
-          style={{
-            width: 17, height: 17,
-            color: hovered ? "var(--cyan)" : "var(--text-5)",
-            transition: "color 0.22s",
-          }}
-          strokeWidth={1.5}
+        {/* Subtle brand color bloom on hover */}
+        <BrandIcon
+          name={brandIcon}
+          size={22}
+          color={hovered ? undefined : "var(--text-5)"}
         />
       </div>
 
@@ -323,6 +328,7 @@ export default function ContactPage() {
             <ContactCard
               key={a.label}
               label={a.label}
+              brandIcon={a.brandIcon}
               icon={a.icon}
               desc={a.desc}
               href={a.href}

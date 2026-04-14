@@ -2,16 +2,17 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BrandIcon } from "@/components/ui/BrandIcon";
 import { Download, Eye, FileText, Video, Image, Mail } from "lucide-react";
 import { PagePad } from "@/components/layout/PagePad";
 
 const deliverables = [
-  { name: "Q1 Brand Report — Full PDF",       type: "PDF",    date: "Mar 15, 2026", size: "4.2 MB",  icon: FileText },
-  { name: "Instagram Carousel Pack × 8",      type: "Design", date: "Mar 12, 2026", size: "18.7 MB", icon: Image    },
-  { name: "YouTube Brand Video — Final",       type: "Video",  date: "Mar 8, 2026",  size: "412 MB",  icon: Video    },
-  { name: "Email Nurture Sequence — Phase 1",  type: "Copy",   date: "Feb 28, 2026", size: "84 KB",   icon: Mail     },
-  { name: "Voice & Tone Guide 2026",           type: "PDF",    date: "Feb 14, 2026", size: "2.1 MB",  icon: FileText },
-  { name: "LinkedIn Thought Leadership × 12",  type: "Copy",   date: "Feb 5, 2026",  size: "156 KB",  icon: FileText },
+  { name: "Q1 Brand Report — Full PDF",       type: "PDF",    platform: null,        date: "Mar 15, 2026", size: "4.2 MB",  icon: FileText },
+  { name: "Instagram Carousel Pack × 8",      type: "Design", platform: "Instagram", date: "Mar 12, 2026", size: "18.7 MB", icon: Image    },
+  { name: "YouTube Brand Video — Final",       type: "Video",  platform: "YouTube",   date: "Mar 8, 2026",  size: "412 MB",  icon: Video    },
+  { name: "Email Nurture Sequence — Phase 1",  type: "Copy",   platform: "Gmail",     date: "Feb 28, 2026", size: "84 KB",   icon: Mail     },
+  { name: "Voice & Tone Guide 2026",           type: "PDF",    platform: null,        date: "Feb 14, 2026", size: "2.1 MB",  icon: FileText },
+  { name: "LinkedIn Thought Leadership × 12",  type: "Copy",   platform: "LinkedIn",  date: "Feb 5, 2026",  size: "156 KB",  icon: FileText },
 ];
 
 const typeStyle: Record<string, { color: string; bg: string; border: string }> = {
@@ -147,12 +148,12 @@ function DeliverableRow({
         </p>
       </div>
 
-      {/* Type badge */}
+      {/* Type badge — with optional platform brand icon */}
       <span
-        className="hidden sm:inline-flex"
+        className="hidden sm:inline-flex items-center gap-1.5"
         style={{
           fontSize: 10, fontWeight: 600,
-          letterSpacing: "0.05em",
+          letterSpacing: "0.04em",
           padding: "4px 10px",
           borderRadius: 20,
           color: ts.color, background: ts.bg,
@@ -161,7 +162,14 @@ function DeliverableRow({
           transition: "opacity 0.2s",
         }}
       >
-        {d.type}
+        {d.platform && (
+          <BrandIcon
+            name={d.platform}
+            size={10}
+            color={hovered ? undefined : ts.color}
+          />
+        )}
+        {d.platform ?? d.type}
       </span>
 
       {/* Action buttons — appear on hover */}
