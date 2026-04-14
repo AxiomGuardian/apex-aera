@@ -34,7 +34,7 @@ export function ApexMark({
       aria-hidden="true"
       style={{
         opacity,
-        filter: glow ? `drop-shadow(0 0 ${size * 0.35}px ${color}cc)` : "none",
+        filter: glow ? `drop-shadow(0 0 ${size * 0.22}px ${color}66)` : "none",
         flexShrink: 0,
       }}
     >

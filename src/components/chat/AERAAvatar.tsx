@@ -28,10 +28,10 @@ const RING_SPEED: Record<AERAState, string> = {
 };
 
 const RING_OPACITY: Record<AERAState, number> = {
-  idle:      0.45,
-  listening: 0.65,
-  typing:    0.80,
-  speaking:  1.00,
+  idle:      0.35,
+  listening: 0.50,
+  typing:    0.55,
+  speaking:  0.65,
 };
 
 const INNER_BG: Record<AERAState, string> = {

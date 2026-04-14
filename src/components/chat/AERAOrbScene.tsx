@@ -199,7 +199,7 @@ export function AERAOrbScene({ orbState = "idle" }: { orbState?: OrbState }) {
   return (
     <>
       <ambientLight intensity={ambientIntensity} />
-      <pointLight position={[2, 2, 2]}     color="#2DD4FF" intensity={sv(orbState, 9.0, 7.5, 6.5, 3.5)} distance={11} />
+      <pointLight position={[2, 2, 2]}     color="#2DD4FF" intensity={sv(orbState, 4.0, 3.2, 2.8, 1.8)} distance={11} />
       <pointLight position={[0, -3, 1]}    color="#ffffff" intensity={0.45} distance={8} />
       <pointLight position={[-2, -1.5, -2.5]} color="#ffffff" intensity={0.35} distance={9} />
       <pointLight position={[0.5, 2.5, -1]}   color="#2DD4FF" intensity={0.45} distance={7} />

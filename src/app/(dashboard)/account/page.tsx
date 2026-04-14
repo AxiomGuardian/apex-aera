@@ -6,8 +6,8 @@ import { PagePad } from "@/components/layout/PagePad";
 import {
   User, Users, CreditCard, Shield, MonitorSmartphone,
   FileText, MessageCircle, ChevronRight, Check, AlertTriangle,
-  Eye, EyeOff, Download, Trash2, Bell, Globe, Key,
-  Camera, X,
+  Download, Trash2, Bell, Globe,
+  Camera, X, Key,
 } from "lucide-react";
 
 /* ── Tab definitions ── */
@@ -303,7 +303,6 @@ function PrivacyTab() {
 
 /* ── Security tab ── */
 function SecurityTab() {
-  const [showKey, setShowKey] = useState(false);
 
   const AUDIT_LOG = [
     { event: "Logged in",                  detail: "Chrome · macOS · New York, NY",          time: "Today, 9:14 AM"     },
@@ -329,26 +328,8 @@ function SecurityTab() {
           </div>
           <button style={{ fontSize: 11, color: "var(--text-5)", background: "none", border: "none", cursor: "pointer", transition: "color 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")} onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-5)")}>Manage</button>
         </div>
-        <FieldRow label="Password"        value="Last changed Mar 10, 2026"  action="Change" />
-        <FieldRow label="Recovery Email"  value="recovery@apexera.com"       action="Edit" />
-        {/* API Key */}
-        <div style={{ padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
-          <p style={{ fontSize: 11, color: "var(--text-5)", letterSpacing: "0.02em", marginBottom: 6 }}>API Key</p>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <code style={{ fontSize: 12.5, color: "var(--text-2)", fontFamily: "ui-monospace, monospace" }}>
-              {showKey ? "aera_live_sk_a7f3b2c9d1e4f8a0" : "aera_live_sk_···4f8a"}
-            </code>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={() => setShowKey(p => !p)} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--text-5)", cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
-                {showKey ? <EyeOff style={{ width: 11, height: 11 }} strokeWidth={1.6} /> : <Eye style={{ width: 11, height: 11 }} strokeWidth={1.6} />}
-                {showKey ? "Hide" : "Reveal"}
-              </button>
-              <button style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--text-5)", cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
-                <Key style={{ width: 11, height: 11 }} strokeWidth={1.6} /> Rotate
-              </button>
-            </div>
-          </div>
-        </div>
+        <FieldRow label="Password"        value="Managed via Google SSO"      badge="Google" />
+        <FieldRow label="Recovery Email"  value="Set via Google account"      badge="Google" />
         <Toggle label="Login Notifications"         description="Get notified by email when a new device signs into your account." defaultOn={true} />
         <Toggle label="Suspicious Activity Alerts"  description="Receive immediate alerts for unusual access patterns."              defaultOn={true} />
       </Card>
