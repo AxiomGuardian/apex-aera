@@ -19,8 +19,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   callbacks: {
     async signIn({ user }) {
-      // TEMP: allow all to verify session flow works
-      return true;
+      const allowedEmails = (process.env.ALLOWED_EMAILS ?? "")
+        .split(",")
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+      const email = user.email?.toLowerCase() ?? "";
+      if (allowedEmails.length === 0) return true;
+      return allowedEmails.includes(email);
     },
     async session({ session }) {
       return session;

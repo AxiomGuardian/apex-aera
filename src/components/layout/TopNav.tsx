@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
+import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
 import { useAERA } from "@/context/AERAContext";
@@ -13,6 +15,9 @@ import {
   MessageSquare,
   Sparkles,
   UserCircle,
+  LogOut,
+  Settings,
+  ChevronDown,
 } from "lucide-react";
 
 const navItems = [
@@ -27,6 +32,24 @@ const navItems = [
 export function TopNav() {
   const pathname = usePathname();
   const { isOpen, togglePanel } = useAERA();
+  const { data: session } = useSession();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const userName = session?.user?.name ?? "Client";
+  const userEmail = session?.user?.email ?? "";
+  const initials = userName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
   return (
     <header
@@ -180,30 +203,79 @@ export function TopNav() {
 
           <ThemeToggle />
 
-          <div
-            className="flex items-center gap-3 px-4 rounded-[10px] border cursor-pointer transition-colors duration-200"
-            style={{
-              height: 38,
-              borderColor: "var(--border)",
-              background: "transparent",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--border-mid)")}
-            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
-          >
-            <div
-              className="h-7 w-7 rounded-full flex items-center justify-center"
-              style={{ background: "var(--surface-2)", border: "1px solid var(--border-mid)" }}
+          {/* User dropdown */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen((o) => !o)}
+              className="flex items-center gap-3 px-4 rounded-[10px] border cursor-pointer transition-colors duration-200"
+              style={{
+                height: 38,
+                borderColor: menuOpen ? "rgba(45,212,255,0.25)" : "var(--border)",
+                background: menuOpen ? "rgba(45,212,255,0.04)" : "transparent",
+              }}
+              onMouseEnter={(e) => { if (!menuOpen) e.currentTarget.style.borderColor = "var(--border-mid)"; }}
+              onMouseLeave={(e) => { if (!menuOpen) e.currentTarget.style.borderColor = "var(--border)"; }}
             >
-              <span className="text-[9px] font-bold" style={{ color: "var(--text-4)" }}>CL</span>
-            </div>
-            <div className="flex flex-col leading-none">
-              <span className="text-[12px] font-semibold" style={{ color: "var(--text)" }}>Client</span>
-              <span className="text-[9px] mt-0.5" style={{ color: "var(--text-5)" }}>APEX Premium</span>
-            </div>
-            <div
-              className="h-2 w-2 rounded-full ml-0.5 bg-[#2DD4FF]"
-              style={{ boxShadow: "0 0 6px rgba(45,212,255,0.60)" }}
-            />
+              <div
+                className="h-7 w-7 rounded-full flex items-center justify-center"
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border-mid)" }}
+              >
+                <span className="text-[9px] font-bold" style={{ color: "var(--text-4)" }}>{initials}</span>
+              </div>
+              <div className="flex flex-col leading-none">
+                <span className="text-[12px] font-semibold" style={{ color: "var(--text)" }}>{userName}</span>
+                <span className="text-[9px] mt-0.5" style={{ color: "var(--text-5)" }}>APEX Premium</span>
+              </div>
+              <div className="h-2 w-2 rounded-full bg-[#2DD4FF]" style={{ boxShadow: "0 0 6px rgba(45,212,255,0.60)" }} />
+              <ChevronDown className="h-3 w-3 ml-0.5 transition-transform duration-200" style={{ color: "var(--text-5)", transform: menuOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
+            </button>
+
+            {/* Dropdown menu */}
+            {menuOpen && (
+              <div
+                className="absolute right-0 mt-2 w-64 rounded-[14px] overflow-hidden z-50"
+                style={{
+                  background: "rgba(10,10,10,0.95)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  backdropFilter: "blur(20px)",
+                  boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
+                }}
+              >
+                {/* User info header */}
+                <div className="px-4 py-3.5 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                  <p className="text-[13px] font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>{userName}</p>
+                  <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>{userEmail}</p>
+                </div>
+
+                {/* Menu items */}
+                <div className="p-1.5">
+                  <Link
+                    href="/account"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-[9px] transition-all duration-150 group"
+                    style={{ color: "rgba(255,255,255,0.7)" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <Settings className="h-4 w-4" strokeWidth={1.6} />
+                    <span className="text-[13px]">Account Settings</span>
+                  </Link>
+
+                  <div className="my-1.5 mx-2 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+
+                  <button
+                    onClick={() => { setMenuOpen(false); signOut({ callbackUrl: "/login" }); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[9px] transition-all duration-150"
+                    style={{ color: "rgba(255,100,100,0.8)" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,60,60,0.07)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <LogOut className="h-4 w-4" strokeWidth={1.6} />
+                    <span className="text-[13px]">Sign out</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
