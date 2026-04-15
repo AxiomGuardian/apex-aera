@@ -1,22 +1,14 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, Inter } from "next/font/google";
+import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
 import { SessionProvider } from "@/components/layout/SessionProvider";
 import "./globals.css";
 
-// ── Premium display font — editorial, confident, modern ──────────
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-display",
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
-
-// ── Body font — clean, highly legible ───────────────────────────
+// ── Inter — display + body. Heavy weights for headings, clean for body ──
 const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-body",
-  weight: ["400", "500", "600", "700"],
+  variable: "--font-display",
+  weight: ["400", "500", "600", "700", "800", "900"],
   display: "swap",
 });
 
@@ -30,7 +22,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${spaceGrotesk.variable} ${inter.variable}`}>
+    <html lang="en" suppressHydrationWarning className={inter.variable}>
       <body>
         <SessionProvider>
           <ThemeProvider>{children}</ThemeProvider>

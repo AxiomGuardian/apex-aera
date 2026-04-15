@@ -240,7 +240,7 @@ export default function ChatPage() {
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24, flexShrink: 0 }}>
         <div>
           <p className="label-eyebrow mb-3">AI Brand Companion</p>
-          <h2 style={{ fontSize: "clamp(26px, 4vw, 32px)", fontWeight: 700, letterSpacing: "-0.04em", color: "var(--text)", lineHeight: 1 }}>
+          <h2 style={{ fontSize: "clamp(26px, 4vw, 32px)", fontWeight: 800, letterSpacing: "-0.045em", color: "var(--text)", lineHeight: 1 }}>
             AERA Intelligence
           </h2>
         </div>

@@ -13,6 +13,7 @@ type MetricItem = {
   label: string;
   value: string;
   delta: string;
+  insight: string;
   sub: string;
   icon: React.ComponentType<{ className?: string; strokeWidth?: number; style?: React.CSSProperties }>;
 };
@@ -348,29 +349,29 @@ function KPICard({ m, index }: { m: MetricItem; index: number }) {
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="group relative flex flex-col gap-5 rounded-[16px] border cursor-default opacity-0 animate-fade-in-up overflow-hidden"
+      className="group relative flex flex-col rounded-[16px] border cursor-default opacity-0 animate-fade-in-up overflow-hidden"
       style={{
         padding: "26px 24px 24px",
         background: hovered ? "var(--hover-fill-cyan)" : "var(--surface)",
-        borderColor: hovered ? "rgba(45,212,255,0.12)" : "var(--border)",
+        borderColor: hovered ? "rgba(45,212,255,0.16)" : "var(--border)",
         boxShadow: hovered ? "var(--shadow-card-hover)" : "var(--shadow-card)",
         animationDelay: `${0.28 + index * 0.06}s`,
         animationFillMode: "forwards",
-        transition: "background 0.25s, box-shadow 0.25s, border-color 0.25s",
+        transition: "background 0.3s, box-shadow 0.3s, border-color 0.3s",
       }}
     >
-      {/* Top cyan edge — appears on hover */}
+      {/* Top cyan edge */}
       <div
         className="absolute top-0 left-6 right-6 h-px rounded-full"
         style={{
-          background: "linear-gradient(90deg, transparent, rgba(45,212,255,0.32), transparent)",
+          background: "linear-gradient(90deg, transparent, rgba(45,212,255,0.45), transparent)",
           opacity: hovered ? 1 : 0,
           transition: "opacity 0.3s",
         }}
       />
 
       {/* Icon row + delta */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-5">
         <div
           className="h-8 w-8 rounded-[9px] flex items-center justify-center"
           style={{
@@ -381,14 +382,10 @@ function KPICard({ m, index }: { m: MetricItem; index: number }) {
         >
           <Icon
             className="h-[14px] w-[14px]"
-            style={{
-              color: hovered ? "var(--cyan)" : "var(--text-5)",
-              transition: "color 0.25s",
-            }}
+            style={{ color: hovered ? "var(--cyan)" : "var(--text-5)", transition: "color 0.25s" }}
             strokeWidth={1.6}
           />
         </div>
-
         <span
           className="text-[10px] font-semibold tracking-wide px-2 py-0.5 rounded-full"
           style={{
@@ -408,8 +405,8 @@ function KPICard({ m, index }: { m: MetricItem; index: number }) {
           suppressHydrationWarning
           style={{
             fontSize: "clamp(32px, 4vw, 40px)",
-            fontWeight: 700,
-            letterSpacing: "-0.04em",
+            fontWeight: 800,
+            letterSpacing: "-0.05em",
             lineHeight: 1,
             color: "var(--text)",
             fontFeatureSettings: '"tnum"',
@@ -427,6 +424,49 @@ function KPICard({ m, index }: { m: MetricItem; index: number }) {
           {m.sub}
         </div>
       </div>
+
+      {/* ── AERA Insight panel — slides in on hover ── */}
+      <div
+        style={{
+          overflow: "hidden",
+          maxHeight: hovered ? 120 : 0,
+          opacity: hovered ? 1 : 0,
+          marginTop: hovered ? 16 : 0,
+          transition: "max-height 0.38s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease, margin-top 0.3s ease",
+        }}
+      >
+        <div
+          style={{
+            padding: "12px 14px",
+            borderRadius: 10,
+            background: "rgba(45,212,255,0.04)",
+            border: "1px solid rgba(45,212,255,0.10)",
+          }}
+        >
+          {/* AERA label */}
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 7 }}>
+            <div style={{
+              width: 5, height: 5, borderRadius: "50%",
+              background: "#2DD4FF",
+              boxShadow: "0 0 5px rgba(45,212,255,0.8)",
+            }} />
+            <span style={{
+              fontSize: 9, fontWeight: 700, letterSpacing: "0.16em",
+              textTransform: "uppercase", color: "var(--cyan)",
+            }}>
+              AERA Analysis
+            </span>
+          </div>
+          <p style={{
+            fontSize: 11.5,
+            color: "var(--text-4)",
+            lineHeight: 1.65,
+            letterSpacing: "0.005em",
+          }}>
+            {m.insight}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -436,12 +476,30 @@ export default function DashboardPage() {
   const { velocity, roas, seoLift, brandScore } = memory.campaignStats;
 
   const metrics: MetricItem[] = [
-    { label: "Content Velocity", value: velocity,  delta: "+18%",   sub: "vs. baseline",       icon: Zap        },
-    { label: "ROAS",             value: roas,       delta: "+23%",   sub: "Return on ad spend",  icon: TrendingUp },
-    { label: "Conversion Rate",  value: "4.6%",     delta: "+0.9pt", sub: "Landing page avg.",   icon: Target     },
-    { label: "Engagement",       value: "12.3%",    delta: "+5.1pt", sub: "Cross-channel avg.",  icon: Activity   },
-    { label: "Brand Search",     value: seoLift,    delta: "+12%",   sub: "Organic search lift", icon: BarChart3  },
-    { label: "Audience Reach",   value: "2.1M",     delta: "+340K",  sub: "Unique impressions",  icon: Users      },
+    {
+      label: "Content Velocity", value: velocity, delta: "+18%", sub: "vs. baseline", icon: Zap,
+      insight: "Running 18% above your Q1 baseline — driven by the Video Series and Blog campaigns operating simultaneously. AERA recommends maintaining 2–3 active briefs per cycle to sustain this pace without straining creative resources.",
+    },
+    {
+      label: "ROAS", value: roas, delta: "+23%", sub: "Return on ad spend", icon: TrendingUp,
+      insight: "Exceptional return on ad spend. The Q2 Brand Video is your top performer at 11.4×. Paid social retargeting, currently in planning, is projected to bring the blended ROAS to 9×+ once launched in late April.",
+    },
+    {
+      label: "Conversion Rate", value: "4.6%", delta: "+0.9pt", sub: "Landing page avg.", icon: Target,
+      insight: "Up 0.9 points from last quarter — the Email Nurture Phase 1 sequence is the primary driver. AERA projects a 5.1% conversion rate by end of Q2 if the Phase 2 sequence launches on schedule.",
+    },
+    {
+      label: "Engagement", value: "12.3%", delta: "+5.1pt", sub: "Cross-channel avg.", icon: Activity,
+      insight: "5.1 points above baseline. Short-form video on Instagram and LinkedIn is outperforming written content by 3×. AERA recommends shifting 20% of content budget toward video formats to sustain this lift.",
+    },
+    {
+      label: "Brand Search", value: seoLift, delta: "+12%", sub: "Organic search lift", icon: BarChart3,
+      insight: "Organic lift driven by the Thought Leadership Blog Series — 34 new backlinks acquired this quarter. Top article: 'AI-Native Marketing in 2026' with 840 unique sessions. Average SERP position improved to 3.2.",
+    },
+    {
+      label: "Audience Reach", value: "2.1M", delta: "+340K", sub: "Unique impressions", icon: Users,
+      insight: "340K new unique impressions vs. last quarter. The YouTube brand video accounts for 48% of new reach. Cross-platform audience overlap is just 12%, indicating strong, healthy discovery across channels.",
+    },
   ];
 
   return (

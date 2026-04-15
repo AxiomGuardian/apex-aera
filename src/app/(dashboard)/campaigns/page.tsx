@@ -472,7 +472,7 @@ function CampaignDetail({ c, onClose }: { c: Campaign; onClose: () => void }) {
                         {m.delta}
                       </span>
                     </div>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.04em", lineHeight: 1 }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text)", letterSpacing: "-0.045em", lineHeight: 1 }}>
                       {m.value}
                     </div>
                     <div style={{ fontSize: 10, color: "var(--text-5)", marginTop: 4 }}>{m.label}</div>
@@ -489,11 +489,11 @@ function CampaignDetail({ c, onClose }: { c: Campaign; onClose: () => void }) {
             </p>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
               <div>
-                <p style={{ fontSize: 22, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.04em", lineHeight: 1 }}>{c.spent}</p>
+                <p style={{ fontSize: 22, fontWeight: 800, color: "var(--text)", letterSpacing: "-0.045em", lineHeight: 1 }}>{c.spent}</p>
                 <p style={{ fontSize: 10, color: "var(--text-5)", marginTop: 3 }}>Spent</p>
               </div>
               <div style={{ textAlign: "right" }}>
-                <p style={{ fontSize: 22, fontWeight: 700, color: "var(--text-4)", letterSpacing: "-0.04em", lineHeight: 1 }}>{c.budget}</p>
+                <p style={{ fontSize: 22, fontWeight: 800, color: "var(--text-4)", letterSpacing: "-0.045em", lineHeight: 1 }}>{c.budget}</p>
                 <p style={{ fontSize: 10, color: "var(--text-5)", marginTop: 3 }}>Total Budget</p>
               </div>
             </div>
@@ -564,8 +564,8 @@ function SummaryCard({ label, value, accent }: { label: string; value: string; a
       <div
         style={{
           fontSize: "clamp(28px, 5vw, 36px)",
-          fontWeight: 700,
-          letterSpacing: "-0.04em",
+          fontWeight: 800,
+          letterSpacing: "-0.05em",
           lineHeight: 1,
           color: accent && hovered ? "var(--cyan)" : "var(--text)",
           transition: "color 0.22s",
@@ -602,8 +602,8 @@ export default function CampaignsPage() {
           <h2
             style={{
               fontSize: "clamp(26px, 4vw, 32px)",
-              fontWeight: 700,
-              letterSpacing: "-0.035em",
+              fontWeight: 800,
+              letterSpacing: "-0.045em",
               color: "var(--text)",
               lineHeight: 1,
             }}

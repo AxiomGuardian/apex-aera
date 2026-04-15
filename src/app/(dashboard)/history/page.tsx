@@ -78,7 +78,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
         cursor: "default", position: "relative" as const, overflow: "hidden",
       }}
     >
-      <div style={{ fontSize: "clamp(26px,4vw,34px)", fontWeight: 700, letterSpacing: "-0.04em", lineHeight: 1, color: "var(--text)", fontFeatureSettings: '"tnum"' }}>{value}</div>
+      <div style={{ fontSize: "clamp(26px,4vw,34px)", fontWeight: 800, letterSpacing: "-0.045em", lineHeight: 1, color: "var(--text)", fontFeatureSettings: '"tnum"' }}>{value}</div>
       <div style={{ fontSize: 11, color: "var(--text-6)", marginTop: 7, letterSpacing: "0.01em" }}>{label}</div>
       <div style={{ position: "absolute", top: 0, left: "20%", right: "20%", height: 1, background: "linear-gradient(90deg,transparent,rgba(45,212,255,0.28),transparent)", opacity: hov ? 1 : 0, transition: "opacity 0.22s" }} />
     </div>
@@ -548,7 +548,7 @@ export default function HistoryPage() {
         <div className="flex items-end justify-between">
           <div>
             <p className="label-eyebrow mb-2.5">History</p>
-            <h2 style={{ fontSize: "clamp(26px,4vw,32px)", fontWeight: 700, letterSpacing: "-0.04em", color: "var(--text)", lineHeight: 1 }}>Deliverables</h2>
+            <h2 style={{ fontSize: "clamp(26px,4vw,32px)", fontWeight: 800, letterSpacing: "-0.045em", color: "var(--text)", lineHeight: 1 }}>Deliverables</h2>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <Button variant="outline" size="sm" onClick={() => setUploading(true)}>

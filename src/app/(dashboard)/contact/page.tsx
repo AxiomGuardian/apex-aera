@@ -274,8 +274,8 @@ export default function ContactPage() {
         <h2
           style={{
             fontSize: "clamp(26px, 4vw, 32px)",
-            fontWeight: 700,
-            letterSpacing: "-0.04em",
+            fontWeight: 800,
+            letterSpacing: "-0.045em",
             color: "var(--text)",
             lineHeight: 1,
           }}
