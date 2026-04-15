@@ -642,10 +642,17 @@ function ConferencePage() {
 
   // Build conversation history for API.
   //
-  // CRITICAL: multiple agent entries from the same turn (Sarah, Charlotte, Marcus)
-  // each have role "aera" — sending them consecutively causes a 400 from Anthropic
-  // because the API requires strictly alternating user/assistant turns.
-  // Fix: merge consecutive same-role entries into a single message.
+  // Two rules the Anthropic API enforces:
+  //   1. Messages must strictly alternate user / assistant.
+  //   2. The FIRST message must be "user".
+  //
+  // Multi-agent turns (Sarah + Charlotte + Marcus) each become a separate
+  // TranscriptEntry with role "aera", causing consecutive assistant messages.
+  // The opening / onboarding message is also "aera", making the first message
+  // an assistant turn. Both are 400 errors that cause the "thinking → blank" bug.
+  //
+  // Fix: merge consecutive same-role messages, then strip any leading "aera"
+  // entries so the history always starts with a user message.
   const buildApiMessages = useCallback(() => {
     const raw = transcriptRef.current
       .filter((e) => !e.interim)
@@ -654,7 +661,7 @@ function ConferencePage() {
         content: e.text,
       }));
 
-    // Merge consecutive same-role messages
+    // Step 1 — merge consecutive same-role messages
     const merged: Array<{ role: string; content: string }> = [];
     for (const msg of raw) {
       const last = merged[merged.length - 1];
@@ -664,6 +671,12 @@ function ConferencePage() {
         merged.push({ role: msg.role, content: msg.content });
       }
     }
+
+    // Step 2 — drop leading "aera" messages so history starts with "user"
+    while (merged.length > 0 && merged[0].role !== "user") {
+      merged.shift();
+    }
+
     return merged;
   }, []);
 
