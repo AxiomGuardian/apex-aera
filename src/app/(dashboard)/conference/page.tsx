@@ -11,7 +11,7 @@
  * - Live transcript with agent name labels and color coding
  */
 
-import { useState, useRef, useCallback, useEffect, Suspense } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mic, MicOff, X, Volume2, VolumeX } from "lucide-react";
@@ -40,7 +40,7 @@ Vibe: think smart friends who work in marketing — casual, sharp, excited about
 
 IDENTITY INTELLIGENCE: Read the client from how they speak. If they're casual and direct → drop the boardroom energy. If they use slang → stay real and grounded. If they're sharp and technical → skip the hand-holding. Adapt instantly, every agent mirrors the energy without announcing it. Charlotte is tuned to this — she quietly steers the team's tone.
 
-Rules:
+CONVERSATION RULES:
 - NO bullets, NO markdown, NO "as per our analysis" — just talk like a real person
 - Sarah kicks things off, naturally brings in 1-2 agents who matter most for the topic
 - Agents talk TO each other: "Marcus, back me up on that?" / "Charlotte, you've been talking to them — what's the feel?"
@@ -48,7 +48,10 @@ Rules:
 - 2 sentences MAX per person. Keep momentum — don't let it drag.
 - Agents can hand off to each other without always coming back to Sarah
 - Everyone genuinely cares about this client's success. Show enthusiasm, not formality.
-- Label every speaker: **Sarah:** **Marcus:** **Charlotte:** etc.`;
+- Label every speaker: **Sarah:** **Marcus:** **Charlotte:** etc.
+
+CRITICAL HANDOFF RULE — no exceptions:
+If ANY agent addresses another agent by name and asks for their input ("Charlotte, what do you think?", "Marcus, back me up", "Sophia, your call"), that named agent MUST respond in the SAME message with their **Name:** label immediately after. NEVER end a response with an open handoff that goes unanswered. If Sarah asks Charlotte something, Charlotte replies in this same response. If Charlotte asks Marcus something, Marcus replies. Every handoff must be completed within this single response.`;
 
 /* ─── Sequential TTS player ─────────────────────────────────────── */
 // speed: 1.15 — slightly above natural (1.0) to give a confident, energetic
@@ -146,8 +149,134 @@ function AgentAvatar({
   );
 }
 
+/* ─── Thinking indicator ─────────────────────────────────────────── */
+// Cycles through personality phrases while the team is processing a response.
+// Makes the wait feel alive — Sarah is genuinely thinking, not just loading.
+const THINKING_PHRASES = [
+  "Hmm…",
+  "Give me a second…",
+  "Let me think on that…",
+  "Pulling in the team…",
+  "Working on it…",
+  "Good question…",
+  "One sec…",
+  "Processing…",
+];
+
+function ThinkingIndicator({ phraseIndex }: { phraseIndex: number }) {
+  const phrase = THINKING_PHRASES[phraseIndex % THINKING_PHRASES.length];
+  return (
+    <div style={{
+      display: "flex", gap: 12, marginBottom: 20, alignItems: "center",
+      animation: "fadeSlideIn 0.3s ease-out forwards",
+    }}>
+      {/* SA avatar */}
+      <div style={{
+        position: "relative", flexShrink: 0,
+      }}>
+        <div style={{
+          position: "absolute", inset: -3, borderRadius: "50%",
+          border: "1.5px solid #2DD4FF",
+          boxShadow: "0 0 8px rgba(45,212,255,0.35)",
+          animation: "speakingRing 1.4s ease-in-out infinite",
+        }} />
+        <div style={{
+          width: 32, height: 32, borderRadius: "50%",
+          background: "rgba(45,212,255,0.14)",
+          border: "1.5px solid #2DD4FF",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <span style={{ fontSize: 9, fontWeight: 800, color: "#2DD4FF" }}>SA</span>
+        </div>
+      </div>
+
+      {/* Phrase + dots */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{
+          fontSize: 13, color: "rgba(45,212,255,0.65)",
+          fontStyle: "italic", letterSpacing: "-0.01em",
+          animation: "fadeSlideIn 0.3s ease-out forwards",
+          // key on phrase so it re-animates each cycle
+        }} key={phrase}>
+          {phrase}
+        </span>
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          {[0, 1, 2].map((i) => (
+            <div key={i} style={{
+              width: 4, height: 4, borderRadius: "50%",
+              background: "rgba(45,212,255,0.5)",
+              animation: `breathe 1.1s ease-in-out ${i * 0.18}s infinite`,
+            }} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Typewriter fade text ───────────────────────────────────────── */
+// Reveals words progressively as the agent speaks.
+// Runs slightly ahead of the audio (12% faster) so text is always leading speech
+// — giving the user a beat to read while listening.
+// When active=false (agent finished or entry is historical), all words are visible.
+function TypingText({
+  text,
+  duration,
+  active,
+}: {
+  text: string;
+  duration: number;
+  active: boolean;
+}) {
+  const words = useMemo(() => text.split(" "), [text]);
+  const [visible, setVisible] = useState(active ? 0 : words.length);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (!active) {
+      // Not speaking — show all words immediately (historical entry or interrupted)
+      setVisible(words.length);
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+      return;
+    }
+    // Start progressive fade reveal at 12% faster than audio duration
+    setVisible(0);
+    const totalMs = Math.max(duration * 880, words.length * 55); // floor: 55ms/word min
+    const msPerWord = totalMs / words.length;
+    let count = 0;
+    timerRef.current = setInterval(() => {
+      count++;
+      setVisible(Math.min(count, words.length));
+      if (count >= words.length) {
+        clearInterval(timerRef.current!);
+        timerRef.current = null;
+      }
+    }, msPerWord);
+    return () => {
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    };
+  }, [active, text, duration, words.length]);
+
+  return (
+    <>
+      {words.map((word, i) => (
+        <span
+          key={i}
+          style={{
+            opacity: i < visible ? 1 : 0.04,
+            transition: "opacity 0.22s ease",
+            display: "inline",
+          }}
+        >
+          {word}{i < words.length - 1 ? " " : ""}
+        </span>
+      ))}
+    </>
+  );
+}
+
 /* ─── Transcript message row ─────────────────────────────────────── */
-function TranscriptRow({ entry, isSpeaking = false }: { entry: TranscriptEntry; isSpeaking?: boolean }) {
+function TranscriptRow({ entry, isSpeaking = false, speakingDuration = 0 }: { entry: TranscriptEntry; isSpeaking?: boolean; speakingDuration?: number }) {
   const isUser = entry.role === "user";
 
   if (isUser) {
@@ -273,7 +402,10 @@ function TranscriptRow({ entry, isSpeaking = false }: { entry: TranscriptEntry; 
           lineHeight: 1.7, letterSpacing: "-0.005em",
           transition: "color 0.3s",
         }}>
-          {entry.text}
+          {isSpeaking && speakingDuration > 0
+            ? <TypingText text={entry.text} duration={speakingDuration} active={true} />
+            : entry.text
+          }
         </p>
       </div>
     </div>
@@ -339,9 +471,11 @@ function ConferencePage() {
   const handleSendRef = useRef<(text: string) => Promise<void>>(() => Promise.resolve());
 
   const [transcript,      setTranscript]      = useState<TranscriptEntry[]>([]);
-  const [isProcessing,    setIsProcessing]    = useState(false);
-  const [isMuted,         setIsMuted]         = useState(false);
-  const [speakingAgentId, setSpeakingAgentId] = useState<AgentId | null>(null);
+  const [isProcessing,     setIsProcessing]     = useState(false);
+  const [isMuted,          setIsMuted]          = useState(false);
+  const [speakingAgentId,  setSpeakingAgentId]  = useState<AgentId | null>(null);
+  const [speakingDuration,  setSpeakingDuration]  = useState<number>(0);
+  const [thinkingPhrase,   setThinkingPhrase]    = useState(0);
   const [currentInterim,  setCurrentInterim]  = useState("");
   const [audioEnabled,    setAudioEnabled]    = useState(true);
 
@@ -361,6 +495,15 @@ function ConferencePage() {
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [transcript]);
+
+  // Cycle thinking phrase every 2.2 s while processing
+  useEffect(() => {
+    if (!isProcessing) return;
+    const interval = setInterval(() => {
+      setThinkingPhrase((p) => (p + 1) % THINKING_PHRASES.length);
+    }, 2200);
+    return () => clearInterval(interval);
+  }, [isProcessing]);
 
   // Stop all audio on unmount (e.g. user navigates away via Leave button)
   useEffect(() => {
@@ -427,27 +570,31 @@ function ConferencePage() {
     for (let i = 0; i < segments.length; i++) {
       if (signal.aborted) break;
 
-      // ── Reveal this agent's transcript entry as they begin to speak ──
-      // Small stagger before first entry so the processing indicator fades
-      // before the first message slides in.
-      if (i === 0) {
-        await new Promise<void>((resolve) => setTimeout(resolve, 120));
-      }
-      if (signal.aborted) break;
-
-      // Add this entry to the transcript (triggers fadeSlideIn animation)
-      setTranscript((prev) => [...prev, entries[i]]);
-
-      // Short pause so the text appears just before audio starts —
-      // gives the user a beat to read who's speaking before they hear it
-      await new Promise<void>((resolve) => setTimeout(resolve, 80));
-      if (signal.aborted) break;
-
-      setSpeakingAgentId(segments[i].agentId);
-
+      // ── Await buffer first so we know duration before revealing entry ──
+      // Buffers are already fetching in parallel — this usually resolves fast.
       const audioBuffer = await bufferPromises[i];
       if (!audioBuffer || signal.aborted) continue;
 
+      const segDuration = audioBuffer.duration; // seconds
+
+      // Small stagger before first entry so the processing indicator fades
+      if (i === 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 100));
+      }
+      if (signal.aborted) break;
+
+      // Reveal this entry in the transcript (triggers fadeSlideIn animation)
+      setTranscript((prev) => [...prev, entries[i]]);
+
+      // Brief pause — text appears, user reads name, then voice starts
+      await new Promise<void>((resolve) => setTimeout(resolve, 90));
+      if (signal.aborted) break;
+
+      // Set speaking state WITH duration so TypingText can sync word reveal
+      setSpeakingDuration(segDuration);
+      setSpeakingAgentId(segments[i].agentId);
+
+      // Play audio
       await new Promise<void>((resolve) => {
         const source = ctx.createBufferSource();
         source.buffer = audioBuffer;
@@ -465,7 +612,10 @@ function ConferencePage() {
         await new Promise<void>((resolve) => setTimeout(resolve, gap));
       }
     }
-    if (!signal.aborted) setSpeakingAgentId(null);
+    if (!signal.aborted) {
+      setSpeakingAgentId(null);
+      setSpeakingDuration(0);
+    }
   }, [audioEnabled]);
 
   // Build conversation history for API
@@ -775,16 +925,21 @@ function ConferencePage() {
           // Find the ID of the most recently added entry for the speaking agent.
           // Since entries are revealed one-by-one as audio plays, this is always
           // the entry currently being spoken — only that row gets the glow.
+          // Most-recent entry for the speaking agent = the one being spoken now
           const speakingEntryId = speakingAgentId
             ? [...transcript].reverse().find((e) => e.agentId === speakingAgentId)?.id
             : undefined;
-          return transcript.map((entry) => (
-            <TranscriptRow
-              key={entry.id}
-              entry={entry}
-              isSpeaking={entry.id === speakingEntryId}
-            />
-          ));
+          return transcript.map((entry) => {
+            const isActive = entry.id === speakingEntryId;
+            return (
+              <TranscriptRow
+                key={entry.id}
+                entry={entry}
+                isSpeaking={isActive}
+                speakingDuration={isActive ? speakingDuration : 0}
+              />
+            );
+          });
         })()}
 
         {/* Interim text */}
@@ -798,31 +953,8 @@ function ConferencePage() {
           }} />
         )}
 
-        {/* Processing indicator */}
-        {isProcessing && (
-          <div style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "center" }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: "50%",
-              background: "rgba(45,212,255,0.12)",
-              border: "1px solid rgba(45,212,255,0.22)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <span style={{ fontSize: 9, fontWeight: 800, color: "#2DD4FF" }}>SA</span>
-            </div>
-            <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  style={{
-                    width: 5, height: 5, borderRadius: "50%",
-                    background: "rgba(45,212,255,0.6)",
-                    animation: `breathe 1.2s ease-in-out ${i * 0.2}s infinite`,
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Processing indicator — cycling thinking phrases */}
+        {isProcessing && <ThinkingIndicator phraseIndex={thinkingPhrase} />}
 
         <div ref={transcriptEndRef} />
       </div>
