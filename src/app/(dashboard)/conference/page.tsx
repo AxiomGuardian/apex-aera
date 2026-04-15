@@ -267,7 +267,7 @@ function TypingText({
         <span
           key={i}
           style={{
-            opacity: i < visible ? 1 : 0.04,
+            opacity: i < visible ? 1 : 0,
             transition: "opacity 0.22s ease",
             display: "inline",
           }}
