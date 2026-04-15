@@ -55,9 +55,9 @@ function AgentCard({
         background: isSelected
           ? `linear-gradient(145deg, rgba(${hexToRgb(agent.color)}, 0.06) 0%, var(--surface) 60%)`
           : hovered
-          ? "var(--hover-fill-cyan)"
+          ? `rgba(${hexToRgb(agent.color)}, 0.04)`
           : "var(--surface)",
-        border: `1px solid ${isSelected ? `rgba(${hexToRgb(agent.color)}, 0.25)` : hovered ? "rgba(45,212,255,0.14)" : "var(--border)"}`,
+        border: `1px solid ${isSelected ? `rgba(${hexToRgb(agent.color)}, 0.25)` : hovered ? `rgba(${hexToRgb(agent.color)}, 0.22)` : "var(--border)"}`,
         boxShadow: isSelected
           ? `0 0 0 1px rgba(${hexToRgb(agent.color)}, 0.10), var(--shadow-card-hover)`
           : hovered
@@ -95,15 +95,15 @@ function AgentCard({
             width: 48, height: 48, borderRadius: 14,
             background: isSelected
               ? `rgba(${hexToRgb(agent.color)}, 0.10)`
-              : hovered ? "rgba(45,212,255,0.06)" : "var(--surface-2)",
-            border: `1px solid ${isSelected ? `rgba(${hexToRgb(agent.color)}, 0.22)` : hovered ? "rgba(45,212,255,0.14)" : "var(--border)"}`,
+              : hovered ? `rgba(${hexToRgb(agent.color)}, 0.08)` : "var(--surface-2)",
+            border: `1px solid ${isSelected ? `rgba(${hexToRgb(agent.color)}, 0.22)` : hovered ? `rgba(${hexToRgb(agent.color)}, 0.18)` : "var(--border)"}`,
             display: "flex", alignItems: "center", justifyContent: "center",
             transition: "all 0.22s",
           }}>
             <span style={{
               fontSize: 13, fontWeight: 800,
               letterSpacing: "-0.02em",
-              color: isSelected ? agent.color : hovered ? "var(--cyan)" : "var(--text-4)",
+              color: isSelected ? agent.color : hovered ? agent.color : "var(--text-4)",
               transition: "color 0.22s",
             }}>
               {agent.initials}

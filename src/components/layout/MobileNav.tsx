@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, BrainCircuit, Bot, Radio, Rocket, FolderOpen, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Wand2, Bot, Radio, Rocket, FolderOpen } from "lucide-react";
 
 const navItems = [
   { label: "Home",    href: "/dashboard",  icon: LayoutDashboard },
-  { label: "AERA",    href: "/chat",        icon: BrainCircuit   },
+  { label: "AERA",    href: "/chat",        icon: Wand2      },
   { label: "Agents",  href: "/agents",      icon: Bot            },
   { label: "Room",    href: "/conference",  icon: Radio          },
   { label: "Work",    href: "/campaigns",   icon: Rocket         },

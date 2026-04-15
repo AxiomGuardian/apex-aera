@@ -9,7 +9,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { useAERA } from "@/context/AERAContext";
 import {
   LayoutDashboard,
-  BrainCircuit,
+  Wand2,
   Rocket,
   FolderOpen,
   MessageSquare,
@@ -24,7 +24,7 @@ import {
 
 const navItems = [
   { label: "Dashboard",         href: "/dashboard",  icon: LayoutDashboard },
-  { label: "AERA Intelligence", href: "/chat",        icon: BrainCircuit   },
+  { label: "AERA Intelligence", href: "/chat",        icon: Wand2      },
   { label: "Agents",            href: "/agents",      icon: Bot            },
   { label: "Conference",        href: "/conference",  icon: Radio          },
   { label: "Campaigns",         href: "/campaigns",   icon: Rocket         },

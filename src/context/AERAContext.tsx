@@ -6,7 +6,7 @@ import {
 } from "react";
 import { useClientMemory, extractMetricsFromText } from "./ClientMemory";
 import { useElevenLabsTTS, TTSSpeed } from "@/hooks/useElevenLabsTTS";
-import { AGENTS } from "@/lib/agents";
+import { AGENTS, parseAgentSegments } from "@/lib/agents";
 import type { AgentId } from "@/lib/agents";
 
 export type ChartData = {
@@ -152,6 +152,7 @@ type AERAContextType = {
   speakingMessageId: string | null;
   speak: (text: string, id: string) => void;
   stopSpeaking: () => void;
+  speakMultiAgent: (text: string, id: string) => void;
   unlockAudio: () => void;
   ttsSpeed: TTSSpeed;
   setTtsSpeed: (speed: TTSSpeed) => void;
@@ -196,14 +197,86 @@ export function AERAProvider({ children }: { children: ReactNode }) {
   // ── ElevenLabs TTS ────────────────────────────────────────────
   // Replaces window.speechSynthesis entirely. API key stays server-side.
   const {
-    isSpeaking,
+    isSpeaking:        isSpeakingSingle,
     speakingMessageId,
     speak,
-    stop: stopSpeaking,
+    stop: stopSpeakingSingle,
     unlockAudio,
     ttsSpeed,
     setTtsSpeed,
   } = useElevenLabsTTS();
+
+  // ── Multi-voice sequential TTS ────────────────────────────────
+  // Used when a response contains **AgentName:** labels (team meeting / conference mode).
+  // All TTS requests fire in parallel; audio plays sequentially per agent.
+  const [isMultiVoice,     setIsMultiVoice]     = useState(false);
+  const multiCtxRef   = useRef<AudioContext | null>(null);
+  const multiAbortRef = useRef<AbortController | null>(null);
+
+  const stopMultiVoice = useCallback(() => {
+    multiAbortRef.current?.abort();
+    multiAbortRef.current = null;
+    setIsMultiVoice(false);
+  }, []);
+
+  const speakMultiAgent = useCallback(async (text: string, msgId: string) => {
+    void msgId; // reserved for future speakingMessageId tracking
+    stopMultiVoice();
+    stopSpeakingSingle();
+
+    if (typeof window === "undefined") return;
+    if (!multiCtxRef.current) {
+      multiCtxRef.current = new (window.AudioContext ?? (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    }
+    const ctx = multiCtxRef.current;
+    if (ctx.state === "suspended") await ctx.resume();
+
+    const controller = new AbortController();
+    multiAbortRef.current = controller;
+    const { signal } = controller;
+
+    const segments = parseAgentSegments(text);
+
+    // Fire ALL TTS requests in parallel — each is ready when previous finishes playing
+    const fetches = segments.map((seg) =>
+      fetch("/api/voice/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: seg.text, voice_id: AGENTS[seg.agentId].voice_id, speed: 1.2 }),
+        signal,
+      })
+    );
+
+    setIsMultiVoice(true);
+    for (let i = 0; i < segments.length; i++) {
+      if (signal.aborted) break;
+      try {
+        const res = await fetches[i];
+        if (!res.ok || signal.aborted) continue;
+        const buf = await res.arrayBuffer();
+        if (signal.aborted) continue;
+        const audioBuf = await ctx.decodeAudioData(buf);
+        await new Promise<void>((resolve) => {
+          const src = ctx.createBufferSource();
+          src.buffer = audioBuf;
+          src.connect(ctx.destination);
+          src.onended = () => resolve();
+          src.start(0);
+        });
+        if (!signal.aborted && i < segments.length - 1) {
+          await new Promise<void>((r) => setTimeout(r, 100));
+        }
+      } catch { /* aborted or decode error */ }
+    }
+    if (!signal.aborted) setIsMultiVoice(false);
+  }, [stopMultiVoice, stopSpeakingSingle]);
+
+  // Combined isSpeaking covers both single-voice and multi-voice playback
+  const isSpeaking  = isSpeakingSingle || isMultiVoice;
+  const stopSpeaking = useCallback(() => {
+    stopSpeakingSingle();
+    stopMultiVoice();
+  }, [stopSpeakingSingle, stopMultiVoice]);
 
   // Memory — save insights + extract metrics from every AERA response
   const { addInsight, updateStats, memory } = useClientMemory();
@@ -317,11 +390,17 @@ export function AERAProvider({ children }: { children: ReactNode }) {
       const metricUpdates = extractMetricsFromText(responseContent);
       if (Object.keys(metricUpdates).length > 0) updateStats(metricUpdates);
 
-      // Auto-TTS in voice mode — routes through selected agent's ElevenLabs voice.
-      // Use ref (not state) to avoid stale closure capturing the voice from render time.
+      // Auto-TTS in voice mode.
+      // If the response contains **AgentName:** labels, play each agent in their own
+      // voice sequentially (multi-voice). Otherwise, use the selected agent's voice.
       if (voiceModeRef.current) {
-        const agentVoiceId = AGENTS[selectedAgentIdRef.current]?.voice_id;
-        speak(responseContent, aeraMsg.id, agentVoiceId);
+        const hasAgentLabels = /\*\*[\w\s]+:\*\*/.test(responseContent);
+        if (hasAgentLabels) {
+          speakMultiAgent(responseContent, aeraMsg.id);
+        } else {
+          const agentVoiceId = AGENTS[selectedAgentIdRef.current]?.voice_id;
+          speak(responseContent, aeraMsg.id, agentVoiceId);
+        }
       }
     } catch {
       const fallback: Message = {
@@ -339,7 +418,7 @@ export function AERAProvider({ children }: { children: ReactNode }) {
       setThreads([...threadsRef.current]);
       if (voiceModeRef.current) {
         const agentVoiceId = AGENTS[selectedAgentIdRef.current]?.voice_id;
-        speak(fallback.content, fallback.id, agentVoiceId);
+        speak(fallback.content, fallback.id, agentVoiceId); // fallback is always single voice
       }
     } finally {
       setIsTyping(false);
@@ -445,7 +524,7 @@ export function AERAProvider({ children }: { children: ReactNode }) {
     <AERAContext.Provider value={{
       isOpen, togglePanel, openPanel, closePanel,
       messages, addUserMessage, isTyping,
-      isSpeaking, speakingMessageId, speak, stopSpeaking, unlockAudio,
+      isSpeaking, speakingMessageId, speak, speakMultiAgent, stopSpeaking, unlockAudio,
       ttsSpeed, setTtsSpeed,
       voiceMode, toggleVoiceMode,
       clearHistory,

@@ -302,15 +302,15 @@ export default function ChatPage() {
       <div className="force-dark" style={{ flex: 1, display: "flex", borderRadius: 18, border: "1px solid rgba(45,212,255,0.10)", overflow: "hidden", background: "#0a0a0e", boxShadow: "var(--shadow-card)", minHeight: 0 }}>
 
         {/* ── Left: orb + identity — always dark regardless of theme ── */}
-        <div className="hidden md:flex force-dark" style={{ width: 270, minWidth: 270, borderRight: "1px solid rgba(255,255,255,0.05)", flexDirection: "column", alignItems: "center", padding: "36px 20px 24px", background: "#0a0a0c", position: "relative", overflow: "hidden" }}>
+        <div className="hidden md:flex force-dark" style={{ width: 270, minWidth: 270, borderRight: "1px solid rgba(255,255,255,0.05)", flexDirection: "column", alignItems: "center", padding: "36px 20px 24px", background: "#0a0a0c", position: "relative" }}>
           {/* Deep radial glow behind orb */}
           <div style={{ position: "absolute", width: 320, height: 320, borderRadius: "50%", background: "radial-gradient(circle, rgba(45,212,255,0.07) 0%, transparent 65%)", top: -20, left: "50%", transform: "translateX(-50%)", pointerEvents: "none", zIndex: 1 }} />
           {/* Outer breathing ring */}
           <div className="animate-orb-ring" style={{ position: "absolute", width: 200, height: 200, borderRadius: "50%", border: "1px solid rgba(45,212,255,0.08)", top: "38%", left: "50%", transform: "translate(-50%, -50%)", pointerEvents: "none", zIndex: 1 }} />
           <div className="animate-orb-ring delay-300" style={{ position: "absolute", width: 240, height: 240, borderRadius: "50%", border: "1px solid rgba(45,212,255,0.04)", top: "38%", left: "50%", transform: "translate(-50%, -50%)", pointerEvents: "none", zIndex: 1 }} />
 
-          {/* Content layer */}
-          <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", width: "100%", flex: 1, minHeight: 0 }}>
+          {/* Content layer — scrollable so all controls are reachable on smaller screens */}
+          <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", width: "100%", flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden" }}>
 
           <AERAOrb size={176} orbState={orbState} />
 

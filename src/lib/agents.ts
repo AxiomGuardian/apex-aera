@@ -92,7 +92,7 @@ export const AGENTS: Record<AgentId, Agent> = {
     workflow:    "Systems & Reporting",
     specialty:   "Data pipelines, automation, reporting infrastructure",
     description: "Infrastructure architect. Victor Voss builds and maintains the data systems that power AERA's intelligence — attribution pipelines, automated reporting, and the APEX analytics layer.",
-    color:       "#64748B",
+    color:       "#60A5FA",
     initials:    "VV",
   },
 };

@@ -496,7 +496,7 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-2.5 sm:shrink-0 sm:pb-1">
-            <Link href="/history">
+            <Link href="/conference?report=full">
               <Button variant="outline" size="sm">Full Report</Button>
             </Link>
             <Link href="/chat?brief=1">

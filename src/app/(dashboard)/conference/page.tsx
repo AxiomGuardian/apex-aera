@@ -11,9 +11,10 @@
  * - Live transcript with agent name labels and color coding
  */
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Mic, MicOff, X, Volume2, VolumeX, Users } from "lucide-react";
+import { Mic, MicOff, X, Volume2, VolumeX } from "lucide-react";
 import { useDeepgramSTT } from "@/hooks/useDeepgramSTT";
 import {
   AGENTS, AGENT_DISPLAY_ORDER, parseAgentSegments, hexToRgb,
@@ -33,26 +34,19 @@ interface TranscriptEntry {
 }
 
 /* ─── Conference system prompt ───────────────────────────────────── */
-function getMeetingContext(mode: "executive" | "simple"): string {
-  const toneGuide = mode === "simple"
-    ? "Communication tone: SIMPLE — plain language, zero jargon, short punchy sentences. Think: founder-friendly, direct, no buzzwords. Get to the point fast."
-    : "Communication tone: EXECUTIVE — sophisticated, data-driven, strategic. Premium discourse. Cite metrics, implications, and next moves with authority.";
+const MEETING_CONTEXT = `[CONFERENCE ROOM] You are Sarah, running a quick team call with your client.
 
-  return `[CONFERENCE ROOM MODE] You are Sarah, chairing a live voice meeting.
+Vibe: think smart friends who work in marketing — casual, sharp, excited about the results. Not a boardroom. A real conversation where people actually talk to each other.
 
-${toneGuide}
-
-Meeting rules:
-- This is a real-time voice call — everything is spoken aloud, so NO bullets, NO markdown, NO headers
-- Sarah opens each exchange, then hands off naturally to the most relevant 1-2 agents
-- Agents TALK TO EACH OTHER: "Marcus, does that match what you're seeing on paid?" or "Charlotte, can you pick that up for the client?"
-- Agents ask the CLIENT direct questions to keep them engaged: "Has this come up before?" or "What feels right to you on that?"
-- Each speaker: 2-3 sentences max. Keep energy and momentum.
-- Create natural handoffs — Victor might question Charlotte, Charlotte might loop back to the client
-- The client is IN THE ROOM as a participant, not an audience
-- Sarah closes each exchange with a clear synthesis and next step
-- Label each speaker with bold: **Sarah:** **Marcus:** **Charlotte:** etc.`;
-}
+Rules:
+- NO bullets, NO markdown, NO "as per our analysis" — just talk like a real person
+- Sarah kicks things off, naturally brings in 1-2 agents who matter most for the topic
+- Agents talk TO each other: "Marcus, back me up on that?" / "Charlotte, you've been talking to them — what's the feel?"
+- Pull the client in: "What do you think?" / "Is that matching what you're seeing?" / "Which direction feels right?"
+- 2 sentences MAX per person. Keep momentum — don't let it drag.
+- Agents can hand off to each other without always coming back to Sarah
+- Everyone genuinely cares about this client's success. Show enthusiasm, not formality.
+- Label every speaker: **Sarah:** **Marcus:** **Charlotte:** etc.`;
 
 /* ─── Sequential TTS player ─────────────────────────────────────── */
 // speed: 1.15 — slightly above natural (1.0) to give a confident, energetic
@@ -234,31 +228,72 @@ function TranscriptRow({ entry }: { entry: TranscriptEntry }) {
   );
 }
 
+const CONFERENCE_STORAGE_KEY = "apex_conference_transcript_v1";
+
+function loadTranscript(): TranscriptEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = sessionStorage.getItem(CONFERENCE_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Array<TranscriptEntry & { timestamp: string }>;
+    return parsed.map((e) => ({ ...e, timestamp: new Date(e.timestamp) }));
+  } catch { return []; }
+}
+
+function saveTranscript(entries: TranscriptEntry[]) {
+  if (typeof window === "undefined") return;
+  try { sessionStorage.setItem(CONFERENCE_STORAGE_KEY, JSON.stringify(entries.slice(-80))); }
+  catch { /* quota */ }
+}
+
 /* ─── Conference Room Page ────────────────────────────────────────── */
-export default function ConferencePage() {
+// Exported wrapper adds Suspense boundary required by useSearchParams in Next.js 15
+export default function ConferencePageWrapper() {
+  return (
+    <Suspense>
+      <ConferencePage />
+    </Suspense>
+  );
+}
+
+function ConferencePage() {
+  const router        = useRouter();
+  const searchParams  = useSearchParams();
+  const handleSendRef = useRef<(text: string) => void>(() => {});
+
   const [transcript,      setTranscript]      = useState<TranscriptEntry[]>([]);
   const [isProcessing,    setIsProcessing]    = useState(false);
   const [isMuted,         setIsMuted]         = useState(false);
   const [speakingAgentId, setSpeakingAgentId] = useState<AgentId | null>(null);
   const [currentInterim,  setCurrentInterim]  = useState("");
   const [audioEnabled,    setAudioEnabled]    = useState(true);
-  const [mode,            setMode]            = useState<"executive" | "simple">("executive");
 
   const audioCtxRef     = useRef<AudioContext | null>(null);
   const sourceRef       = useRef<AudioBufferSourceNode | null>(null);
   const abortRef        = useRef<AbortController | null>(null);
   const transcriptRef   = useRef<TranscriptEntry[]>([]);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
-  const modeRef          = useRef<"executive" | "simple">("executive");
-  useEffect(() => { modeRef.current = mode; }, [mode]);
 
-  // Keep transcript ref in sync
-  useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
+  // Keep transcript ref in sync + persist to sessionStorage
+  useEffect(() => {
+    transcriptRef.current = transcript;
+    if (transcript.length > 0) saveTranscript(transcript);
+  }, [transcript]);
 
   // Auto-scroll transcript
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [transcript]);
+
+  // Stop all audio on unmount (e.g. user navigates away via Leave button)
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+      try { sourceRef.current?.stop(); } catch { /* ignore */ }
+      sourceRef.current = null;
+    };
+  }, []);
 
   // Unlock AudioContext on first interaction
   const unlockAudio = useCallback(() => {
@@ -280,7 +315,8 @@ export default function ConferencePage() {
     setSpeakingAgentId(null);
   }, []);
 
-  // Play segments sequentially
+  // Play segments sequentially — all TTS fetches start in parallel so
+  // each agent's audio is ready by the time the previous one finishes.
   const playSegments = useCallback(async (segments: AgentSegment[], signal: AbortSignal) => {
     if (!audioEnabled) return;
 
@@ -291,14 +327,17 @@ export default function ConferencePage() {
     const ctx = audioCtxRef.current;
     if (ctx.state === "suspended") await ctx.resume();
 
-    for (const segment of segments) {
+    // Fire ALL TTS requests at once — massively reduces total wait time
+    const bufferPromises = segments.map((seg) =>
+      fetchAudioBuffer(ctx, seg.text, AGENTS[seg.agentId].voice_id, signal, 1.25)
+    );
+
+    for (let i = 0; i < segments.length; i++) {
       if (signal.aborted) break;
 
-      const agent = AGENTS[segment.agentId];
-      setSpeakingAgentId(segment.agentId);
+      setSpeakingAgentId(segments[i].agentId);
 
-      // Pre-fetch next segment in parallel while current is playing
-      const audioBuffer = await fetchAudioBuffer(ctx, segment.text, agent.voice_id, signal);
+      const audioBuffer = await bufferPromises[i];
       if (!audioBuffer || signal.aborted) continue;
 
       await new Promise<void>((resolve) => {
@@ -311,8 +350,10 @@ export default function ConferencePage() {
       });
 
       if (signal.aborted) break;
-      // Brief gap between agents
-      await new Promise<void>((resolve) => setTimeout(resolve, 180));
+      // 100ms gap between speakers — tighter than before
+      if (i < segments.length - 1) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 100));
+      }
     }
     if (!signal.aborted) setSpeakingAgentId(null);
   }, [audioEnabled]);
@@ -355,7 +396,7 @@ export default function ConferencePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: apiMessages,
-          systemOverride: getMeetingContext(modeRef.current),
+          systemOverride: MEETING_CONTEXT,
         }),
       });
 
@@ -402,6 +443,10 @@ export default function ConferencePage() {
     }
   }, [isProcessing, stopAudio, buildApiMessages, playSegments]);
 
+  // Keep a stable ref to handleSend so the mount effect can call it
+  // after the initial render without capturing a stale closure.
+  useEffect(() => { handleSendRef.current = handleSend; }, [handleSend]);
+
   // Deepgram STT
   const { isListening, isConnecting, start: startSTT, stop: stopSTT, toggleMute } = useDeepgramSTT({
     onInterim: (text) => setCurrentInterim(text),
@@ -425,16 +470,29 @@ export default function ConferencePage() {
     toggleMute();
   }, [toggleMute]);
 
-  // Opening message on mount
+  // Opening message on mount — restore previous session or start fresh
   useEffect(() => {
-    const opening: TranscriptEntry = {
-      id: "opening",
-      role: "aera",
-      agentId: "aera",
-      text: "Conference room is live. The full team is present — Marcus, Sophia, Julian, Charlotte, and Victor Voss are ready. Press the microphone to speak, and I'll bring in whoever's most relevant to what you need.",
-      timestamp: new Date(),
-    };
-    setTranscript([opening]);
+    const saved = loadTranscript();
+    if (saved.length > 0) {
+      setTranscript(saved);
+    } else {
+      const opening: TranscriptEntry = {
+        id: "opening",
+        role: "aera",
+        agentId: "aera",
+        text: "Hey — full team is here. Marcus, Sophia, Julian, Charlotte, and Victor are all in. Hit the mic and let's get into it.",
+        timestamp: new Date(),
+      };
+      setTranscript([opening]);
+    }
+
+    // If routed from Full Report button, auto-queue a full briefing
+    if (searchParams?.get("report") === "full") {
+      setTimeout(() => {
+        handleSendRef.current("Give me a full status report — campaigns, performance metrics, what's working, what needs attention, and our top priority right now.");
+      }, 1200);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const micActive = isListening && !isMuted;
@@ -486,31 +544,6 @@ export default function ConferencePage() {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {/* Mode toggle */}
-          <div style={{
-            display: "flex", alignItems: "center",
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: 9, padding: "3px 4px", gap: 2,
-          }}>
-            {(["executive", "simple"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                style={{
-                  padding: "4px 10px", borderRadius: 6, border: "none",
-                  background: mode === m ? "rgba(45,212,255,0.14)" : "transparent",
-                  color: mode === m ? "#2DD4FF" : "rgba(255,255,255,0.30)",
-                  fontSize: 10, fontWeight: 700, letterSpacing: "0.05em",
-                  textTransform: "uppercase", cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
-              >
-                {m === "executive" ? "Executive" : "Simple"}
-              </button>
-            ))}
-          </div>
-
           {/* Audio toggle */}
           <button
             onClick={() => setAudioEnabled((a) => !a)}
@@ -532,25 +565,50 @@ export default function ConferencePage() {
             }
           </button>
 
-          {/* Exit */}
-          <Link href="/dashboard">
-            <button
-              style={{
-                display: "flex", alignItems: "center", gap: 6,
-                height: 36, padding: "0 14px", borderRadius: 9,
-                border: "1px solid rgba(255,255,255,0.08)",
-                background: "rgba(255,255,255,0.04)",
-                color: "rgba(255,255,255,0.45)",
-                fontSize: 12, fontWeight: 500,
-                cursor: "pointer", transition: "all 0.2s",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(255,255,255,0.45)"; }}
-            >
-              <X style={{ width: 12, height: 12 }} strokeWidth={2} />
-              Leave
-            </button>
-          </Link>
+          {/* Clear transcript */}
+          <button
+            onClick={() => {
+              stopAudio();
+              sessionStorage.removeItem(CONFERENCE_STORAGE_KEY);
+              const fresh: TranscriptEntry = {
+                id: `opening-${Date.now()}`,
+                role: "aera", agentId: "aera",
+                text: "Room cleared — fresh start. What do you want to work on?",
+                timestamp: new Date(),
+              };
+              setTranscript([fresh]);
+            }}
+            style={{
+              height: 36, padding: "0 12px", borderRadius: 9,
+              border: "1px solid rgba(255,255,255,0.07)",
+              background: "transparent",
+              color: "rgba(255,255,255,0.28)",
+              fontSize: 11, fontWeight: 500, cursor: "pointer", transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.5)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.28)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; }}
+          >
+            Clear
+          </button>
+
+          {/* Leave — stop audio before navigating */}
+          <button
+            onClick={() => { stopAudio(); router.push("/dashboard"); }}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              height: 36, padding: "0 14px", borderRadius: 9,
+              border: "1px solid rgba(255,255,255,0.08)",
+              background: "rgba(255,255,255,0.04)",
+              color: "rgba(255,255,255,0.45)",
+              fontSize: 12, fontWeight: 500,
+              cursor: "pointer", transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(255,255,255,0.45)"; }}
+          >
+            <X style={{ width: 12, height: 12 }} strokeWidth={2} />
+            Leave
+          </button>
         </div>
       </div>
 
@@ -733,7 +791,7 @@ export default function ConferencePage() {
               }}
               title="Stop speaking"
             >
-              <Users style={{ width: 16, height: 16 }} strokeWidth={1.6} />
+              <VolumeX style={{ width: 16, height: 16 }} strokeWidth={1.6} />
             </button>
           )}
         </div>
