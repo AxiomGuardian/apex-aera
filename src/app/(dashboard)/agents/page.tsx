@@ -23,7 +23,59 @@ const AGENT_STATUS: Record<AgentId, { label: string; pulse: boolean }> = {
   sophia:    { label: "Active",   pulse: true  },
   julian:    { label: "Active",   pulse: true  },
   charlotte: { label: "Active",   pulse: true  },
-  victor:    { label: "Standby",  pulse: false },
+  victor:    { label: "Active",   pulse: true  },
+};
+
+/* ─── Live activity — what each agent is working on right now ─── */
+const AGENT_ACTIVITY: Record<AgentId, {
+  action: string;        // Short verb phrase
+  detail: string;        // Specifics — real numbers, campaign names
+  metric?: string;       // Optional live metric
+  metricLabel?: string;
+  updatedAgo: string;
+}> = {
+  aera: {
+    action:      "Monitoring brand signals",
+    detail:      "Q2 Video ROAS spike at 11.4× — flagged for retargeting expansion",
+    metric:      "11.4×",
+    metricLabel: "Video ROAS",
+    updatedAgo:  "Live",
+  },
+  marcus: {
+    action:      "Optimizing Meta bid strategy",
+    detail:      "Shifting to 28-day attribution window — projected +1.2× ROAS lift",
+    metric:      "+1.2×",
+    metricLabel: "Projected lift",
+    updatedAgo:  "2 min ago",
+  },
+  sophia: {
+    action:      "Running creative QA review",
+    detail:      "2 retargeting assets flagged for tone misalignment with hero video",
+    metric:      "94%",
+    metricLabel: "Brand score",
+    updatedAgo:  "12 min ago",
+  },
+  julian: {
+    action:      "Sequencing Email Phase 2",
+    detail:      "7-touch nurture sequence — Thursday launch confirmed, all assets locked",
+    metric:      "Thu",
+    metricLabel: "Launch",
+    updatedAgo:  "1 hr ago",
+  },
+  charlotte: {
+    action:      "Drafting Q2 executive brief",
+    detail:      "8-page portfolio summary — delivery scheduled for Friday 9am",
+    metric:      "48h",
+    metricLabel: "Delivery",
+    updatedAgo:  "3 hr ago",
+  },
+  victor: {
+    action:      "Reconciling attribution model",
+    detail:      "Cross-channel data sync — Meta → GA4 → APEX pipeline validated",
+    metric:      "99.8%",
+    metricLabel: "Data accuracy",
+    updatedAgo:  "6 hr ago",
+  },
 };
 
 function AgentCard({
@@ -40,7 +92,8 @@ function AgentCard({
   index: number;
 }) {
   const [hovered, setHovered] = useState(false);
-  const status = AGENT_STATUS[agent.id];
+  const status   = AGENT_STATUS[agent.id];
+  const activity = AGENT_ACTIVITY[agent.id];
   const WorkflowIcon = WORKFLOW_ICONS[agent.workflow] ?? Bot;
   const isAera = agent.id === "aera";
 
@@ -176,10 +229,69 @@ function AgentCard({
       {/* Description */}
       <p style={{
         fontSize: 12, color: "var(--text-5)", lineHeight: 1.7,
-        letterSpacing: "0.005em", flex: 1,
+        letterSpacing: "0.005em",
       }}>
         {agent.description}
       </p>
+
+      {/* ── Live Activity ── */}
+      <div style={{
+        marginTop: 14,
+        padding: "12px 14px",
+        borderRadius: 10,
+        background: hovered || isSelected
+          ? `rgba(${hexToRgb(agent.color)}, 0.05)`
+          : "var(--surface-2)",
+        border: `1px solid ${hovered || isSelected
+          ? `rgba(${hexToRgb(agent.color)}, 0.14)`
+          : "var(--border)"}`,
+        transition: "all 0.25s",
+      }}>
+        {/* Header row */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            {/* Live pulse */}
+            <span style={{
+              width: 5, height: 5, borderRadius: "50%",
+              background: status.pulse ? "#22c55e" : "var(--text-6)",
+              boxShadow: status.pulse ? "0 0 4px rgba(34,197,94,0.6)" : "none",
+              flexShrink: 0,
+              display: "block",
+            }} />
+            <span style={{
+              fontSize: 8.5, fontWeight: 700, letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: hovered || isSelected ? agent.color : "var(--text-5)",
+              transition: "color 0.25s",
+            }}>
+              {activity.action}
+            </span>
+          </div>
+          <span style={{ fontSize: 8, color: "var(--text-6)", letterSpacing: "0.04em" }}>
+            {activity.updatedAgo}
+          </span>
+        </div>
+
+        <p style={{ fontSize: 11, color: "var(--text-5)", lineHeight: 1.6, letterSpacing: "0.005em" }}>
+          {activity.detail}
+        </p>
+
+        {/* Metric badge */}
+        {activity.metric && (
+          <div style={{ marginTop: 8, display: "flex", alignItems: "baseline", gap: 5 }}>
+            <span style={{
+              fontSize: 16, fontWeight: 800, letterSpacing: "-0.04em",
+              color: agent.color,
+              fontFeatureSettings: '"tnum"',
+            }}>
+              {activity.metric}
+            </span>
+            <span style={{ fontSize: 9.5, color: "var(--text-6)", letterSpacing: "0.03em" }}>
+              {activity.metricLabel}
+            </span>
+          </div>
+        )}
+      </div>
 
       {/* Specialty tags */}
       <div className="flex flex-wrap gap-1.5 mt-4 mb-5">

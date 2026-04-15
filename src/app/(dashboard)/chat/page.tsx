@@ -302,7 +302,7 @@ export default function ChatPage() {
       <div className="force-dark" style={{ flex: 1, display: "flex", borderRadius: 18, border: "1px solid rgba(45,212,255,0.10)", overflow: "hidden", background: "#0a0a0e", boxShadow: "var(--shadow-card)", minHeight: 0 }}>
 
         {/* ── Left: orb + identity — always dark regardless of theme ── */}
-        <div className="hidden md:flex force-dark" style={{ width: 270, minWidth: 270, borderRight: "1px solid rgba(255,255,255,0.05)", flexDirection: "column", alignItems: "center", padding: "36px 20px 24px", background: "#0a0a0c", position: "relative" }}>
+        <div className="hidden md:flex force-dark" style={{ width: 260, minWidth: 260, borderRight: "1px solid rgba(255,255,255,0.05)", flexDirection: "column", alignItems: "center", padding: "22px 16px 16px", background: "#0a0a0c", position: "relative" }}>
           {/* Deep radial glow behind orb */}
           <div style={{ position: "absolute", width: 320, height: 320, borderRadius: "50%", background: "radial-gradient(circle, rgba(45,212,255,0.07) 0%, transparent 65%)", top: -20, left: "50%", transform: "translateX(-50%)", pointerEvents: "none", zIndex: 1 }} />
           {/* Outer breathing ring */}
@@ -312,7 +312,7 @@ export default function ChatPage() {
           {/* Content layer — scrollable so all controls are reachable on smaller screens */}
           <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", width: "100%", flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden" }}>
 
-          <AERAOrb size={176} orbState={orbState} />
+          <AERAOrb size={148} orbState={orbState} />
 
           {/* State bar — animated full-width color strip */}
           <div style={{ width: 72, marginTop: 18, marginBottom: 6 }}>
@@ -338,12 +338,13 @@ export default function ChatPage() {
           </div>
 
           {/* ── Thread sidebar ── */}
-          <div style={{ flex: 1, width: "100%", marginTop: 20, overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
+          {/* minHeight ensures the "New Chat" / "New Folder" buttons are always visible */}
+          <div style={{ flex: 1, width: "100%", marginTop: 16, display: "flex", flexDirection: "column", minHeight: "min(120px, 18vh)", flexShrink: 0 }}>
             <ThreadSidebar />
           </div>
 
           {/* Metrics */}
-          <div style={{ width: "100%", marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ width: "100%", marginTop: 14, display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
             {/* Label */}
             <p style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-6)", marginBottom: 2 }}>Campaign Pulse</p>
 
@@ -352,7 +353,7 @@ export default function ChatPage() {
               { label: "Brand Score", value: memory.campaignStats.brandScore,       icon: "⭐" },
               { label: "Velocity",    value: memory.campaignStats.velocity,         icon: "🚀" },
             ].map((stat) => (
-              <div key={stat.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "11px 14px", borderRadius: 11, background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 1px 4px rgba(0,0,0,0.20)" }}>
+              <div key={stat.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderRadius: 9, background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 1px 4px rgba(0,0,0,0.20)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 13, lineHeight: 1 }}>{stat.icon}</span>
                   <span style={{ fontSize: 11.5, fontWeight: 500, color: "var(--text-4)" }}>{stat.label}</span>
@@ -362,7 +363,7 @@ export default function ChatPage() {
             ))}
 
             {/* ── Voice Profile picker ── */}
-            <div style={{ marginTop: 14 }}>
+            <div style={{ marginTop: 12, flexShrink: 0 }}>
               <p style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-6)", marginBottom: 8 }}>Voice</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                 {AGENT_DISPLAY_ORDER.map((id: AgentId) => {
@@ -378,8 +379,8 @@ export default function ChatPage() {
                       key={id}
                       onClick={() => setSelectedAgent(id)}
                       style={{
-                        display: "flex", alignItems: "center", gap: 8,
-                        padding: "8px 10px", borderRadius: 9,
+                        display: "flex", alignItems: "center", gap: 7,
+                        padding: "6px 9px", borderRadius: 8,
                         border: `1px solid ${isActive ? `rgba(${hexToRgb(a.color)}, 0.28)` : "var(--border)"}`,
                         background: isActive ? `rgba(${hexToRgb(a.color)}, 0.07)` : "transparent",
                         cursor: "pointer", width: "100%", textAlign: "left",

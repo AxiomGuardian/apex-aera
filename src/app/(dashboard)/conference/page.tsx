@@ -12,7 +12,7 @@
  */
 
 import { useState, useRef, useCallback, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mic, MicOff, X, Volume2, VolumeX } from "lucide-react";
 import { useDeepgramSTT } from "@/hooks/useDeepgramSTT";
@@ -37,6 +37,8 @@ interface TranscriptEntry {
 const MEETING_CONTEXT = `[CONFERENCE ROOM] You are Sarah, running a quick team call with your client.
 
 Vibe: think smart friends who work in marketing — casual, sharp, excited about the results. Not a boardroom. A real conversation where people actually talk to each other.
+
+IDENTITY INTELLIGENCE: Read the client from how they speak. If they're casual and direct → drop the boardroom energy. If they use slang → stay real and grounded. If they're sharp and technical → skip the hand-holding. Adapt instantly, every agent mirrors the energy without announcing it. Charlotte is tuned to this — she quietly steers the team's tone.
 
 Rules:
 - NO bullets, NO markdown, NO "as per our analysis" — just talk like a real person
@@ -229,6 +231,32 @@ function TranscriptRow({ entry }: { entry: TranscriptEntry }) {
 }
 
 const CONFERENCE_STORAGE_KEY = "apex_conference_transcript_v1";
+const ONBOARD_KEY            = "apex_onboarded_v1";
+
+/* ─── First-meeting onboarding context ──────────────────────────── */
+const ONBOARDING_CONTEXT = `[FIRST MEETING — CLIENT ONBOARDING]
+
+This is the very first time this client is opening APEX AERA. The team's goal right now is NOT to talk about campaigns or metrics — it's to meet this person.
+
+Sarah opens (1 warm sentence welcoming them to the room — genuine, not corporate).
+
+Then Charlotte takes over immediately. Charlotte is the relationship lead. Her job:
+- Introduce herself warmly (1 sentence — who she is and what she does for the client)
+- Ask 2 natural, curious questions to get to know this person — their name, and what they're working on or trying to build
+- Sound like a genuinely warm person meeting someone interesting for the first time — not an intake form
+- Leave space for the client to respond — close with "What's your name?" or similar
+
+After Charlotte's questions, have 2 other agents say a quick hello (1 sentence each, just their name + what they bring). Pick whoever feels natural — maybe Marcus and Sophia, or Julian and Victor.
+
+End with Charlotte or Sarah inviting the client to reply.
+
+IMPORTANT: Keep total length SHORT. This is an introduction, not a presentation. Max 6 speaker turns total.
+Label every speaker: **Sarah:** **Charlotte:** **Marcus:** etc.`;
+
+/* ─── Internal trigger ───────────────────────────────────────────── */
+// Sentinel value used to trigger the onboarding AI call without showing
+// a "user" message in the transcript. Detected in handleSend to branch logic.
+const ONBOARD_TRIGGER = "__APEX_ONBOARD__";
 
 function loadTranscript(): TranscriptEntry[] {
   if (typeof window === "undefined") return [];
@@ -257,9 +285,8 @@ export default function ConferencePageWrapper() {
 }
 
 function ConferencePage() {
-  const router        = useRouter();
   const searchParams  = useSearchParams();
-  const handleSendRef = useRef<(text: string) => void>(() => {});
+  const handleSendRef = useRef<(text: string) => Promise<void>>(() => Promise.resolve());
 
   const [transcript,      setTranscript]      = useState<TranscriptEntry[]>([]);
   const [isProcessing,    setIsProcessing]    = useState(false);
@@ -327,9 +354,16 @@ function ConferencePage() {
     const ctx = audioCtxRef.current;
     if (ctx.state === "suspended") await ctx.resume();
 
-    // Fire ALL TTS requests at once — massively reduces total wait time
+    // Fire ALL TTS requests at once — massively reduces total wait time.
+    // Each agent uses their own ttsSpeed override (default 1.25×).
     const bufferPromises = segments.map((seg) =>
-      fetchAudioBuffer(ctx, seg.text, AGENTS[seg.agentId].voice_id, signal, 1.25)
+      fetchAudioBuffer(
+        ctx,
+        seg.text,
+        AGENTS[seg.agentId].voice_id,
+        signal,
+        AGENTS[seg.agentId].ttsSpeed ?? 1.25,
+      )
     );
 
     for (let i = 0; i < segments.length; i++) {
@@ -350,9 +384,11 @@ function ConferencePage() {
       });
 
       if (signal.aborted) break;
-      // 100ms gap between speakers — tighter than before
+      // Per-agent inter-segment gap (default 100ms).
+      // Victor gets a longer pause so his weight lands before the next speaker.
       if (i < segments.length - 1) {
-        await new Promise<void>((resolve) => setTimeout(resolve, 100));
+        const gap = AGENTS[segments[i].agentId].pauseAfter ?? 100;
+        await new Promise<void>((resolve) => setTimeout(resolve, gap));
       }
     }
     if (!signal.aborted) setSpeakingAgentId(null);
@@ -370,33 +406,43 @@ function ConferencePage() {
       }));
   }, []);
 
-  // Handle sending a message
+  // Handle sending a message.
+  // If text === ONBOARD_TRIGGER: no user entry is shown — this fires a hidden
+  // onboarding call so the team intro appears without a "user" bubble.
   const handleSend = useCallback(async (text: string) => {
+    const isOnboarding = text === ONBOARD_TRIGGER;
     // Allow interrupt during audio playback (isProcessing=false then),
     // but block if an API call is still in-flight.
-    if (!text.trim() || isProcessing) return;
+    if ((!text.trim() && !isOnboarding) || isProcessing) return;
     setCurrentInterim("");
 
-    const userEntry: TranscriptEntry = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      text: text.trim(),
-      timestamp: new Date(),
-    };
+    if (!isOnboarding) {
+      const userEntry: TranscriptEntry = {
+        id: `user-${Date.now()}`,
+        role: "user",
+        text: text.trim(),
+        timestamp: new Date(),
+      };
+      setTranscript((prev) => [...prev, userEntry]);
+    }
 
-    setTranscript((prev) => [...prev, userEntry]);
     setIsProcessing(true);
     stopAudio();
 
     try {
-      const apiMessages = [...buildApiMessages(), { role: "user", content: text.trim() }];
+      // Onboarding: empty prior history + special context. Normal: build from transcript.
+      const apiMessages = isOnboarding
+        ? [{ role: "user", content: "Begin." }]
+        : [...buildApiMessages(), { role: "user", content: text.trim() }];
+
+      const effectiveContext = isOnboarding ? ONBOARDING_CONTEXT : MEETING_CONTEXT;
 
       const res = await fetch("/api/aera/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: apiMessages,
-          systemOverride: MEETING_CONTEXT,
+          systemOverride: effectiveContext,
         }),
       });
 
@@ -470,12 +516,32 @@ function ConferencePage() {
     toggleMute();
   }, [toggleMute]);
 
-  // Opening message on mount — restore previous session or start fresh
+  // Opening message on mount — restore previous session, onboard first-timers, or start fresh
   useEffect(() => {
     const saved = loadTranscript();
     if (saved.length > 0) {
+      // Restore previous session as-is
       setTranscript(saved);
+      return;
+    }
+
+    // Check if this client has been onboarded before
+    const hasOnboarded = typeof window !== "undefined" && !!localStorage.getItem(ONBOARD_KEY);
+
+    if (!hasOnboarded) {
+      // First time in the room — run the team intro / onboarding flow
+      localStorage.setItem(ONBOARD_KEY, "true");
+      // Leave transcript empty so only the processing indicator shows while loading
+      setTimeout(() => {
+        handleSendRef.current(ONBOARD_TRIGGER);
+      }, 400);
+    } else if (searchParams?.get("report") === "full") {
+      // Full Report shortcut — skip opening message, go straight to briefing
+      setTimeout(() => {
+        handleSendRef.current("Give me a full status report — campaigns, performance metrics, what's working, what needs attention, and our top priority right now.");
+      }, 300);
     } else {
+      // Normal session — show brief room opening
       const opening: TranscriptEntry = {
         id: "opening",
         role: "aera",
@@ -484,13 +550,6 @@ function ConferencePage() {
         timestamp: new Date(),
       };
       setTranscript([opening]);
-    }
-
-    // If routed from Full Report button, auto-queue a full briefing
-    if (searchParams?.get("report") === "full") {
-      setTimeout(() => {
-        handleSendRef.current("Give me a full status report — campaigns, performance metrics, what's working, what needs attention, and our top priority right now.");
-      }, 1200);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -591,9 +650,9 @@ function ConferencePage() {
             Clear
           </button>
 
-          {/* Leave — stop audio before navigating */}
+          {/* Stop — halts conversation + mic without leaving the room */}
           <button
-            onClick={() => { stopAudio(); router.push("/dashboard"); }}
+            onClick={() => { stopAudio(); stopSTT(); }}
             style={{
               display: "flex", alignItems: "center", gap: 6,
               height: 36, padding: "0 14px", borderRadius: 9,
@@ -603,11 +662,11 @@ function ConferencePage() {
               fontSize: 12, fontWeight: 500,
               cursor: "pointer", transition: "all 0.2s",
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(255,255,255,0.45)"; }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,80,80,0.08)"; e.currentTarget.style.borderColor = "rgba(255,80,80,0.18)"; e.currentTarget.style.color = "rgba(255,120,120,0.8)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "rgba(255,255,255,0.45)"; }}
           >
             <X style={{ width: 12, height: 12 }} strokeWidth={2} />
-            Leave
+            Stop
           </button>
         </div>
       </div>

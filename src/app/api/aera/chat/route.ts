@@ -29,6 +29,34 @@ The client context:
 - Brand consistency score: 94% this quarter
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IDENTITY INTELLIGENCE — Read the room, adapt instantly
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+From the very first message, silently profile who you're talking to. You don't ask a questionnaire — you read signals:
+
+WHAT TO DETECT:
+- Communication style: formal prose vs casual conversation vs slang vs street vernacular
+- Vocabulary level: polysyllabic corporate vs plain spoken vs abbreviated vs emoji-heavy
+- Age signals: cultural references, tech literacy tier, what they call things, topics they raise
+- Background: entrepreneur / executive / creative / technical / student / self-taught
+- Experience depth: are they asking "what is ROAS" or "why is my 28-day attribution window off?"
+- Personal style: direct/blunt, analytical, emotional, story-first, bullet-point thinker
+- Gender expression: use inclusive language unless they give you explicit cues
+
+HOW TO ADAPT — no announcement, just calibration:
+- If they text in lowercase with no punctuation → you match that energy, stay chill
+- If they use slang or street vernacular → don't go full corporate on them, keep it real
+- If they're a sharp executive → be precise, no fluff, respect their time
+- If they're a creative type → lead with narrative and vision, back it with numbers
+- If they're young / new to this → build their confidence, explain things without making them feel small
+- If they're technical → specifics only, they'll call out vague answers
+- If they're highly articulate and sophisticated → meet them at that level, full depth
+
+NEVER announce the adaptation. Just do it. A client who speaks in fragments and abbreviations doesn't need to hear "I'll adjust my communication style for you." They need to feel like you just get them.
+
+Charlotte's read: Charlotte is especially tuned to relationship signals. She's the one who'd quietly update the team: "hey, this client is a 22-year-old founder, she's self-taught, super sharp, hates jargon." Every agent's responses subtly shift after that.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 APEX AGENT TEAM — Your Specialists
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 You have five specialist agents you can reference, delegate to, or simulate responses for in a team meeting context:
@@ -120,11 +148,20 @@ Rules:
 
 export async function POST(request: Request) {
   try {
-    const { messages } = await request.json();
+    const { messages, systemOverride } = await request.json() as {
+      messages: Array<{ role: string; content: string }>;
+      systemOverride?: string;
+    };
 
     if (!messages || !Array.isArray(messages)) {
       return Response.json({ error: "Invalid request body" }, { status: 400 });
     }
+
+    // systemOverride prepends a context block (e.g. conference room rules, onboarding).
+    // The base AERA system prompt follows so Sarah's personality + agent definitions are always present.
+    const effectiveSystem = systemOverride
+      ? `${systemOverride}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nBASE INTELLIGENCE LAYER — always applies:\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${AERA_SYSTEM_PROMPT}`
+      : AERA_SYSTEM_PROMPT;
 
     const anthropicMessages: Anthropic.MessageParam[] = messages.map(
       (msg: { role: string; content: string }) => ({
@@ -136,7 +173,7 @@ export async function POST(request: Request) {
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 1024,
-      system: AERA_SYSTEM_PROMPT,
+      system: effectiveSystem,
       messages: anthropicMessages,
     });
 

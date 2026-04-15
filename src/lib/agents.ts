@@ -26,6 +26,10 @@ export interface Agent {
   description: string;
   color:       string;   // accent color for UI
   initials:    string;
+  /** TTS playback speed override (default 1.25 in conference room) */
+  ttsSpeed?:   number;
+  /** Inter-segment pause after this agent finishes speaking (ms, default 100) */
+  pauseAfter?: number;
 }
 
 export const AGENTS: Record<AgentId, Agent> = {
@@ -94,6 +98,10 @@ export const AGENTS: Record<AgentId, Agent> = {
     description: "Infrastructure architect. Victor Voss builds and maintains the data systems that power AERA's intelligence — attribution pipelines, automated reporting, and the APEX analytics layer.",
     color:       "#60A5FA",
     initials:    "VV",
+    // Victor speaks more deliberately — slower speed gives him the measured, architectural
+    // pause pattern that fits his character vs. the energetic default 1.25×
+    ttsSpeed:    0.92,
+    pauseAfter:  380,  // longer gap after Victor so his weight lands before the next speaker
   },
 };
 

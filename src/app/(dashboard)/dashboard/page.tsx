@@ -130,6 +130,12 @@ function Hero({
   const sig        = SIGNAL[signal];
   const isHealthy  = signal === "healthy";
 
+  // Signal-color dot glow — used by OrbitDots
+  const dotGlow = signal === "healthy"     ? "rgba(45,212,255,0.65)"
+                : signal === "opportunity" ? "rgba(245,158,11,0.65)"
+                : signal === "caution"     ? "rgba(251,113,133,0.65)"
+                : "rgba(220,38,38,0.65)";
+
   // Ring border colors — use CSS variables so they're visible in both light and dark mode.
   // var(--border-mid) is dark on light backgrounds, faint on dark — always legible.
   // Signal-accent rings get a color overlay only when non-healthy.
@@ -234,7 +240,27 @@ function Hero({
             </svg>
           </div>
 
-          {/* OrbitDots removed — cleaner minimal hero aesthetic */}
+          {/* ── Orbiting data dots ── */}
+          {/* Primary signal dot — orbits outer ring, reacts to health level */}
+          <OrbitDot
+            orbitSize="min(186px, 48vw)"
+            duration="20s"
+            startAngle={35}
+            dotSize={3.5}
+            color={sig.color}
+            glowColor={dotGlow}
+            pulseDuration="2.6s"
+          />
+          {/* Secondary neutral dot — orbits inner ring, reverse direction */}
+          <OrbitDot
+            orbitSize="min(96px, 25vw)"
+            duration="11s"
+            reverse
+            startAngle={200}
+            dotSize={2.5}
+            color="rgba(255,255,255,0.28)"
+            glowColor="rgba(255,255,255,0.12)"
+          />
         </div>
       </div>
 

@@ -46,16 +46,17 @@ export function useDeepgramSTT({ onInterim, onAutoSend }: DeepgramSTTOptions) {
   const [isMuted,       setIsMuted]       = useState(false);
 
   // Stable refs — never cause re-renders
-  const shouldRunRef      = useRef(false);
-  const mutedRef          = useRef(false);   // sync ref so ondataavailable reads current value
-  const wsRef             = useRef<WebSocket | null>(null);
-  const recorderRef       = useRef<MediaRecorder | null>(null);
-  const streamRef         = useRef<MediaStream | null>(null);
-  const finalBufferRef    = useRef("");
-  const autoSendTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onInterimRef      = useRef(onInterim);
-  const onAutoSendRef     = useRef(onAutoSend);
+  const shouldRunRef       = useRef(false);
+  const mutedRef           = useRef(false);   // sync ref so ondataavailable reads current value
+  const wsRef              = useRef<WebSocket | null>(null);
+  const recorderRef        = useRef<MediaRecorder | null>(null);
+  const streamRef          = useRef<MediaStream | null>(null);
+  const finalBufferRef     = useRef("");
+  const autoSendTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const keepAliveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const onInterimRef       = useRef(onInterim);
+  const onAutoSendRef      = useRef(onAutoSend);
 
   // Keep callback refs current without triggering re-renders
   useEffect(() => { onInterimRef.current  = onInterim;  }, [onInterim]);
@@ -81,8 +82,31 @@ export function useDeepgramSTT({ onInterim, onAutoSend }: DeepgramSTTOptions) {
     }, AUTO_SEND_DELAY);
   }, [clearAutoSend]);
 
+  // ── KeepAlive — sends a heartbeat to Deepgram while muted ────
+  // Deepgram closes the WebSocket after ~10 s of no audio.
+  // Sending {"type":"KeepAlive"} every 5 s keeps the connection alive
+  // so unmuting is always instant — no reconnect needed.
+  const stopKeepAlive = useCallback(() => {
+    if (keepAliveIntervalRef.current) {
+      clearInterval(keepAliveIntervalRef.current);
+      keepAliveIntervalRef.current = null;
+    }
+  }, []);
+
+  const startKeepAlive = useCallback(() => {
+    stopKeepAlive();
+    keepAliveIntervalRef.current = setInterval(() => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: "KeepAlive" }));
+      }
+    }, 5000);
+  }, [stopKeepAlive]);
+
   // ── Internal teardown ─────────────────────────────────────────
   const teardown = useCallback(() => {
+    // Stop keep-alive heartbeat
+    stopKeepAlive();
+
     // Stop MediaRecorder
     try {
       recorderRef.current?.stop();
@@ -105,7 +129,7 @@ export function useDeepgramSTT({ onInterim, onAutoSend }: DeepgramSTTOptions) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
     }
-  }, [clearAutoSend]);
+  }, [clearAutoSend, stopKeepAlive]);
 
   // ── Core: open WebSocket + start microphone ───────────────────
   const connect = useCallback(async () => {
@@ -313,11 +337,12 @@ export function useDeepgramSTT({ onInterim, onAutoSend }: DeepgramSTTOptions) {
     mutedRef.current     = false;
     finalBufferRef.current = "";
     clearAutoSend();
+    stopKeepAlive();
     teardown();
     setIsListening(false);
     setIsConnecting(false);
     setIsMuted(false);
-  }, [clearAutoSend, teardown]);
+  }, [clearAutoSend, stopKeepAlive, teardown]);
 
   const cancelAutoSend = useCallback(() => {
     clearAutoSend();
@@ -326,20 +351,38 @@ export function useDeepgramSTT({ onInterim, onAutoSend }: DeepgramSTTOptions) {
   // ── Mute / unmute ─────────────────────────────────────────────
   // Muting stops audio chunks from reaching Deepgram but keeps the WebSocket
   // open — unmuting is instant with no reconnect delay.
-  // Muting also clears any pending auto-send so a partial transcript
-  // in the buffer isn't accidentally sent while the mic is silenced.
+  // While muted, we send KeepAlive heartbeats every 5 s so Deepgram
+  // doesn't close the connection due to silence timeout (~10 s).
+  // On unmute, if the WebSocket somehow closed anyway, we reconnect
+  // immediately so the user never notices.
   const mute = useCallback(() => {
     mutedRef.current = true;
     setIsMuted(true);
     clearAutoSend();
     finalBufferRef.current = "";    // discard any partial buffer
     onInterimRef.current("");       // clear interim display
-  }, [clearAutoSend]);
+    startKeepAlive();               // prevent Deepgram timeout during mute
+  }, [clearAutoSend, startKeepAlive]);
 
   const unmute = useCallback(() => {
     mutedRef.current = false;
     setIsMuted(false);
-  }, []);
+    stopKeepAlive();
+
+    // Reconnect if WebSocket closed while we were muted
+    if (shouldRunRef.current) {
+      const wsState = wsRef.current?.readyState;
+      if (wsState === undefined || wsState === WebSocket.CLOSED || wsState === WebSocket.CLOSING) {
+        setIsConnecting(true);
+        setIsListening(false);
+        // Cleanup stale references before reconnecting
+        try { wsRef.current?.close(); } catch { /* ignore */ }
+        wsRef.current = null;
+        if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = setTimeout(connect, 100);
+      }
+    }
+  }, [stopKeepAlive, connect]);
 
   const toggleMute = useCallback(() => {
     if (mutedRef.current) unmute();
