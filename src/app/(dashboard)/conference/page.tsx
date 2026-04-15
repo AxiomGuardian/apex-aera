@@ -147,7 +147,7 @@ function AgentAvatar({
 }
 
 /* ─── Transcript message row ─────────────────────────────────────── */
-function TranscriptRow({ entry }: { entry: TranscriptEntry }) {
+function TranscriptRow({ entry, isSpeaking = false }: { entry: TranscriptEntry; isSpeaking?: boolean }) {
   const isUser = entry.role === "user";
 
   if (isUser) {
@@ -156,6 +156,7 @@ function TranscriptRow({ entry }: { entry: TranscriptEntry }) {
         display: "flex", justifyContent: "flex-end",
         marginBottom: 20,
         opacity: entry.interim ? 0.5 : 1,
+        animation: entry.interim ? undefined : "fadeSlideIn 0.35s ease-out forwards",
         transition: "opacity 0.2s",
       }}>
         <div style={{
@@ -189,39 +190,88 @@ function TranscriptRow({ entry }: { entry: TranscriptEntry }) {
   const rgb = hexToRgb(agent.color);
 
   return (
-    <div style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "flex-start" }}>
-      {/* Agent avatar mini */}
-      <div style={{
-        width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
-        background: `rgba(${rgb}, 0.12)`,
-        border: `1px solid rgba(${rgb}, 0.22)`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        marginTop: 2,
-      }}>
-        <span style={{ fontSize: 9, fontWeight: 800, color: agent.color }}>
-          {agent.initials}
-        </span>
+    <div style={{
+      display: "flex", gap: 12, marginBottom: 20, alignItems: "flex-start",
+      // Smooth fade-slide in when the entry first appears
+      animation: "fadeSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+      // Speaking: left accent bar + subtle bg tint
+      borderLeft: isSpeaking
+        ? `2px solid ${agent.color}`
+        : "2px solid transparent",
+      paddingLeft: isSpeaking ? 14 : 0,
+      marginLeft: isSpeaking ? -16 : 0,
+      borderRadius: isSpeaking ? "0 10px 10px 0" : 0,
+      background: isSpeaking ? `rgba(${rgb}, 0.05)` : "transparent",
+      padding: isSpeaking ? "10px 10px 10px 14px" : "0",
+      transition: "border-color 0.3s, background 0.4s, padding 0.3s, margin 0.3s",
+    }}>
+      {/* Agent avatar mini — glows when speaking */}
+      <div style={{ position: "relative", flexShrink: 0 }}>
+        {isSpeaking && (
+          /* Pulsing ring around avatar while speaking */
+          <div style={{
+            position: "absolute", inset: -4,
+            borderRadius: "50%",
+            border: `1.5px solid ${agent.color}`,
+            boxShadow: `0 0 10px rgba(${rgb}, 0.45)`,
+            animation: "speakingRing 1.1s ease-in-out infinite",
+            pointerEvents: "none",
+          }} />
+        )}
+        <div style={{
+          width: 32, height: 32, borderRadius: "50%",
+          background: isSpeaking ? `rgba(${rgb}, 0.18)` : `rgba(${rgb}, 0.10)`,
+          border: `1.5px solid ${isSpeaking ? agent.color : `rgba(${rgb}, 0.22)`}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          marginTop: 2,
+          transition: "all 0.3s",
+          boxShadow: isSpeaking ? `0 0 12px rgba(${rgb}, 0.30)` : "none",
+        }}>
+          <span style={{
+            fontSize: 9, fontWeight: 800,
+            color: isSpeaking ? agent.color : `rgba(${rgb}, 0.7)`,
+            transition: "color 0.3s",
+          }}>
+            {agent.initials}
+          </span>
+        </div>
       </div>
 
       <div style={{ flex: 1 }}>
-        <p style={{
-          fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
-          color: agent.color, textTransform: "uppercase", marginBottom: 6,
-        }}>
-          {agent.name}
-          {agentId === "aera" && (
-            <span style={{
-              marginLeft: 6, fontSize: 8, fontWeight: 500,
-              color: "rgba(45,212,255,0.5)", letterSpacing: "0.04em",
-              textTransform: "none",
-            }}>
-              · Chair
-            </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+          <p style={{
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+            color: isSpeaking ? agent.color : `rgba(${rgb}, 0.7)`,
+            textTransform: "uppercase",
+            transition: "color 0.3s",
+          }}>
+            {agent.name}
+            {agentId === "aera" && (
+              <span style={{
+                marginLeft: 6, fontSize: 8, fontWeight: 500,
+                color: "rgba(45,212,255,0.5)", letterSpacing: "0.04em",
+                textTransform: "none",
+              }}>
+                · Chair
+              </span>
+            )}
+          </p>
+          {/* Live speaking dot */}
+          {isSpeaking && (
+            <div style={{
+              width: 5, height: 5, borderRadius: "50%",
+              background: agent.color,
+              boxShadow: `0 0 6px ${agent.color}`,
+              animation: "breathe 0.9s ease-in-out infinite",
+              flexShrink: 0,
+            }} />
           )}
-        </p>
+        </div>
         <p style={{
-          fontSize: 14, color: "rgba(255,255,255,0.80)",
+          fontSize: 14,
+          color: isSpeaking ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.78)",
           lineHeight: 1.7, letterSpacing: "-0.005em",
+          transition: "color 0.3s",
         }}>
           {entry.text}
         </p>
@@ -344,7 +394,15 @@ function ConferencePage() {
 
   // Play segments sequentially — all TTS fetches start in parallel so
   // each agent's audio is ready by the time the previous one finishes.
-  const playSegments = useCallback(async (segments: AgentSegment[], signal: AbortSignal) => {
+  //
+  // SEQUENTIAL REVEAL: entries are added to the transcript one-by-one,
+  // each revealed just as that agent's audio begins playing. This creates
+  // the "one speaker at a time" effect instead of everything popping in at once.
+  const playSegments = useCallback(async (
+    segments: AgentSegment[],
+    entries: TranscriptEntry[],
+    signal: AbortSignal,
+  ) => {
     if (!audioEnabled) return;
 
     // Ensure AudioContext exists and is running
@@ -367,6 +425,22 @@ function ConferencePage() {
     );
 
     for (let i = 0; i < segments.length; i++) {
+      if (signal.aborted) break;
+
+      // ── Reveal this agent's transcript entry as they begin to speak ──
+      // Small stagger before first entry so the processing indicator fades
+      // before the first message slides in.
+      if (i === 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 120));
+      }
+      if (signal.aborted) break;
+
+      // Add this entry to the transcript (triggers fadeSlideIn animation)
+      setTranscript((prev) => [...prev, entries[i]]);
+
+      // Short pause so the text appears just before audio starts —
+      // gives the user a beat to read who's speaking before they hear it
+      await new Promise<void>((resolve) => setTimeout(resolve, 80));
       if (signal.aborted) break;
 
       setSpeakingAgentId(segments[i].agentId);
@@ -453,26 +527,25 @@ function ConferencePage() {
       // Parse into per-agent segments
       const segments = parseAgentSegments(responseText);
 
-      // Add each segment to transcript
+      // Build per-segment transcript entries — revealed one-by-one in playSegments
+      const ts = Date.now();
       const newEntries: TranscriptEntry[] = segments.map((seg, i) => ({
-        id: `agent-${Date.now()}-${i}`,
+        id: `agent-${ts}-${i}`,
         role: seg.agentId as TranscriptRole,
         agentId: seg.agentId,
         text: seg.text,
         timestamp: new Date(),
       }));
 
-      setTranscript((prev) => [...prev, ...newEntries]);
-
       // ── Interrupt fix: mark API call done BEFORE audio starts ──
       // This lets onAutoSend fire a new handleSend (which calls stopAudio)
       // while agents are still speaking — enabling true voice interrupts.
       setIsProcessing(false);
 
-      // Play sequentially with per-agent voices
+      // Play sequentially — each entry is added to transcript as its audio begins
       const controller = new AbortController();
       abortRef.current = controller;
-      await playSegments(segments, controller.signal);
+      await playSegments(segments, newEntries, controller.signal);
 
     } catch (err) {
       console.error("[Conference] error:", err);
@@ -698,9 +771,21 @@ function ConferencePage() {
           position: "relative",
         }}
       >
-        {transcript.map((entry) => (
-          <TranscriptRow key={entry.id} entry={entry} />
-        ))}
+        {(() => {
+          // Find the ID of the most recently added entry for the speaking agent.
+          // Since entries are revealed one-by-one as audio plays, this is always
+          // the entry currently being spoken — only that row gets the glow.
+          const speakingEntryId = speakingAgentId
+            ? [...transcript].reverse().find((e) => e.agentId === speakingAgentId)?.id
+            : undefined;
+          return transcript.map((entry) => (
+            <TranscriptRow
+              key={entry.id}
+              entry={entry}
+              isSpeaking={entry.id === speakingEntryId}
+            />
+          ));
+        })()}
 
         {/* Interim text */}
         {currentInterim && (
