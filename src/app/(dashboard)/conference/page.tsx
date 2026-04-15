@@ -640,16 +640,31 @@ function ConferencePage() {
     }
   }, [audioEnabled]);
 
-  // Build conversation history for API
+  // Build conversation history for API.
+  //
+  // CRITICAL: multiple agent entries from the same turn (Sarah, Charlotte, Marcus)
+  // each have role "aera" — sending them consecutively causes a 400 from Anthropic
+  // because the API requires strictly alternating user/assistant turns.
+  // Fix: merge consecutive same-role entries into a single message.
   const buildApiMessages = useCallback(() => {
-    return transcriptRef.current
+    const raw = transcriptRef.current
       .filter((e) => !e.interim)
       .map((e) => ({
         role: e.role === "user" ? "user" : "aera",
-        content: e.role === "user"
-          ? e.text
-          : e.text, // agent text goes as "aera" (assistant) role
+        content: e.text,
       }));
+
+    // Merge consecutive same-role messages
+    const merged: Array<{ role: string; content: string }> = [];
+    for (const msg of raw) {
+      const last = merged[merged.length - 1];
+      if (last && last.role === msg.role) {
+        last.content += " " + msg.content;
+      } else {
+        merged.push({ role: msg.role, content: msg.content });
+      }
+    }
+    return merged;
   }, []);
 
   // Handle sending a message.
@@ -720,12 +735,15 @@ function ConferencePage() {
       await playSegments(segments, newEntries, controller.signal);
 
     } catch (err) {
-      console.error("[Conference] error:", err);
+      console.error("[Conference] handleSend error:", err);
+      // Show the actual error message in dev so issues are surfaced clearly
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error("[Conference] detail:", errMsg);
       const fallback: TranscriptEntry = {
         id: `err-${Date.now()}`,
         role: "aera",
         agentId: "aera",
-        text: "Connection briefly interrupted. I'm still here — go ahead.",
+        text: "Hey — hit a small snag on my end. Go ahead and repeat that.",
         timestamp: new Date(),
       };
       setTranscript((prev) => [...prev, fallback]);
