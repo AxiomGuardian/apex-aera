@@ -18,15 +18,16 @@ import {
   LogOut,
   Settings,
   ChevronDown,
+  Bot,
 } from "lucide-react";
 
 const navItems = [
   { label: "Dashboard",         href: "/dashboard", icon: LayoutDashboard },
   { label: "AERA Intelligence", href: "/chat",       icon: BrainCircuit   },
+  { label: "Agents",            href: "/agents",     icon: Bot            },
   { label: "Campaigns",         href: "/campaigns",  icon: Rocket         },
   { label: "Deliverables",      href: "/history",    icon: FolderOpen     },
   { label: "Contact APEX",      href: "/contact",    icon: MessageSquare  },
-  { label: "Account",           href: "/account",    icon: UserCircle     },
 ];
 
 export function TopNav() {

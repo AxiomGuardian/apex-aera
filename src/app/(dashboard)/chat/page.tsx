@@ -2,7 +2,9 @@
 
 import { useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, MicOff, PanelRightOpen, Volume2, VolumeX, Radio, ArrowUp } from "lucide-react";
+import { Mic, MicOff, PanelRightOpen, Volume2, VolumeX, Radio, ArrowUp, ChevronDown } from "lucide-react";
+import { AGENTS, AGENT_DISPLAY_ORDER } from "@/lib/agents";
+import type { AgentId } from "@/lib/agents";
 import { useAERA } from "@/context/AERAContext";
 import { useClientMemory } from "@/context/ClientMemory";
 import { AERAOrb } from "@/components/chat/AERAOrb";
@@ -62,7 +64,8 @@ export default function ChatPage() {
     unlockAudio, ttsSpeed, setTtsSpeed,
     voiceMode, toggleVoiceMode,
   } = useAERA();
-  const { memory, resetMemory } = useClientMemory();
+  const { memory, resetMemory, setSelectedAgent } = useClientMemory();
+  const selectedAgentId = memory.selectedAgentId;
   const { send: sfxSend, receive: sfxReceive } = useSoundFX();
 
   const [input,       setInput]       = useState("");
@@ -402,6 +405,58 @@ export default function ChatPage() {
                 <span suppressHydrationWarning style={{ fontSize: 13, fontWeight: 700, color: "var(--cyan)", letterSpacing: "-0.02em", fontFeatureSettings: '"tnum"' }}>{stat.value}</span>
               </div>
             ))}
+
+            {/* ── Voice Profile picker ── */}
+            <div style={{ marginTop: 14 }}>
+              <p style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-6)", marginBottom: 8 }}>Voice</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                {AGENT_DISPLAY_ORDER.map((id: AgentId) => {
+                  const a = AGENTS[id];
+                  const isActive = selectedAgentId === id;
+                  function hexToRgb(hex: string): string {
+                    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                    if (!result) return "45,212,255";
+                    return `${parseInt(result[1], 16)},${parseInt(result[2], 16)},${parseInt(result[3], 16)}`;
+                  }
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => setSelectedAgent(id)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 8,
+                        padding: "8px 10px", borderRadius: 9,
+                        border: `1px solid ${isActive ? `rgba(${hexToRgb(a.color)}, 0.28)` : "var(--border)"}`,
+                        background: isActive ? `rgba(${hexToRgb(a.color)}, 0.07)` : "transparent",
+                        cursor: "pointer", width: "100%", textAlign: "left",
+                        transition: "all 0.15s",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) e.currentTarget.style.background = "var(--surface)";
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) e.currentTarget.style.background = "transparent";
+                      }}
+                    >
+                      <div style={{
+                        width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                        background: `rgba(${hexToRgb(a.color)}, ${isActive ? "0.14" : "0.07"})`,
+                        border: `1px solid rgba(${hexToRgb(a.color)}, 0.18)`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        <span style={{ fontSize: 7.5, fontWeight: 800, color: a.color }}>{a.initials}</span>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontSize: 10.5, fontWeight: 600, color: isActive ? a.color : "var(--text-4)", lineHeight: 1, letterSpacing: "-0.01em", transition: "color 0.15s" }}>{a.name}</p>
+                        <p style={{ fontSize: 9, color: "var(--text-6)", marginTop: 1.5 }}>{a.role}</p>
+                      </div>
+                      {isActive && (
+                        <div style={{ width: 5, height: 5, borderRadius: "50%", background: a.color, boxShadow: `0 0 4px ${a.color}88`, flexShrink: 0 }} />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             <button
               onClick={() => { resetMemory(); }}

@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>APEX Font Comparison</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&family=DM+Sans:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #09090c;
+    color: #fff;
+    font-family: 'Space Grotesk', sans-serif;
+    padding: 40px 24px;
+    min-height: 100vh;
+  }
+
+  .page-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(45,212,255,0.7);
+    margin-bottom: 8px;
+  }
+
+  .page-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 0.01em;
+    margin-bottom: 32px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .card {
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: #111115;
+    overflow: hidden;
+  }
+
+  .card.active {
+    border-color: rgba(45,212,255,0.25);
+    background: #0d0d12;
+  }
+
+  .card-header {
+    padding: 14px 20px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .font-name {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+  }
+
+  .badge {
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 20px;
+  }
+
+  .badge-current {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.40);
+  }
+
+  .badge-cyan {
+    background: rgba(45,212,255,0.10);
+    border: 1px solid rgba(45,212,255,0.22);
+    color: rgba(45,212,255,0.85);
+  }
+
+  .badge-purple {
+    background: rgba(139,92,246,0.10);
+    border: 1px solid rgba(139,92,246,0.22);
+    color: rgba(167,139,250,0.85);
+  }
+
+  .card-body {
+    padding: 22px 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  /* ── Eyebrow ── */
+  .eyebrow {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(45,212,255,0.60);
+    margin-bottom: 6px;
+  }
+
+  /* ── Page heading ── */
+  .heading-xl {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    color: #fff;
+  }
+
+  .sub {
+    font-size: 13px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.45);
+    margin-top: 8px;
+    line-height: 1.55;
+    letter-spacing: 0.005em;
+  }
+
+  /* ── KPI card ── */
+  .kpi-block {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 13px;
+    padding: 16px 18px;
+  }
+
+  .kpi-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 8px;
+  }
+
+  .kpi-value {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.045em;
+    line-height: 1;
+    color: #fff;
+  }
+
+  .kpi-delta {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(45,212,255,0.75);
+    margin-top: 5px;
+    letter-spacing: 0.02em;
+  }
+
+  /* ── Nav label ── */
+  .nav-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 12px;
+    border-radius: 9px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .nav-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: rgba(45,212,255,0.5);
+    flex-shrink: 0;
+  }
+
+  .nav-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.60);
+    letter-spacing: -0.005em;
+  }
+
+  /* ── Divider ── */
+  .divider {
+    height: 1px;
+    background: rgba(255,255,255,0.06);
+  }
+
+  /* ── Font classes ── */
+  .f-space { font-family: 'Space Grotesk', sans-serif; }
+  .f-inter  { font-family: 'Inter', sans-serif; }
+  .f-dm     { font-family: 'DM Sans', sans-serif; }
+  .f-outfit { font-family: 'Outfit', sans-serif; }
+
+  /* Bottom vote row */
+  .vote-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .vote-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 13px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: transparent;
+    color: rgba(255,255,255,0.35);
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: all 0.18s;
+    text-transform: uppercase;
+  }
+
+  .vote-btn:hover {
+    background: rgba(45,212,255,0.07);
+    border-color: rgba(45,212,255,0.22);
+    color: rgba(45,212,255,0.85);
+  }
+
+  .voted {
+    background: rgba(45,212,255,0.10) !important;
+    border-color: rgba(45,212,255,0.28) !important;
+    color: rgba(45,212,255,0.9) !important;
+  }
+</style>
+</head>
+<body>
+
+<p class="page-label">Typography Comparison</p>
+<p class="page-title">Choose a font direction for APEX — same layout, three different typefaces</p>
+
+<div class="grid">
+
+  <!-- ── A: Space Grotesk (current) ── -->
+  <div class="card">
+    <div class="card-header">
+      <span class="font-name">Space Grotesk</span>
+      <span class="badge badge-current">Current</span>
+    </div>
+    <div class="card-body f-space">
+
+      <div>
+        <p class="eyebrow f-space">Dashboard</p>
+        <h1 class="heading-xl f-space">Campaign<br/>Overview</h1>
+        <p class="sub f-space">Your brand is at peak velocity. AERA is watching every signal.</p>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="kpi-block">
+        <p class="kpi-label f-space">Content Velocity</p>
+        <p class="kpi-value f-space">4.2×</p>
+        <p class="kpi-delta f-space">↑ +18% vs baseline</p>
+      </div>
+
+      <div class="nav-row">
+        <div class="nav-item">
+          <div class="nav-dot"></div>
+          <span class="nav-text f-space">Campaigns</span>
+        </div>
+        <div class="nav-item">
+          <div class="nav-dot"></div>
+          <span class="nav-text f-space">Deliverables</span>
+        </div>
+        <div class="nav-item">
+          <div class="nav-dot"></div>
+          <span class="nav-text f-space">AERA Intelligence</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── B: Inter Black ── -->
+  <div class="card active">
+    <div class="card-header">
+      <span class="font-name">Inter</span>
+      <span class="badge badge-cyan">Recommended</span>
+    </div>
+    <div class="card-body f-inter">
+
+      <div>
+        <p class="eyebrow f-inter">Dashboard</p>
+        <h1 class="heading-xl f-inter" style="font-weight:800;">Campaign<br/>Overview</h1>
+        <p class="sub f-inter">Your brand is at peak velocity. AERA is watching every signal.</p>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="kpi-block">
+        <p class="kpi-label f-inter">Content Velocity</p>
+        <p class="kpi-value f-inter" style="font-weight:800;">4.2×</p>
+        <p class="kpi-delta f-inter">↑ +18% vs baseline</p>
+      </div>
+
+      <div class="nav-row">
+        <div class="nav-item">
+          <div class="nav-dot"></div>
+          <span class="nav-text f-inter">Campaigns</span>
+        </div>
+        <div class="nav-item">
+          <div class="nav-dot"></div>
+          <span class="nav-text f-inter">Deliverables</span>
+        </div>
+        <div class="nav-item">
+          <div class="nav-dot"></div>
+          <span class="nav-text f-inter">AERA Intelligence</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── C: Outfit ── -->
+  <div class="card">
+    <div class="card-header">
+      <span class="font-name">Outfit</span>
+      <span class="badge badge-purple">Bold Alt</span>
+    </div>
+    <div class="card-body f-outfit">
+
+      <div>
+        <p class="eyebrow f-outfit">Dashboard</p>
+        <h1 class="heading-xl f-outfit" style="font-weight:800;">Campaign<br/>Overview</h1>
+        <p class="sub f-outfit">Your brand is at peak velocity. AERA is watching every signal.</p>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="kpi-block">
+        <p class="kpi-label f-outfit">Content Velocity</p>
+        <p class="kpi-value f-outfit" style="font-weight:800;">4.2×</p>
+        <p class="kpi-delta f-outfit">↑ +18% vs baseline</p>
+      </div>
+
+      <div class="nav-row">
+        <div class="nav-item">
+          <div class="nav-dot"></div>
+          <span class="nav-text f-outfit">Campaigns</span>
+        </div>
+        <div class="nav-item">
+          <div class="nav-dot"></div>
+          <span class="nav-text f-outfit">Deliverables</span>
+        </div>
+        <div class="nav-item">
+          <div class="nav-dot"></div>
+          <span class="nav-text f-outfit">AERA Intelligence</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Vote row -->
+<div class="vote-row">
+  <button class="vote-btn" onclick="vote(this, 'A')">↑ Keep Space Grotesk</button>
+  <button class="vote-btn" onclick="vote(this, 'B')">↑ Switch to Inter</button>
+  <button class="vote-btn" onclick="vote(this, 'C')">↑ Switch to Outfit</button>
+</div>
+
+<script>
+  function vote(el, choice) {
+    document.querySelectorAll('.vote-btn').forEach(b => b.classList.remove('voted'));
+    el.classList.add('voted');
+  }
+</script>
+
+</body>
+</html>

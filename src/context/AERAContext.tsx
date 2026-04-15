@@ -6,6 +6,8 @@ import {
 } from "react";
 import { useClientMemory, extractMetricsFromText } from "./ClientMemory";
 import { useElevenLabsTTS, TTSSpeed } from "@/hooks/useElevenLabsTTS";
+import { AGENTS } from "@/lib/agents";
+import type { AgentId } from "@/lib/agents";
 
 export type ChartData = {
   type: "bar" | "line" | "radar" | "pie";
@@ -156,6 +158,8 @@ type AERAContextType = {
   voiceMode: boolean;
   toggleVoiceMode: () => void;
   clearHistory: () => void;
+  /** Currently selected agent ID — used to route voice through the right ElevenLabs voice */
+  selectedAgentId: AgentId;
   // ── Thread management ─────────────────────────────────────────
   threads: ChatThread[];
   folders: ChatFolder[];
@@ -202,7 +206,8 @@ export function AERAProvider({ children }: { children: ReactNode }) {
   } = useElevenLabsTTS();
 
   // Memory — save insights + extract metrics from every AERA response
-  const { addInsight, updateStats } = useClientMemory();
+  const { addInsight, updateStats, memory } = useClientMemory();
+  const selectedAgentId = memory.selectedAgentId;
 
   // ── Hydration-safe localStorage load ──────────────────────────
   useEffect(() => {
@@ -306,9 +311,10 @@ export function AERAProvider({ children }: { children: ReactNode }) {
       const metricUpdates = extractMetricsFromText(responseContent);
       if (Object.keys(metricUpdates).length > 0) updateStats(metricUpdates);
 
-      // Auto-TTS in voice mode — ElevenLabs Rachel voice
+      // Auto-TTS in voice mode — routes through selected agent's ElevenLabs voice
       if (voiceModeRef.current) {
-        speak(responseContent, aeraMsg.id);
+        const agentVoiceId = AGENTS[selectedAgentId]?.voice_id;
+        speak(responseContent, aeraMsg.id, agentVoiceId);
       }
     } catch {
       const fallback: Message = {
@@ -324,7 +330,10 @@ export function AERAProvider({ children }: { children: ReactNode }) {
         t.id === activeThreadRef.current ? { ...t, messages: withFallback, updatedAt: new Date().toISOString() } : t
       );
       setThreads([...threadsRef.current]);
-      if (voiceModeRef.current) speak(fallback.content, fallback.id);
+      if (voiceModeRef.current) {
+        const agentVoiceId = AGENTS[selectedAgentId]?.voice_id;
+        speak(fallback.content, fallback.id, agentVoiceId);
+      }
     } finally {
       setIsTyping(false);
     }
@@ -433,6 +442,7 @@ export function AERAProvider({ children }: { children: ReactNode }) {
       ttsSpeed, setTtsSpeed,
       voiceMode, toggleVoiceMode,
       clearHistory,
+      selectedAgentId,
       threads, folders, activeThreadId,
       createThread, createFolder, switchThread,
       renameThread, deleteThread, renameFolder, deleteFolder, moveThread,

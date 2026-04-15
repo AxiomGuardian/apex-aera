@@ -7,8 +7,11 @@ import {
   User, Users, CreditCard, Shield, MonitorSmartphone,
   FileText, MessageCircle, ChevronRight, Check, AlertTriangle,
   Download, Trash2, Bell, Globe,
-  Camera, X, Key,
+  Camera, X, Key, Mic, CheckCircle2,
 } from "lucide-react";
+import { AGENTS, AGENT_DISPLAY_ORDER } from "@/lib/agents";
+import type { AgentId } from "@/lib/agents";
+import { useClientMemory } from "@/context/ClientMemory";
 
 /* ── Tab definitions ── */
 const TABS = [
@@ -153,7 +156,108 @@ function ProfileTab() {
         <Toggle label="APEX Platform Updates"      description="New features, improvements, and strategic intelligence newsletters."        defaultOn={true} />
         <Toggle label="Billing Reminders"          description="Upcoming invoice and payment confirmation notifications."                   defaultOn={true} />
       </Card>
+
+      <VoiceProfileCard />
     </div>
+  );
+}
+
+/* ── Voice Profile selector ── */
+function VoiceProfileCard() {
+  const { memory, setSelectedAgent } = useClientMemory();
+  const selectedId = memory.selectedAgentId;
+
+  function hexToRgb(hex: string): string {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    if (!result) return "45,212,255";
+    return `${parseInt(result[1], 16)},${parseInt(result[2], 16)},${parseInt(result[3], 16)}`;
+  }
+
+  return (
+    <Card>
+      <SectionHead
+        label="AERA Voice Profile"
+        sub="Choose which agent voice speaks when AERA responds in voice mode. Takes effect immediately."
+      />
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {AGENT_DISPLAY_ORDER.map((id: AgentId) => {
+          const agent = AGENTS[id];
+          const isActive = selectedId === id;
+          return (
+            <button
+              key={id}
+              onClick={() => setSelectedAgent(id)}
+              style={{
+                display: "flex", alignItems: "center", gap: 12,
+                padding: "12px 14px", borderRadius: 10,
+                border: `1px solid ${isActive ? `rgba(${hexToRgb(agent.color)}, 0.28)` : "var(--border)"}`,
+                background: isActive ? `rgba(${hexToRgb(agent.color)}, 0.06)` : "transparent",
+                cursor: "pointer",
+                textAlign: "left",
+                transition: "all 0.18s",
+                width: "100%",
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.borderColor = "var(--border-mid)";
+                  e.currentTarget.style.background = "var(--surface-2)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.borderColor = "var(--border)";
+                  e.currentTarget.style.background = "transparent";
+                }
+              }}
+            >
+              {/* Avatar */}
+              <div style={{
+                width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+                background: isActive ? `rgba(${hexToRgb(agent.color)}, 0.12)` : "var(--surface-2)",
+                border: `1px solid ${isActive ? `rgba(${hexToRgb(agent.color)}, 0.22)` : "var(--border)"}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.18s",
+              }}>
+                <span style={{
+                  fontSize: 10, fontWeight: 800, letterSpacing: "-0.01em",
+                  color: isActive ? agent.color : "var(--text-5)",
+                  transition: "color 0.18s",
+                }}>
+                  {agent.initials}
+                </span>
+              </div>
+
+              {/* Info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{
+                  fontSize: 12, fontWeight: 600,
+                  color: isActive ? agent.color : "var(--text-2)",
+                  letterSpacing: "-0.015em", lineHeight: 1,
+                  transition: "color 0.18s",
+                }}>
+                  {agent.name}
+                </p>
+                <p style={{ fontSize: 10, color: "var(--text-6)", marginTop: 3 }}>
+                  {agent.role}
+                </p>
+              </div>
+
+              {/* Active indicator */}
+              {isActive ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                  <CheckCircle2 style={{ width: 14, height: 14, color: agent.color }} strokeWidth={2} />
+                  <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: agent.color }}>
+                    Active
+                  </span>
+                </div>
+              ) : (
+                <Mic style={{ width: 12, height: 12, color: "var(--text-6)", flexShrink: 0 }} strokeWidth={1.5} />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </Card>
   );
 }
 

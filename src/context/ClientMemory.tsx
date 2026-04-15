@@ -3,16 +3,18 @@
 /**
  * ClientMemory — Persistent localStorage memory for APEX AERA
  *
- * Stores three layers:
- *  1. brandProfile  — voice guidelines, tone, positioning
- *  2. campaignStats — live metrics (ROAS, velocity, brand score, etc.)
- *  3. recentInsights — key takeaways extracted from AERA conversations
+ * Stores four layers:
+ *  1. brandProfile    — voice guidelines, tone, positioning
+ *  2. campaignStats   — live metrics (ROAS, velocity, brand score, etc.)
+ *  3. recentInsights  — key takeaways extracted from AERA conversations
+ *  4. selectedAgentId — which agent voice is active in the chat interface
  */
 
 import {
   createContext, useContext, useState,
   useCallback, useEffect, ReactNode,
 } from "react";
+import type { AgentId } from "@/lib/agents";
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -43,17 +45,19 @@ export interface Insight {
 }
 
 interface MemoryState {
-  brandProfile:   BrandProfile;
-  campaignStats:  CampaignStats;
-  recentInsights: Insight[];   // last 20
+  brandProfile:    BrandProfile;
+  campaignStats:   CampaignStats;
+  recentInsights:  Insight[];   // last 20
+  selectedAgentId: AgentId;     // active agent voice — persisted across sessions
 }
 
 interface ClientMemoryContextType {
-  memory:       MemoryState;
-  updateStats:  (partial: Partial<CampaignStats>) => void;
-  updateBrand:  (partial: Partial<BrandProfile>) => void;
-  addInsight:   (summary: string, source?: "aera" | "user") => void;
-  resetMemory:  () => void;
+  memory:             MemoryState;
+  updateStats:        (partial: Partial<CampaignStats>) => void;
+  updateBrand:        (partial: Partial<BrandProfile>) => void;
+  addInsight:         (summary: string, source?: "aera" | "user") => void;
+  setSelectedAgent:   (id: AgentId) => void;
+  resetMemory:        () => void;
 }
 
 // ── Defaults ────────────────────────────────────────────────────
@@ -78,9 +82,10 @@ const DEFAULT_BRAND: BrandProfile = {
 };
 
 const DEFAULT_MEMORY: MemoryState = {
-  brandProfile:   DEFAULT_BRAND,
-  campaignStats:  DEFAULT_STATS,
-  recentInsights: [],
+  brandProfile:    DEFAULT_BRAND,
+  campaignStats:   DEFAULT_STATS,
+  recentInsights:  [],
+  selectedAgentId: "aera",      // default to AERA voice
 };
 
 const STORAGE_KEY = "aera_client_memory_v1";
@@ -94,9 +99,10 @@ function load(): MemoryState {
     if (!raw) return DEFAULT_MEMORY;
     const parsed = JSON.parse(raw) as Partial<MemoryState>;
     return {
-      brandProfile:   { ...DEFAULT_BRAND,  ...(parsed.brandProfile  ?? {}) },
-      campaignStats:  { ...DEFAULT_STATS,  ...(parsed.campaignStats  ?? {}) },
-      recentInsights: parsed.recentInsights ?? [],
+      brandProfile:    { ...DEFAULT_BRAND,  ...(parsed.brandProfile  ?? {}) },
+      campaignStats:   { ...DEFAULT_STATS,  ...(parsed.campaignStats  ?? {}) },
+      recentInsights:  parsed.recentInsights ?? [],
+      selectedAgentId: (parsed.selectedAgentId as AgentId) ?? "aera",
     };
   } catch { return DEFAULT_MEMORY; }
 }
@@ -154,6 +160,10 @@ export function ClientMemoryProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const setSelectedAgent = useCallback((id: AgentId) => {
+    setMemory((prev) => ({ ...prev, selectedAgentId: id }));
+  }, []);
+
   const resetMemory = useCallback(() => {
     const fresh: MemoryState = {
       ...DEFAULT_MEMORY,
@@ -164,7 +174,7 @@ export function ClientMemoryProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <ClientMemoryContext.Provider value={{ memory, updateStats, updateBrand, addInsight, resetMemory }}>
+    <ClientMemoryContext.Provider value={{ memory, updateStats, updateBrand, addInsight, setSelectedAgent, resetMemory }}>
       {children}
     </ClientMemoryContext.Provider>
   );

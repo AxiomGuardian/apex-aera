@@ -36,7 +36,9 @@ export const TTS_SPEEDS: TTSSpeed[] = [1, 1.5, 2, 2.5];
 export type ElevenLabsTTSReturn = {
   isSpeaking:         boolean;
   speakingMessageId:  string | null;
-  speak:              (text: string, id: string) => void;
+  /** speak(text, messageId, voiceId?)
+   *  voiceId defaults to AERA (Katherine) if omitted. */
+  speak:              (text: string, id: string, voiceId?: string) => void;
   stop:               () => void;
   /** Call this inside any user gesture (e.g. voice mode toggle) to unlock
    *  the AudioContext so async playback works without autoplay restrictions. */
@@ -98,7 +100,7 @@ export function useElevenLabsTTS(): ElevenLabsTTSReturn {
   }, [teardown]);
 
   // ── Public: speak ─────────────────────────────────────────────
-  const speak = useCallback((text: string, id: string) => {
+  const speak = useCallback((text: string, id: string, voiceId?: string) => {
     // ── SELF-ECHO FIX ──────────────────────────────────────────
     // Cancel any existing audio WITHOUT resetting React state first.
     // Immediately set isSpeaking=true synchronously so aeraIsBusy
@@ -112,12 +114,17 @@ export function useElevenLabsTTS(): ElevenLabsTTSReturn {
 
     const run = async () => {
       try {
+        const body: Record<string, unknown> = { text, speed: ttsSpeedRef.current };
+        // If a specific agent voice_id is provided, pass it to the TTS proxy.
+        // The server defaults to AERA (Katherine) if voice_id is omitted.
+        if (voiceId) body.voice_id = voiceId;
+
         const res = await fetch("/api/voice/tts", {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
-          // Pass speed to ElevenLabs API — pitch-preserving server-side time-stretch.
-          // Do NOT use AudioBufferSourceNode.playbackRate (that shifts pitch too).
-          body:    JSON.stringify({ text, speed: ttsSpeedRef.current }),
+          // Pass speed (and optional voice_id) to ElevenLabs API.
+          // Pitch-preserving server-side time-stretch — do NOT use playbackRate.
+          body:    JSON.stringify(body),
           signal:  controller.signal,
         });
 

@@ -23,7 +23,7 @@
  */
 
 // ── AERA Voice configuration ──────────────────────────────────────
-const AERA_VOICE_ID   = "NtS6nEHDYMQC9QczMQuq"; // Katherine — Calm, narration, English
+const AERA_VOICE_ID   = "NtS6nEHDYMQC9QczMQuq"; // Katherine — Calm, narration, English (AERA default)
 const AERA_VOICE_NAME = "AERA";                   // Logical name used in logging
 
 // Try models newest-first — first one that succeeds wins.
@@ -43,9 +43,9 @@ const MODEL_PRIORITY = [
 // speed: 1.0 = normal, 0.5 = slower, 2.0 = double speed.
 // ElevenLabs handles pitch-preserving time-stretching server-side on flash/turbo models.
 // Never use AudioBufferSourceNode.playbackRate — that shifts pitch ("Chipmunks" effect).
-async function callElevenLabs(apiKey: string, text: string, modelId: string, speed = 1.0) {
+async function callElevenLabs(apiKey: string, voiceId: string, text: string, modelId: string, speed = 1.0) {
   return fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${AERA_VOICE_ID}/stream`,
+    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`,
     {
       method: "POST",
       headers: {
@@ -57,10 +57,11 @@ async function callElevenLabs(apiKey: string, text: string, modelId: string, spe
         text,
         model_id: modelId,
         voice_settings: {
-          // Tuned for AERA: calm, confident, premium AI advisor character.
-          stability:        0.72,  // calm, consistent delivery
-          similarity_boost: 0.75,  // warm but natural
-          // "style" omitted — requires Creator/Enterprise plan tier
+          // Tuned for premium character voices: high stability for consistent delivery,
+          // high similarity for authentic character fidelity, style locked at 0 for clean output.
+          stability:        0.85,  // consistent, authoritative delivery
+          similarity_boost: 0.95,  // maximum character fidelity
+          style:            0.0,   // locked — clean output, no stylistic drift
           // "use_speaker_boost" omitted — can cause 422 on free Starter tier
         },
         // Pitch-preserving speed control — ElevenLabs time-stretches server-side.
@@ -82,12 +83,17 @@ export async function POST(req: Request) {
 
   let text: string;
   let speed: number;
+  let voiceId: string;
   try {
-    const body = await req.json() as { text?: string; speed?: number };
-    text  = (body.text ?? "").trim();
-    speed = typeof body.speed === "number"
+    const body = await req.json() as { text?: string; speed?: number; voice_id?: string };
+    text    = (body.text ?? "").trim();
+    speed   = typeof body.speed === "number"
       ? Math.min(Math.max(body.speed, 0.5), 4.0)
       : 1.0;
+    // Accept dynamic voice_id from request body — defaults to AERA (Katherine)
+    voiceId = typeof body.voice_id === "string" && body.voice_id.trim()
+      ? body.voice_id.trim()
+      : AERA_VOICE_ID;
   } catch {
     return new Response(
       JSON.stringify({ error: "Invalid JSON body" }),
@@ -114,7 +120,7 @@ export async function POST(req: Request) {
   for (const modelId of MODEL_PRIORITY) {
     let ttsRes: Response;
     try {
-      ttsRes = await callElevenLabs(apiKey, trimmed, modelId, speed);
+      ttsRes = await callElevenLabs(apiKey, voiceId, trimmed, modelId, speed);
     } catch (err) {
       console.error(`[${AERA_VOICE_NAME} TTS] fetch failed (${modelId}):`, err);
       lastError = String(err);

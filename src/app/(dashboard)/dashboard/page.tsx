@@ -234,49 +234,7 @@ function Hero({
             </svg>
           </div>
 
-          {/* ── Primary velocity dot (solid cyan, inner ring, fast) ── */}
-          <OrbitDot
-            orbitSize="min(118px, 31vw)"
-            duration="11s"
-            dotSize={9}
-            color="#2DD4FF"
-            glowColor="rgba(45,212,255,0.90)"
-            pulseDuration="2.4s"
-          />
-
-          {/* ── ROAS signal dot (signal-reactive color, counter-spin) ── */}
-          <OrbitDot
-            orbitSize="min(118px, 31vw)"
-            duration="11s"
-            reverse
-            startAngle={140}
-            dotSize={7}
-            color={sig.color}
-            glowColor={sig.glow.replace("0.10", "0.60").replace("0.08", "0.50")}
-            pulseDuration="3.2s"
-          />
-
-          {/* ── Brand score dot (silver, outer ring, slow) ── */}
-          <OrbitDot
-            orbitSize="min(170px, 44vw)"
-            duration="28s"
-            reverse
-            startAngle={72}
-            dotSize={6}
-            color="#a8d0e8"
-            glowColor="rgba(168,208,232,0.60)"
-          />
-
-          {/* ── Campaign health dot (outer ring, opposite side) ── */}
-          <OrbitDot
-            orbitSize="min(170px, 44vw)"
-            duration="28s"
-            reverse
-            startAngle={252}
-            dotSize={5}
-            color={isHealthy ? "#2DD4FF" : sig.color}
-            glowColor={isHealthy ? "rgba(45,212,255,0.55)" : sig.glow.replace("0.10", "0.55").replace("0.08", "0.45")}
-          />
+          {/* OrbitDots removed — cleaner minimal hero aesthetic */}
         </div>
       </div>
 
@@ -286,11 +244,19 @@ function Hero({
           AERA Intelligence Layer
         </p>
         <div className="flex items-center gap-2">
+          {/* Pulse dot — neutral (text-5) when healthy, signal-colored when alerting */}
           <div
             className="h-1.5 w-1.5 rounded-full animate-breathe-slow"
-            style={{ background: sig.color, boxShadow: `0 0 6px ${sig.color}99`, transition: "background 1s, box-shadow 1s" }}
+            style={{
+              background: isHealthy ? "var(--text-5)" : sig.color,
+              boxShadow: isHealthy ? "none" : `0 0 6px ${sig.color}99`,
+              transition: "background 1s, box-shadow 1s",
+            }}
           />
-          <p className="text-[9.5px] font-medium tracking-wide" style={{ color: sig.color, transition: "color 1s" }}>
+          <p className="text-[9.5px] font-medium tracking-wide" style={{
+            color: isHealthy ? "var(--text-5)" : sig.color,
+            transition: "color 1s",
+          }}>
             {sig.label}
           </p>
         </div>
@@ -612,11 +578,11 @@ export default function DashboardPage() {
           </div>
           <div className="p-3 flex flex-col gap-1">
             {[
-              { label: "Brief a new campaign", accent: false, href: "/campaigns" },
-              { label: "Ask AERA",             accent: true,  href: "/chat"       },
-              { label: "View deliverables",    accent: false, href: "/history"    },
-              { label: "Download Q1 report",   accent: false, href: "/history"    },
-              { label: "Contact team",         accent: false, href: "/contact"    },
+              { label: "Brief a new campaign",  accent: false, href: "/campaigns" },
+              { label: "Ask AERA",              accent: true,  href: "/chat"       },
+              { label: "Content Velocity",      accent: false, href: "/agents"     },
+              { label: "View deliverables",     accent: false, href: "/history"    },
+              { label: "Contact team",          accent: false, href: "/contact"    },
             ].map(({ label, accent, href }) => (
               <QuickAction key={label} label={label} accent={accent} href={href} />
             ))}
