@@ -40,6 +40,9 @@ Vibe: think smart friends who work in marketing — casual, sharp, excited about
 
 IDENTITY INTELLIGENCE: Read the client from how they speak. If they're casual and direct → drop the boardroom energy. If they use slang → stay real and grounded. If they're sharp and technical → skip the hand-holding. Adapt instantly, every agent mirrors the energy without announcing it. Charlotte is tuned to this — she quietly steers the team's tone.
 
+EARLY CONVERSATION FLOW (first 1–2 exchanges after greeting):
+If you just got the client's name for the first time — use it. Acknowledge it warmly (1 sentence), then ask what brings them in today or how they found APEX — keep it casual, one question. After they answer that, THEN you can naturally say "let me bring a couple people in" and introduce 1–2 agents who are most relevant to what they're working on. This makes the intro feel earned, not scripted.
+
 CONVERSATION RULES:
 - NO bullets, NO markdown, NO "as per our analysis" — just talk like a real person
 - Sarah kicks things off, naturally brings in 1-2 agents who matter most for the topic
@@ -48,6 +51,7 @@ CONVERSATION RULES:
 - 2 sentences MAX per person. Keep momentum — don't let it drag.
 - Agents can hand off to each other without always coming back to Sarah
 - Everyone genuinely cares about this client's success. Show enthusiasm, not formality.
+- Always use the client's name once you know it — people love hearing their own name.
 - Label every speaker: **Sarah:** **Marcus:** **Charlotte:** etc.
 
 CRITICAL HANDOFF RULE — no exceptions:
@@ -416,24 +420,22 @@ const CONFERENCE_STORAGE_KEY = "apex_conference_transcript_v1";
 const ONBOARD_KEY            = "apex_onboarded_v1";
 
 /* ─── First-meeting onboarding context ──────────────────────────── */
-const ONBOARDING_CONTEXT = `[FIRST MEETING — CLIENT ONBOARDING]
+const ONBOARDING_CONTEXT = `[FIRST GREETING — SARAH ONLY]
 
-This is the very first time this client is opening APEX AERA. The team's goal right now is NOT to talk about campaigns or metrics — it's to meet this person.
+This is literally the first moment this person opens the room. Sarah speaks alone — no other agents yet.
 
-Sarah opens (1 warm sentence welcoming them to the room — genuine, not corporate).
+Sarah's entire job right now:
+1. Say hi warmly — like a real person, not a product demo. 1 sentence.
+2. Introduce herself in one sentence: her name (Sarah) and what she does ("I run the intelligence side of APEX AERA")
+3. Ask for their name in a natural, conversational way — NOT "Please state your name for the record." More like "First thing's first — who am I talking to?" or "I don't think we've met — what's your name?"
 
-Then Charlotte takes over immediately. Charlotte is the relationship lead. Her job:
-- Introduce herself warmly (1 sentence — who she is and what she does for the client)
-- Ask 2 natural, curious questions to get to know this person — their name, and what they're working on or trying to build
-- Sound like a genuinely warm person meeting someone interesting for the first time — not an intake form
-- Leave space for the client to respond — close with "What's your name?" or similar
+That's it. 3 short sentences max. This is the opening line of a real conversation, not a presentation.
 
-After Charlotte's questions, have 2 other agents say a quick hello (1 sentence each, just their name + what they bring). Pick whoever feels natural — maybe Marcus and Sophia, or Julian and Victor.
+DO NOT: introduce any other agents, talk about campaigns, ask about their business yet.
+DO NOT: use **Charlotte:** or **Marcus:** or any other agent label.
+ONLY use: **Sarah:**
 
-End with Charlotte or Sarah inviting the client to reply.
-
-IMPORTANT: Keep total length SHORT. This is an introduction, not a presentation. Max 6 speaker turns total.
-Label every speaker: **Sarah:** **Charlotte:** **Marcus:** etc.`;
+After the client tells Sarah their name, the NEXT response will naturally continue the conversation — asking what brings them in, then introducing the team. But that's not this message.`;
 
 /* ─── Internal trigger ───────────────────────────────────────────── */
 // Sentinel value used to trigger the onboarding AI call without showing
@@ -443,7 +445,7 @@ const ONBOARD_TRIGGER = "__APEX_ONBOARD__";
 function loadTranscript(): TranscriptEntry[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = sessionStorage.getItem(CONFERENCE_STORAGE_KEY);
+    const raw = localStorage.getItem(CONFERENCE_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as Array<TranscriptEntry & { timestamp: string }>;
     return parsed.map((e) => ({ ...e, timestamp: new Date(e.timestamp) }));
@@ -452,7 +454,7 @@ function loadTranscript(): TranscriptEntry[] {
 
 function saveTranscript(entries: TranscriptEntry[]) {
   if (typeof window === "undefined") return;
-  try { sessionStorage.setItem(CONFERENCE_STORAGE_KEY, JSON.stringify(entries.slice(-80))); }
+  try { localStorage.setItem(CONFERENCE_STORAGE_KEY, JSON.stringify(entries.slice(-80))); }
   catch { /* quota */ }
 }
 
@@ -503,6 +505,26 @@ function ConferencePage() {
       setThinkingPhrase((p) => (p + 1) % THINKING_PHRASES.length);
     }, 2200);
     return () => clearInterval(interval);
+  }, [isProcessing]);
+
+  // Safety valve: if isProcessing stays true for >30 s something hung — reset it.
+  // This prevents the UI from being permanently locked waiting for a response
+  // that will never come (network drop, API timeout, etc.).
+  useEffect(() => {
+    if (!isProcessing) return;
+    const safety = setTimeout(() => {
+      setIsProcessing(false);
+      setSpeakingAgentId(null);
+      setSpeakingDuration(0);
+      const recovery: TranscriptEntry = {
+        id: `recovery-${Date.now()}`,
+        role: "aera", agentId: "aera",
+        text: "Hey — I think we had a connection hiccup. I'm back now. What were you saying?",
+        timestamp: new Date(),
+      };
+      setTranscript((prev) => [...prev, recovery]);
+    }, 30_000);
+    return () => clearTimeout(safety);
   }, [isProcessing]);
 
   // Stop all audio on unmount (e.g. user navigates away via Leave button)
@@ -851,7 +873,7 @@ function ConferencePage() {
           <button
             onClick={() => {
               stopAudio();
-              sessionStorage.removeItem(CONFERENCE_STORAGE_KEY);
+              localStorage.removeItem(CONFERENCE_STORAGE_KEY);
               const fresh: TranscriptEntry = {
                 id: `opening-${Date.now()}`,
                 role: "aera", agentId: "aera",
@@ -975,7 +997,7 @@ function ConferencePage() {
           color: micActive
             ? "#2DD4FF"
             : isConnecting
-            ? "rgba(255,255,255,0.35)"
+            ? "rgba(245,158,11,0.75)"   // amber — reconnecting
             : "rgba(255,255,255,0.25)",
           textTransform: "uppercase",
           fontWeight: 600,
@@ -984,11 +1006,23 @@ function ConferencePage() {
           {micActive
             ? "Listening — speak naturally"
             : isConnecting
-            ? "Connecting microphone…"
+            ? "Reconnecting microphone…"
             : isProcessing
             ? "Processing…"
-            : "Tap to speak"}
+            : !isListening
+            ? "Tap mic to speak"
+            : "Ready — tap to speak"}
         </p>
+
+        {/* Reconnect nudge — shown when mic is not active and not connecting */}
+        {!isListening && !isConnecting && !isProcessing && (
+          <p style={{
+            fontSize: 10, color: "rgba(255,255,255,0.22)",
+            letterSpacing: "0.04em", marginTop: -6,
+          }}>
+            Mic is off — tap the button below to start listening
+          </p>
+        )}
 
         {/* Control row */}
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
