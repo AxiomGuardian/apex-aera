@@ -31,14 +31,14 @@ export interface Agent {
 export const AGENTS: Record<AgentId, Agent> = {
   aera: {
     id:          "aera",
-    name:        "AERA",
+    name:        "Sarah",              // Voice character name — AERA is the intelligence layer brand
     voice_id:    "NtS6nEHDYMQC9QczMQuq", // Katherine — Calm Luxury · Narration · English
     role:        "Intelligence Chair",
     workflow:    "Client Strategy",
     specialty:   "Brand strategy, performance synthesis, team orchestration",
-    description: "Your primary APEX intelligence layer. AERA synthesizes all campaign signals, chairs team meetings, and delivers strategic direction across every workflow.",
+    description: "The voice of APEX AERA. Sarah chairs every team meeting, synthesizes campaign intelligence, and delivers strategic direction — she's the through-line in every workflow.",
     color:       "#2DD4FF",
-    initials:    "AE",
+    initials:    "SA",
   },
   marcus: {
     id:          "marcus",
@@ -110,4 +110,59 @@ export function getAgent(id: AgentId): Agent {
 
 export function getAgentByVoiceId(voiceId: string): Agent | undefined {
   return AGENT_LIST.find((a) => a.voice_id === voiceId);
+}
+
+/** Convert hex color to "r,g,b" string for use inside rgba() */
+export function hexToRgb(hex: string): string {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!result) return "45,212,255";
+  return `${parseInt(result[1], 16)},${parseInt(result[2], 16)},${parseInt(result[3], 16)}`;
+}
+
+/**
+ * Parse an AERA response containing **AgentName:** labels into
+ * sequential segments for conference room TTS playback.
+ *
+ * Handles:
+ *   **Marcus:** some text       → { agentId: "marcus", text: "some text" }
+ *   **Victor Voss:** some text  → { agentId: "victor", text: "some text" }
+ *   (anything else)             → { agentId: "aera",   text: "..." }
+ */
+export type AgentSegment = { agentId: AgentId; text: string };
+
+const NAME_MAP: Record<string, AgentId> = {
+  "sarah": "aera", "aera": "aera",
+  "marcus": "marcus",
+  "sophia": "sophia",
+  "julian": "julian",
+  "charlotte": "charlotte",
+  "victor": "victor", "victor voss": "victor",
+};
+
+export function parseAgentSegments(text: string): AgentSegment[] {
+  const segments: AgentSegment[] = [];
+  // Split on **Name:** boundaries (keeping the delimiter)
+  const parts = text.split(/(\*\*[\w\s]+:\*\*)/g);
+  let currentAgent: AgentId = "aera";
+
+  for (const part of parts) {
+    const labelMatch = part.match(/^\*\*([\w\s]+):\*\*$/);
+    if (labelMatch) {
+      const normalized = labelMatch[1].toLowerCase().trim();
+      currentAgent = NAME_MAP[normalized] ?? "aera";
+    } else {
+      const cleaned = part.replace(/\n+/g, " ").trim();
+      if (cleaned) {
+        // Merge with previous segment if same speaker, else push new
+        const last = segments[segments.length - 1];
+        if (last && last.agentId === currentAgent) {
+          last.text += " " + cleaned;
+        } else {
+          segments.push({ agentId: currentAgent, text: cleaned });
+        }
+      }
+    }
+  }
+
+  return segments;
 }

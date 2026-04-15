@@ -315,7 +315,7 @@ function KPICard({ m, index }: { m: MetricItem; index: number }) {
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="group relative flex flex-col rounded-[16px] border cursor-default opacity-0 animate-fade-in-up overflow-hidden"
+      className="group relative flex flex-col rounded-[16px] border cursor-default opacity-0 animate-fade-in-up"
       style={{
         padding: "26px 24px 24px",
         background: hovered ? "var(--hover-fill-cyan)" : "var(--surface)",
@@ -324,6 +324,8 @@ function KPICard({ m, index }: { m: MetricItem; index: number }) {
         animationDelay: `${0.28 + index * 0.06}s`,
         animationFillMode: "forwards",
         transition: "background 0.3s, box-shadow 0.3s, border-color 0.3s",
+        // No overflow-hidden — allows the insight panel to expand freely
+        // and lets wheel events propagate to the page scroll container
       }}
     >
       {/* Top cyan edge */}
@@ -395,10 +397,10 @@ function KPICard({ m, index }: { m: MetricItem; index: number }) {
       <div
         style={{
           overflow: "hidden",
-          maxHeight: hovered ? 120 : 0,
+          maxHeight: hovered ? 220 : 0,
           opacity: hovered ? 1 : 0,
           marginTop: hovered ? 16 : 0,
-          transition: "max-height 0.38s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease, margin-top 0.3s ease",
+          transition: "max-height 0.42s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease, margin-top 0.3s ease",
         }}
       >
         <div

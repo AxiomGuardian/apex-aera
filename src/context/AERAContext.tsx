@@ -209,6 +209,12 @@ export function AERAProvider({ children }: { children: ReactNode }) {
   const { addInsight, updateStats, memory } = useClientMemory();
   const selectedAgentId = memory.selectedAgentId;
 
+  // ── CRITICAL: Ref so addUserMessage (useCallback) always reads the
+  // latest selectedAgentId without needing to be recreated on every change.
+  // Without this, the callback closes over a stale value from render time.
+  const selectedAgentIdRef = useRef<AgentId>(selectedAgentId);
+  useEffect(() => { selectedAgentIdRef.current = selectedAgentId; }, [selectedAgentId]);
+
   // ── Hydration-safe localStorage load ──────────────────────────
   useEffect(() => {
     const { threads: loadedThreads, folders: loadedFolders, activeId } = loadThreads();
@@ -311,9 +317,10 @@ export function AERAProvider({ children }: { children: ReactNode }) {
       const metricUpdates = extractMetricsFromText(responseContent);
       if (Object.keys(metricUpdates).length > 0) updateStats(metricUpdates);
 
-      // Auto-TTS in voice mode — routes through selected agent's ElevenLabs voice
+      // Auto-TTS in voice mode — routes through selected agent's ElevenLabs voice.
+      // Use ref (not state) to avoid stale closure capturing the voice from render time.
       if (voiceModeRef.current) {
-        const agentVoiceId = AGENTS[selectedAgentId]?.voice_id;
+        const agentVoiceId = AGENTS[selectedAgentIdRef.current]?.voice_id;
         speak(responseContent, aeraMsg.id, agentVoiceId);
       }
     } catch {
@@ -331,7 +338,7 @@ export function AERAProvider({ children }: { children: ReactNode }) {
       );
       setThreads([...threadsRef.current]);
       if (voiceModeRef.current) {
-        const agentVoiceId = AGENTS[selectedAgentId]?.voice_id;
+        const agentVoiceId = AGENTS[selectedAgentIdRef.current]?.voice_id;
         speak(fallback.content, fallback.id, agentVoiceId);
       }
     } finally {
