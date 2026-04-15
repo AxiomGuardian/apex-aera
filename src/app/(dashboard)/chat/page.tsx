@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, MicOff, PanelRightOpen, Volume2, VolumeX, Radio, ArrowUp, ChevronDown } from "lucide-react";
+import { Mic, MicOff, Volume2, VolumeX, Radio, ArrowUp } from "lucide-react";
 import { AGENTS, AGENT_DISPLAY_ORDER } from "@/lib/agents";
 import type { AgentId } from "@/lib/agents";
 import { useAERA } from "@/context/AERAContext";
@@ -14,7 +14,6 @@ import { ApexMark } from "@/components/chat/ApexMark";
 import { AERAAvatar } from "@/components/chat/AERAAvatar";
 import { ThinkingBubble } from "@/components/chat/ThinkingBubble";
 import { ThreadSidebar } from "@/components/chat/ThreadSidebar";
-import { StarField } from "@/components/chat/StarField";
 import { useDeepgramSTT } from "@/hooks/useDeepgramSTT";
 import { useAudioVisualizer, useSpeechToText } from "@/hooks/useVoice";
 import ReactMarkdown from "react-markdown";
@@ -295,47 +294,7 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* ── Primary Voice Mode toggle — only voice control in the header ── */}
-          <button
-            onClick={handleToggleVoiceMode}
-            title={voiceMode ? "Exit voice mode" : "Start voice conversation"}
-            style={{
-              display: "flex", alignItems: "center", gap: 8,
-              padding: "9px 18px", borderRadius: 11,
-              border: voiceMode ? "1px solid rgba(45,212,255,0.45)" : "1px solid var(--border)",
-              background: voiceMode ? "rgba(45,212,255,0.08)" : "transparent",
-              color: voiceMode ? "var(--cyan)" : "var(--text-4)",
-              fontSize: 13, fontWeight: 500, letterSpacing: "0.01em", cursor: "pointer",
-              transition: "all 0.2s",
-              boxShadow: voiceMode ? "0 0 14px rgba(45,212,255,0.12)" : "none",
-            }}
-          >
-            {/* Breathing dot when voice mode active */}
-            {voiceMode
-              ? <span style={{
-                  width: 7, height: 7, borderRadius: "50%", flexShrink: 0, transition: "all 0.3s",
-                  background: vcMuted ? "#f59e0b" : vcListening ? "var(--cyan)" : vcConnecting ? "#f59e0b" : "rgba(45,212,255,0.5)",
-                  boxShadow: vcMuted ? "0 0 6px rgba(245,158,11,0.8)" : vcListening ? "0 0 6px rgba(45,212,255,0.8)" : vcConnecting ? "0 0 6px rgba(245,158,11,0.7)" : "none",
-                }} />
-              : <Radio style={{ width: 15, height: 15 }} strokeWidth={1.7} />
-            }
-            <span className="hidden sm:inline">
-              {voiceMode
-                ? (vcListening ? "Listening" : isSpeaking ? "Speaking" : isTyping ? "Thinking" : "Voice On")
-                : "Voice Mode"}
-            </span>
-          </button>
-
-          <button
-            onClick={togglePanel}
-            title="Open side panel"
-            style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 16px", borderRadius: 11, border: "1px solid var(--border)", background: "transparent", color: "var(--text-4)", fontSize: 13, fontWeight: 500, letterSpacing: "0.01em", cursor: "pointer", transition: "all 0.18s" }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--border-mid)"; e.currentTarget.style.color = "var(--text-2)"; e.currentTarget.style.background = "var(--hover-fill)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-4)"; e.currentTarget.style.background = "transparent"; }}
-          >
-            <PanelRightOpen style={{ width: 15, height: 15 }} strokeWidth={1.7} />
-            <span className="hidden sm:inline">Side Panel</span>
-          </button>
+          {/* Voice Mode and Side Panel removed from header — Voice Mode is now in the chat bar */}
         </div>
       </div>
 
@@ -344,10 +303,6 @@ export default function ChatPage() {
 
         {/* ── Left: orb + identity — always dark regardless of theme ── */}
         <div className="hidden md:flex force-dark" style={{ width: 270, minWidth: 270, borderRight: "1px solid rgba(255,255,255,0.05)", flexDirection: "column", alignItems: "center", padding: "36px 20px 24px", background: "#0a0a0c", position: "relative", overflow: "hidden" }}>
-          {/* Galaxy star field */}
-          <StarField style={{ opacity: 0.65, zIndex: 0 }} />
-          {/* Scan line overlay — cinematic depth */}
-          <div className="scanline-overlay" />
           {/* Deep radial glow behind orb */}
           <div style={{ position: "absolute", width: 320, height: 320, borderRadius: "50%", background: "radial-gradient(circle, rgba(45,212,255,0.07) 0%, transparent 65%)", top: -20, left: "50%", transform: "translateX(-50%)", pointerEvents: "none", zIndex: 1 }} />
           {/* Outer breathing ring */}
@@ -710,8 +665,27 @@ export default function ChatPage() {
 
               <div style={{ display: "flex", gap: 7, alignItems: "flex-end", padding: "0 0 2px 12px", flexShrink: 0 }}>
 
-                {/* Dictation mic */}
-                {!voiceMode && (
+                {/* Dictation mic (text mode) / Mute toggle (voice mode) */}
+                {voiceMode ? (
+                  <motion.button
+                    onClick={vcToggleMute}
+                    title={vcMuted ? "Unmute microphone" : "Mute microphone"}
+                    whileTap={{ scale: 0.86 }}
+                    style={{
+                      width: 40, height: 40, borderRadius: "50%",
+                      background: vcMuted ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.04)",
+                      border: `1px solid ${vcMuted ? "rgba(245,158,11,0.40)" : "rgba(255,255,255,0.08)"}`,
+                      color: vcMuted ? "#f59e0b" : "rgba(255,255,255,0.40)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      cursor: "pointer", transition: "all 0.18s",
+                      boxShadow: vcMuted ? "0 0 16px rgba(245,158,11,0.22)" : "none",
+                    }}
+                  >
+                    {vcMuted
+                      ? <MicOff style={{ width: 15, height: 15 }} strokeWidth={1.7} />
+                      : <Mic style={{ width: 15, height: 15 }} strokeWidth={1.7} />}
+                  </motion.button>
+                ) : (
                   <motion.button
                     onClick={simpleMicToggle}
                     title={simpleListening ? "Stop dictation" : "Dictate"}
@@ -733,6 +707,37 @@ export default function ChatPage() {
                       : <Mic style={{ width: 15, height: 15 }} strokeWidth={1.7} />}
                   </motion.button>
                 )}
+
+                {/* Voice Mode toggle — always in the bar */}
+                <motion.button
+                  onClick={handleToggleVoiceMode}
+                  title={voiceMode ? "Exit voice mode" : "Start voice mode"}
+                  whileTap={{ scale: 0.86 }}
+                  style={{
+                    width: 40, height: 40, borderRadius: "50%",
+                    background: voiceMode ? "rgba(45,212,255,0.12)" : "rgba(255,255,255,0.04)",
+                    border: `1px solid ${voiceMode ? "rgba(45,212,255,0.40)" : "rgba(255,255,255,0.08)"}`,
+                    color: voiceMode ? "#2DD4FF" : "rgba(255,255,255,0.40)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    cursor: "pointer", transition: "all 0.18s",
+                    boxShadow: voiceMode ? "0 0 16px rgba(45,212,255,0.25)" : "none",
+                    position: "relative",
+                  }}
+                  onMouseEnter={(e) => { if (!voiceMode) { e.currentTarget.style.color = "rgba(255,255,255,0.70)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.16)"; } }}
+                  onMouseLeave={(e) => { if (!voiceMode) { e.currentTarget.style.color = "rgba(255,255,255,0.40)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; } }}
+                >
+                  <Radio style={{ width: 15, height: 15 }} strokeWidth={1.7} />
+                  {/* Live indicator dot when voice mode active */}
+                  {voiceMode && (
+                    <span style={{
+                      position: "absolute", top: 7, right: 7,
+                      width: 5, height: 5, borderRadius: "50%",
+                      background: vcMuted ? "#f59e0b" : vcListening ? "#2DD4FF" : "rgba(45,212,255,0.5)",
+                      boxShadow: vcListening ? "0 0 4px rgba(45,212,255,0.8)" : "none",
+                      transition: "all 0.2s",
+                    }} />
+                  )}
+                </motion.button>
 
                 {/* Send button */}
                 <motion.button

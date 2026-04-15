@@ -33,23 +33,42 @@ interface TranscriptEntry {
 }
 
 /* ─── Conference system prompt ───────────────────────────────────── */
-const MEETING_CONTEXT = `[CONFERENCE ROOM MODE] You are in an active voice meeting chaired by Sarah (AERA's voice).
-The client can hear each agent speak via their individual voice. Keep responses natural for voice —
-no bullets, no markdown headers. Each agent contribution should be 1-3 sentences max.
-Natural conversational pacing. Sarah opens and closes each exchange.`;
+function getMeetingContext(mode: "executive" | "simple"): string {
+  const toneGuide = mode === "simple"
+    ? "Communication tone: SIMPLE — plain language, zero jargon, short punchy sentences. Think: founder-friendly, direct, no buzzwords. Get to the point fast."
+    : "Communication tone: EXECUTIVE — sophisticated, data-driven, strategic. Premium discourse. Cite metrics, implications, and next moves with authority.";
+
+  return `[CONFERENCE ROOM MODE] You are Sarah, chairing a live voice meeting.
+
+${toneGuide}
+
+Meeting rules:
+- This is a real-time voice call — everything is spoken aloud, so NO bullets, NO markdown, NO headers
+- Sarah opens each exchange, then hands off naturally to the most relevant 1-2 agents
+- Agents TALK TO EACH OTHER: "Marcus, does that match what you're seeing on paid?" or "Charlotte, can you pick that up for the client?"
+- Agents ask the CLIENT direct questions to keep them engaged: "Has this come up before?" or "What feels right to you on that?"
+- Each speaker: 2-3 sentences max. Keep energy and momentum.
+- Create natural handoffs — Victor might question Charlotte, Charlotte might loop back to the client
+- The client is IN THE ROOM as a participant, not an audience
+- Sarah closes each exchange with a clear synthesis and next step
+- Label each speaker with bold: **Sarah:** **Marcus:** **Charlotte:** etc.`;
+}
 
 /* ─── Sequential TTS player ─────────────────────────────────────── */
+// speed: 1.15 — slightly above natural (1.0) to give a confident, energetic
+// delivery rather than the overly measured pace of the default setting.
 async function fetchAudioBuffer(
   audioCtx: AudioContext,
   text: string,
   voiceId: string,
   signal: AbortSignal,
+  speed = 1.15,
 ): Promise<AudioBuffer | null> {
   try {
     const res = await fetch("/api/voice/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, voice_id: voiceId }),
+      body: JSON.stringify({ text, voice_id: voiceId, speed }),
       signal,
     });
     if (!res.ok || signal.aborted) return null;
@@ -223,12 +242,15 @@ export default function ConferencePage() {
   const [speakingAgentId, setSpeakingAgentId] = useState<AgentId | null>(null);
   const [currentInterim,  setCurrentInterim]  = useState("");
   const [audioEnabled,    setAudioEnabled]    = useState(true);
+  const [mode,            setMode]            = useState<"executive" | "simple">("executive");
 
   const audioCtxRef     = useRef<AudioContext | null>(null);
   const sourceRef       = useRef<AudioBufferSourceNode | null>(null);
   const abortRef        = useRef<AbortController | null>(null);
   const transcriptRef   = useRef<TranscriptEntry[]>([]);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const modeRef          = useRef<"executive" | "simple">("executive");
+  useEffect(() => { modeRef.current = mode; }, [mode]);
 
   // Keep transcript ref in sync
   useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
@@ -309,6 +331,8 @@ export default function ConferencePage() {
 
   // Handle sending a message
   const handleSend = useCallback(async (text: string) => {
+    // Allow interrupt during audio playback (isProcessing=false then),
+    // but block if an API call is still in-flight.
     if (!text.trim() || isProcessing) return;
     setCurrentInterim("");
 
@@ -331,7 +355,7 @@ export default function ConferencePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: apiMessages,
-          systemOverride: MEETING_CONTEXT,
+          systemOverride: getMeetingContext(modeRef.current),
         }),
       });
 
@@ -352,6 +376,11 @@ export default function ConferencePage() {
       }));
 
       setTranscript((prev) => [...prev, ...newEntries]);
+
+      // ── Interrupt fix: mark API call done BEFORE audio starts ──
+      // This lets onAutoSend fire a new handleSend (which calls stopAudio)
+      // while agents are still speaking — enabling true voice interrupts.
+      setIsProcessing(false);
 
       // Play sequentially with per-agent voices
       const controller = new AbortController();
@@ -457,6 +486,31 @@ export default function ConferencePage() {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* Mode toggle */}
+          <div style={{
+            display: "flex", alignItems: "center",
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 9, padding: "3px 4px", gap: 2,
+          }}>
+            {(["executive", "simple"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                style={{
+                  padding: "4px 10px", borderRadius: 6, border: "none",
+                  background: mode === m ? "rgba(45,212,255,0.14)" : "transparent",
+                  color: mode === m ? "#2DD4FF" : "rgba(255,255,255,0.30)",
+                  fontSize: 10, fontWeight: 700, letterSpacing: "0.05em",
+                  textTransform: "uppercase", cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                {m === "executive" ? "Executive" : "Simple"}
+              </button>
+            ))}
+          </div>
+
           {/* Audio toggle */}
           <button
             onClick={() => setAudioEnabled((a) => !a)}
