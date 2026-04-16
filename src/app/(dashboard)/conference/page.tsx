@@ -74,11 +74,18 @@ async function fetchAudioBuffer(
       body: JSON.stringify({ text, voice_id: voiceId, speed }),
       signal,
     });
-    if (!res.ok || signal.aborted) return null;
+    if (!res.ok || signal.aborted) {
+      if (!signal.aborted) {
+        const errText = await res.text().catch(() => "(no body)");
+        console.error(`[TTS] ❌ ${res.status} for voice ${voiceId}:`, errText);
+      }
+      return null;
+    }
     const arrayBuffer = await res.arrayBuffer();
     if (signal.aborted) return null;
     return audioCtx.decodeAudioData(arrayBuffer.slice(0));
-  } catch {
+  } catch (err) {
+    console.error("[TTS] ❌ fetch/decode error:", err);
     return null;
   }
 }
