@@ -555,12 +555,15 @@ function ConferencePage() {
     }
   }, []);
 
-  // Stop all audio
+  // Stop all audio (ElevenLabs + browser TTS fallback)
   const stopAudio = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
     try { sourceRef.current?.stop(); } catch { /* ignore */ }
     sourceRef.current = null;
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
     setSpeakingAgentId(null);
   }, []);
 
@@ -628,7 +631,7 @@ function ConferencePage() {
       setSpeakingAgentId(segments[i].agentId);
 
       if (audioBuffer && ctx) {
-        // Play audio
+        // ── ElevenLabs audio ──
         await new Promise<void>((resolve) => {
           const source = ctx!.createBufferSource();
           source.buffer = audioBuffer;
@@ -637,8 +640,44 @@ function ConferencePage() {
           source.onended = () => resolve();
           source.start(0);
         });
+      } else if (audioEnabled && "speechSynthesis" in window) {
+        // ── Browser TTS fallback (ElevenLabs quota hit / unavailable) ──
+        // Uses built-in browser voices — free, no quota.
+        // Picks a voice that roughly matches the agent's character.
+        await new Promise<void>((resolve) => {
+          window.speechSynthesis.cancel();
+          const utter = new SpeechSynthesisUtterance(segments[i].text);
+          utter.rate  = 1.05;
+          utter.pitch = segments[i].agentId === "victor" ? 0.85
+                      : segments[i].agentId === "marcus" ? 1.0
+                      : segments[i].agentId === "aera"   ? 1.05
+                      : 1.0;
+          utter.volume = 1.0;
+          // Pick a gender-appropriate voice when available
+          const voices = window.speechSynthesis.getVoices();
+          const femaleIds = ["aera", "sophia", "charlotte"];
+          const wantFemale = femaleIds.includes(segments[i].agentId);
+          const match = voices.find((v) =>
+            wantFemale
+              ? /female|woman|zira|samantha|victoria|karen|moira|tessa|fiona/i.test(v.name)
+              : /male|man|daniel|david|alex|tom|fred|george/i.test(v.name)
+          ) ?? voices[0];
+          if (match) utter.voice = match;
+          utter.onend   = () => resolve();
+          utter.onerror = () => resolve();
+          // Abort support
+          const abortPoll = setInterval(() => {
+            if (signal.aborted) {
+              clearInterval(abortPoll);
+              window.speechSynthesis.cancel();
+              resolve();
+            }
+          }, 80);
+          utter.onend = () => { clearInterval(abortPoll); resolve(); };
+          window.speechSynthesis.speak(utter);
+        });
       } else {
-        // No audio — wait based on word count so text is readable before next segment
+        // No audio at all — pace by word count so text is readable
         const wordCount = segments[i].text.split(" ").length;
         await new Promise<void>((resolve) =>
           setTimeout(resolve, Math.max(1500, wordCount * 180))
