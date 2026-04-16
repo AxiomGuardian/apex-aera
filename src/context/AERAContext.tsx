@@ -356,7 +356,12 @@ export function AERAProvider({ children }: { children: ReactNode }) {
       const res = await fetch("/api/aera/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: apiMessages }),
+        body: JSON.stringify({
+          messages: apiMessages,
+          // Pass the active agent so the chat route can inject live context
+          // (e.g. Marcus gets real ad platform data from /api/integrations/sync)
+          agentId: selectedAgentIdRef.current,
+        }),
       });
 
       const data            = await res.json() as { content?: string; thinking?: string | null; chart?: ChartData | null };

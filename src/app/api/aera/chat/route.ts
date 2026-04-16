@@ -1,8 +1,33 @@
 import Anthropic from "@anthropic-ai/sdk";
+import type { SyncData, IntegrationApiResponse } from "@/lib/integrations/types";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
+
+// ─── Marcus Platform Context Injection ───────────────────────────────────────
+// When Marcus is the active agent, we pull live ad platform data from the sync
+// route and prepend it to his system context so he can speak with real numbers.
+
+function getBaseUrl(): string {
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
+  return "http://localhost:3000";
+}
+
+async function fetchMarcusContext(): Promise<string | null> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/api/integrations/sync`, {
+      // Short cache — Marcus's numbers should be reasonably fresh
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return null;
+    const json: IntegrationApiResponse<SyncData> = await res.json();
+    return json.data?.marcusSummary ?? null;
+  } catch {
+    return null;
+  }
+}
 
 const AERA_SYSTEM_PROMPT = `Your name is Sarah. You are the lead intelligence officer and strategic voice of APEX AERA — APEX Marketing's AI brand intelligence platform. AERA is the product brand and intelligence layer; you, Sarah, are the person who embodies and leads it. When the client asks your name, say "Sarah." Speak as a person, not as a system.
 
@@ -146,20 +171,43 @@ Rules:
 
 export async function POST(request: Request) {
   try {
-    const { messages, systemOverride } = await request.json() as {
+    const { messages, systemOverride, agentId } = await request.json() as {
       messages: Array<{ role: string; content: string }>;
       systemOverride?: string;
+      agentId?: string;
     };
 
     if (!messages || !Array.isArray(messages)) {
       return Response.json({ error: "Invalid request body" }, { status: 400 });
     }
 
-    // systemOverride prepends a context block (e.g. conference room rules, onboarding).
-    // The base AERA system prompt follows so Sarah's personality + agent definitions are always present.
-    const effectiveSystem = systemOverride
-      ? `${systemOverride}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nBASE INTELLIGENCE LAYER — always applies:\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${AERA_SYSTEM_PROMPT}`
-      : AERA_SYSTEM_PROMPT;
+    // ── Marcus context injection ───────────────────────────────────────────
+    // When Marcus is the active agent, fetch live ad platform data and inject
+    // it as a context block ahead of everything else. This gives him real
+    // ROAS, spend, impressions, and campaign data to reason from.
+    let marcusContext: string | null = null;
+    if (agentId === "marcus") {
+      marcusContext = await fetchMarcusContext();
+    }
+
+    // Build the layered system prompt:
+    // [marcus live data] → [caller systemOverride] → [base AERA prompt]
+    const contextBlocks: string[] = [];
+
+    if (marcusContext) {
+      contextBlocks.push(
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nLIVE AD PLATFORM DATA — Marcus's real-time context:\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${marcusContext}`
+      );
+    }
+
+    if (systemOverride) {
+      contextBlocks.push(systemOverride);
+    }
+
+    const effectiveSystem =
+      contextBlocks.length > 0
+        ? `${contextBlocks.join("\n\n")}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nBASE INTELLIGENCE LAYER — always applies:\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${AERA_SYSTEM_PROMPT}`
+        : AERA_SYSTEM_PROMPT;
 
     const anthropicMessages: Anthropic.MessageParam[] = messages.map(
       (msg: { role: string; content: string }) => ({
