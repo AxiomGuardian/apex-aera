@@ -6,123 +6,28 @@ import { Plus, Calendar, TrendingUp, ArrowLeft, BarChart3, Users, Target, Zap, C
 import { useState } from "react";
 import { PagePad } from "@/components/layout/PagePad";
 
-/* ─── Campaign data ──────────────────────────────────────────────────────── */
-const campaigns = [
-  {
-    id: "q2-brand-launch",
-    name: "Q2 Brand Launch — Video Series",
-    type: "Video",
-    status: "Active",
-    progress: 72,
-    due: "Apr 15, 2026",
-    kpi: "ROAS 8.2×",
-    channels: ["YouTube", "Instagram", "LinkedIn"],
-    description: "A multi-platform video campaign anchored by a 90-second brand manifesto, supported by 12 short-form clips across Instagram Reels and LinkedIn. Targeted at enterprise decision-makers and brand-aware consumers in the 28–45 segment.",
-    metrics: [
-      { label: "ROAS",         value: "8.2×",  delta: "+1.4×",  good: true  },
-      { label: "View Rate",    value: "34%",   delta: "+6%",    good: true  },
-      { label: "CPM",          value: "$4.20", delta: "-$0.80", good: true  },
-      { label: "Conversions",  value: "1,240", delta: "+18%",   good: true  },
-    ],
-    timeline: [
-      { label: "Brief & Strategy",       status: "done",    date: "Mar 1"  },
-      { label: "Script & Storyboard",    status: "done",    date: "Mar 8"  },
-      { label: "Production",             status: "done",    date: "Mar 22" },
-      { label: "Post-Production",        status: "done",    date: "Apr 1"  },
-      { label: "Platform Distribution",  status: "active",  date: "Apr 5"  },
-      { label: "Optimization Phase",     status: "pending", date: "Apr 10" },
-      { label: "Final Report",           status: "pending", date: "Apr 15" },
-    ],
-    owner: "Isaac",
-    budget: "$18,400",
-    spent: "$13,248",
-  },
-  {
-    id: "spring-email-nurture",
-    name: "Spring Email Nurture — Phase 2",
-    type: "Email",
-    status: "Review",
-    progress: 45,
-    due: "Apr 3, 2026",
-    kpi: "Open Rate 38%",
-    channels: ["Email"],
-    description: "A 6-email nurture sequence targeting warm leads who engaged with Q1 content but haven't converted. Personalised send cadence using behavioral triggers. Subject line variants A/B tested across 3 audience segments.",
-    metrics: [
-      { label: "Open Rate",   value: "38%",   delta: "+12%",  good: true  },
-      { label: "CTR",         value: "6.2%",  delta: "+1.8%", good: true  },
-      { label: "Unsubscribe", value: "0.3%",  delta: "-0.1%", good: true  },
-      { label: "Conversions", value: "94",    delta: "+22%",  good: true  },
-    ],
-    timeline: [
-      { label: "Audience Segmentation",  status: "done",    date: "Mar 10" },
-      { label: "Copy & Subject Lines",   status: "done",    date: "Mar 18" },
-      { label: "Design & Templates",     status: "active",  date: "Mar 25" },
-      { label: "Client Review",          status: "active",  date: "Apr 1"  },
-      { label: "Send & Monitor",         status: "pending", date: "Apr 3"  },
-    ],
-    owner: "Mitchell",
-    budget: "$3,200",
-    spent: "$1,440",
-  },
-  {
-    id: "thought-leadership-blog",
-    name: "Thought Leadership Blog Series",
-    type: "Content",
-    status: "Active",
-    progress: 90,
-    due: "Mar 31, 2026",
-    kpi: "SEO +2,400 visits",
-    channels: ["Blog", "LinkedIn"],
-    description: "12-article editorial series establishing brand authority in the AI-native marketing space. Each article is 1,200–1,800 words, optimised for primary and secondary keywords, with supporting LinkedIn posts adapted from each piece.",
-    metrics: [
-      { label: "Organic Traffic", value: "+2,400", delta: "+2,400", good: true  },
-      { label: "Avg. Position",   value: "3.2",     delta: "-1.8",  good: true  },
-      { label: "Time on Page",    value: "4m 12s",  delta: "+48s",  good: true  },
-      { label: "Backlinks",       value: "34",      delta: "+11",   good: true  },
-    ],
-    timeline: [
-      { label: "Editorial Calendar",  status: "done",    date: "Feb 1"  },
-      { label: "Articles 1–4",        status: "done",    date: "Feb 15" },
-      { label: "Articles 5–8",        status: "done",    date: "Mar 1"  },
-      { label: "Articles 9–12",       status: "active",  date: "Mar 20" },
-      { label: "SEO Audit",           status: "active",  date: "Mar 28" },
-      { label: "Performance Report",  status: "pending", date: "Mar 31" },
-    ],
-    owner: "Isaac",
-    budget: "$6,000",
-    spent: "$5,400",
-  },
-  {
-    id: "paid-social-retargeting",
-    name: "Paid Social — Retargeting Q2",
-    type: "Paid",
-    status: "Planning",
-    progress: 12,
-    due: "Apr 30, 2026",
-    kpi: "CPA Target $18",
-    channels: ["Meta", "Google"],
-    description: "Retargeting campaign aimed at site visitors who did not convert during Q1 paid campaigns. Leveraging first-party pixel data across Meta and Google Display networks. Creative assets adapted from Q1 best-performers.",
-    metrics: [
-      { label: "CPA (target)",   value: "$18",   delta: "—",     good: true  },
-      { label: "Budget",         value: "$12K",  delta: "—",     good: true  },
-      { label: "Audience Size",  value: "84K",   delta: "—",     good: true  },
-      { label: "Creative Sets",  value: "6",     delta: "—",     good: true  },
-    ],
-    timeline: [
-      { label: "Audience Build",        status: "done",    date: "Apr 1"  },
-      { label: "Creative Brief",        status: "active",  date: "Apr 8"  },
-      { label: "Ad Build & QA",         status: "pending", date: "Apr 14" },
-      { label: "Campaign Launch",       status: "pending", date: "Apr 18" },
-      { label: "Week 1 Optimisation",   status: "pending", date: "Apr 25" },
-      { label: "Phase 1 Report",        status: "pending", date: "Apr 30" },
-    ],
-    owner: "Mitchell",
-    budget: "$12,000",
-    spent: "$0",
-  },
-];
+/* ─── Campaign type ──────────────────────────────────────────────────────── */
+interface Campaign {
+  id:          string;
+  name:        string;
+  type:        string;
+  status:      string;
+  progress:    number;
+  due:         string;
+  kpi:         string;
+  channels:    string[];
+  description: string;
+  metrics:     { label: string; value: string; delta: string; good: boolean }[];
+  timeline:    { label: string; status: string; date: string }[];
+  owner:       string;
+  budget:      string;
+  spent:       string;
+}
 
-type Campaign = (typeof campaigns)[0];
+/* ─── Campaign data ──────────────────────────────────────────────────────── */
+// Empty on launch — campaigns will be added as the client briefs APEX
+const campaigns: Campaign[] = [];
+
 
 /* ─── Helpers ──────────────────────────────────────────────────────────── */
 function statusStyle(status: string) {
@@ -619,9 +524,9 @@ export default function CampaignsPage() {
 
       {/* Summary stat cards */}
       <div className="grid grid-cols-3 gap-3 sm:gap-4">
-        <SummaryCard label="Active"    value="2" accent={true}  />
-        <SummaryCard label="In Review" value="1" accent={false} />
-        <SummaryCard label="Planning"  value="1" accent={false} />
+        <SummaryCard label="Active"    value={String(campaigns.filter(c => c.status === "Active").length)}   accent={true}  />
+        <SummaryCard label="In Review" value={String(campaigns.filter(c => c.status === "Review").length)}   accent={false} />
+        <SummaryCard label="Planning"  value={String(campaigns.filter(c => c.status === "Planning").length)} accent={false} />
       </div>
 
       {/* Campaign list */}
@@ -650,15 +555,24 @@ export default function CampaignsPage() {
           </span>
         </div>
 
-        {campaigns.map((c, i) => (
-          <CampaignRow
-            key={i}
-            c={c}
-            index={i}
-            active={selected?.id === c.id}
-            onClick={() => handleSelect(c)}
-          />
-        ))}
+        {campaigns.length === 0 ? (
+          <div className="px-8 py-14 text-center">
+            <p className="text-[14px] font-medium" style={{ color: "var(--text-4)" }}>No campaigns yet.</p>
+            <p className="text-[12px] mt-2" style={{ color: "var(--text-6)" }}>
+              Hit &ldquo;New Brief&rdquo; or ask AERA to get your first campaign started.
+            </p>
+          </div>
+        ) : (
+          campaigns.map((c, i) => (
+            <CampaignRow
+              key={i}
+              c={c}
+              index={i}
+              active={selected?.id === c.id}
+              onClick={() => handleSelect(c)}
+            />
+          ))
+        )}
       </div>
 
       {/* Detail panel */}

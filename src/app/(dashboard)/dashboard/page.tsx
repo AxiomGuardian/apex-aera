@@ -18,12 +18,7 @@ type MetricItem = {
   icon: React.ComponentType<{ className?: string; strokeWidth?: number; style?: React.CSSProperties }>;
 };
 
-const activity = [
-  { type: "Campaign", name: "Q2 Brand Launch — Video Series",        status: "Active",   time: "2h ago",     href: "/campaigns"  },
-  { type: "Content",  name: "8 × Instagram carousel posts delivered", status: "Complete", time: "Yesterday",  href: "/history"    },
-  { type: "Analysis", name: "AERA voice audit — March report ready",  status: "Complete", time: "2 days ago", href: "/history"    },
-  { type: "Campaign", name: "Email nurture sequence — Phase 2",       status: "Review",   time: "3 days ago", href: "/campaigns"  },
-];
+const activity: Array<{ type: string; name: string; status: string; time: string; href: string }> = [];
 
 /* ─────────────────────────────────────────────────────────────
    Signal health system
@@ -312,7 +307,7 @@ function Hero({
 
       {/* Bottom meta */}
       <div className="absolute bottom-5 left-5 right-5 sm:bottom-6 sm:left-8 sm:right-8 flex items-end justify-between">
-        <p className="text-[8.5px] font-mono" style={{ color: "var(--text-6)" }}>APEX AERA v2.1 · Q2 2026</p>
+        <p className="text-[8.5px] font-mono" style={{ color: "var(--text-6)" }}>APEX AERA · Intelligence Layer</p>
         <p className="text-[8.5px]" style={{ color: "var(--text-6)" }}>Intelligence Layer · Active</p>
       </div>
 
@@ -471,28 +466,28 @@ export default function DashboardPage() {
 
   const metrics: MetricItem[] = [
     {
-      label: "Content Velocity", value: velocity, delta: "+18%", sub: "vs. baseline", icon: Zap,
-      insight: "Running 18% above your Q1 baseline — driven by the Video Series and Blog campaigns operating simultaneously. AERA recommends maintaining 2–3 active briefs per cycle to sustain this pace without straining creative resources.",
+      label: "Content Velocity", value: velocity, delta: "—", sub: "vs. baseline", icon: Zap,
+      insight: "Connect your campaigns and AERA will track content velocity automatically. Ask AERA to set a baseline once your first campaign is live.",
     },
     {
-      label: "ROAS", value: roas, delta: "+23%", sub: "Return on ad spend", icon: TrendingUp,
-      insight: "Exceptional return on ad spend. The Q2 Brand Video is your top performer at 11.4×. Paid social retargeting, currently in planning, is projected to bring the blended ROAS to 9×+ once launched in late April.",
+      label: "ROAS", value: roas, delta: "—", sub: "Return on ad spend", icon: TrendingUp,
+      insight: "ROAS will populate once your paid campaigns are connected. AERA monitors Meta, Google, and programmatic channels in real time.",
     },
     {
-      label: "Conversion Rate", value: "4.6%", delta: "+0.9pt", sub: "Landing page avg.", icon: Target,
-      insight: "Up 0.9 points from last quarter — the Email Nurture Phase 1 sequence is the primary driver. AERA projects a 5.1% conversion rate by end of Q2 if the Phase 2 sequence launches on schedule.",
+      label: "Conversion Rate", value: "—", delta: "—", sub: "Landing page avg.", icon: Target,
+      insight: "Conversion rate tracking activates when your campaign landing pages are connected. Ask Marcus to walk you through the attribution setup.",
     },
     {
-      label: "Engagement", value: "12.3%", delta: "+5.1pt", sub: "Cross-channel avg.", icon: Activity,
-      insight: "5.1 points above baseline. Short-form video on Instagram and LinkedIn is outperforming written content by 3×. AERA recommends shifting 20% of content budget toward video formats to sustain this lift.",
+      label: "Engagement", value: "—", delta: "—", sub: "Cross-channel avg.", icon: Activity,
+      insight: "Cross-channel engagement metrics will appear here once your social and email platforms are connected. AERA aggregates everything into a single signal.",
     },
     {
-      label: "Brand Search", value: seoLift, delta: "+12%", sub: "Organic search lift", icon: BarChart3,
-      insight: "Organic lift driven by the Thought Leadership Blog Series — 34 new backlinks acquired this quarter. Top article: 'AI-Native Marketing in 2026' with 840 unique sessions. Average SERP position improved to 3.2.",
+      label: "Brand Search", value: seoLift, delta: "—", sub: "Organic search lift", icon: BarChart3,
+      insight: "Organic and brand search lift will populate once your SEO data is connected. Victor can set up the pipeline when you're ready.",
     },
     {
-      label: "Audience Reach", value: "2.1M", delta: "+340K", sub: "Unique impressions", icon: Users,
-      insight: "340K new unique impressions vs. last quarter. The YouTube brand video accounts for 48% of new reach. Cross-platform audience overlap is just 12%, indicating strong, healthy discovery across channels.",
+      label: "Audience Reach", value: "—", delta: "—", sub: "Unique impressions", icon: Users,
+      insight: "Audience reach tracking activates once your ad accounts and social platforms are connected. AERA will surface cross-channel overlap and growth signals.",
     },
   ];
 
@@ -511,19 +506,19 @@ export default function DashboardPage() {
               className="text-[10px] font-semibold tracking-[0.2em] uppercase mb-4"
               style={{ color: "var(--cyan)" }}
             >
-              March 2026 · Intelligence Overview
+              Intelligence Overview
             </p>
             <Greeting />
             <p
               className="text-[15px] mt-3 font-normal leading-relaxed max-w-[400px]"
               style={{ color: "var(--text-5)", letterSpacing: "0.005em" }}
             >
-              Your brand is at peak velocity. AERA is active and watching every signal.
+              AERA is active and ready. Brief the team to get started.
             </p>
           </div>
           <div className="flex items-center gap-2.5 sm:shrink-0 sm:pb-1">
-            <Link href="/conference?report=full">
-              <Button variant="outline" size="sm">Full Report</Button>
+            <Link href="/campaigns">
+              <Button variant="outline" size="sm">Campaigns</Button>
             </Link>
             <Link href="/chat?brief=1">
               <Button variant="primary" size="sm">
@@ -549,7 +544,7 @@ export default function DashboardPage() {
       >
         <div className="flex items-baseline justify-between mb-6">
           <span className="section-label">Key Performance Indicators</span>
-          <p className="text-[11px]" style={{ color: "var(--text-6)" }}>Updated 2 hours ago</p>
+          <p className="text-[11px]" style={{ color: "var(--text-6)" }}>Live via AERA</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -583,9 +578,18 @@ export default function DashboardPage() {
             </Link>
           </div>
           <div>
-            {activity.map((item, i) => (
-              <ActivityRow key={i} item={item} i={i} />
-            ))}
+            {activity.length === 0 ? (
+              <div className="px-7 py-10 text-center">
+                <p className="text-[13px]" style={{ color: "var(--text-6)" }}>No recent activity yet.</p>
+                <p className="text-[11px] mt-1.5" style={{ color: "var(--text-6)", opacity: 0.6 }}>
+                  Activity will appear here as campaigns and deliverables come through.
+                </p>
+              </div>
+            ) : (
+              activity.map((item, i) => (
+                <ActivityRow key={i} item={item} i={i} />
+              ))
+            )}
           </div>
         </div>
 

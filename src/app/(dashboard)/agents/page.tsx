@@ -26,55 +26,43 @@ const AGENT_STATUS: Record<AgentId, { label: string; pulse: boolean }> = {
   victor:    { label: "Active",   pulse: true  },
 };
 
-/* ─── Live activity — what each agent is working on right now ─── */
+/* ─── Agent readiness — shown before any campaigns are connected ─── */
 const AGENT_ACTIVITY: Record<AgentId, {
-  action: string;        // Short verb phrase
-  detail: string;        // Specifics — real numbers, campaign names
-  metric?: string;       // Optional live metric
+  action: string;
+  detail: string;
+  metric?: string;
   metricLabel?: string;
   updatedAgo: string;
 }> = {
   aera: {
-    action:      "Monitoring brand signals",
-    detail:      "Q2 Video ROAS spike at 11.4× — flagged for retargeting expansion",
-    metric:      "11.4×",
-    metricLabel: "Video ROAS",
-    updatedAgo:  "Live",
+    action:     "Ready",
+    detail:     "Standing by to brief the team and surface your first insights.",
+    updatedAgo: "Live",
   },
   marcus: {
-    action:      "Optimizing Meta bid strategy",
-    detail:      "Shifting to 28-day attribution window — projected +1.2× ROAS lift",
-    metric:      "+1.2×",
-    metricLabel: "Projected lift",
-    updatedAgo:  "2 min ago",
+    action:     "Ready",
+    detail:     "Connect your Meta and Google Ads accounts to start tracking ROAS and bid performance.",
+    updatedAgo: "Ready",
   },
   sophia: {
-    action:      "Running creative QA review",
-    detail:      "2 retargeting assets flagged for tone misalignment with hero video",
-    metric:      "94%",
-    metricLabel: "Brand score",
-    updatedAgo:  "12 min ago",
+    action:     "Ready",
+    detail:     "Share your brand guidelines and Sophia will monitor every asset for consistency.",
+    updatedAgo: "Ready",
   },
   julian: {
-    action:      "Sequencing Email Phase 2",
-    detail:      "7-touch nurture sequence — Thursday launch confirmed, all assets locked",
-    metric:      "Thu",
-    metricLabel: "Launch",
-    updatedAgo:  "1 hr ago",
+    action:     "Ready",
+    detail:     "Submit your first campaign brief and Julian will build out the launch sequence.",
+    updatedAgo: "Ready",
   },
   charlotte: {
-    action:      "Drafting Q2 executive brief",
-    detail:      "8-page portfolio summary — delivery scheduled for Friday 9am",
-    metric:      "48h",
-    metricLabel: "Delivery",
-    updatedAgo:  "3 hr ago",
+    action:     "Ready",
+    detail:     "Charlotte is ready to prepare your first executive brief once campaigns are active.",
+    updatedAgo: "Ready",
   },
   victor: {
-    action:      "Reconciling attribution model",
-    detail:      "Cross-channel data sync — Meta → GA4 → APEX pipeline validated",
-    metric:      "99.8%",
-    metricLabel: "Data accuracy",
-    updatedAgo:  "6 hr ago",
+    action:     "Ready",
+    detail:     "Connect your analytics stack and Victor will validate the attribution pipeline.",
+    updatedAgo: "Ready",
   },
 };
 

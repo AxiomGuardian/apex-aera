@@ -63,21 +63,21 @@ interface ClientMemoryContextType {
 // ── Defaults ────────────────────────────────────────────────────
 
 const DEFAULT_STATS: CampaignStats = {
-  roas:           "8.2×",
-  velocity:       "4.2×",
-  brandScore:     "94%",
-  openRate:       "38%",
-  cpa:            "$18",
-  seoLift:        "+2,400",
-  awarenessDelta: "+11 pts",
+  roas:           "—",
+  velocity:       "—",
+  brandScore:     "—",
+  openRate:       "—",
+  cpa:            "—",
+  seoLift:        "—",
+  awarenessDelta: "—",
   updatedAt:      new Date().toISOString(),
 };
 
 const DEFAULT_BRAND: BrandProfile = {
-  clientName:  "APEX Client",
+  clientName:  "Client",
   voiceTone:   "confident, data-driven, premium",
-  positioning: "Premium brand launch — Q2 2026 campaign suite",
-  quarter:     "Q2 2026",
+  positioning: "",
+  quarter:     "",
   updatedAt:   new Date().toISOString(),
 };
 
