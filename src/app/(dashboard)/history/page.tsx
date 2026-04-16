@@ -22,15 +22,7 @@ type DeliverableEntry = {
   date:     string;
 };
 
-/* ─── Placeholder seed (shown when no uploads yet) ──────────────── */
-const SEED: DeliverableEntry[] = [
-  { id: "seed-1", name: "Q1 Brand Report — Full PDF",      filename: "",  type: "PDF",    platform: null,        size: 0, sizeStr: "4.2 MB",  mime: "application/pdf",  date: "Mar 15, 2026" },
-  { id: "seed-2", name: "Instagram Carousel Pack × 8",     filename: "",  type: "Design", platform: "Instagram", size: 0, sizeStr: "18.7 MB", mime: "image/png",         date: "Mar 12, 2026" },
-  { id: "seed-3", name: "YouTube Brand Video — Final",      filename: "",  type: "Video",  platform: "YouTube",   size: 0, sizeStr: "412 MB",  mime: "video/mp4",         date: "Mar 8, 2026"  },
-  { id: "seed-4", name: "Email Nurture Sequence — Phase 1", filename: "",  type: "Copy",   platform: "Gmail",     size: 0, sizeStr: "84 KB",   mime: "text/plain",        date: "Feb 28, 2026" },
-  { id: "seed-5", name: "Voice & Tone Guide 2026",          filename: "",  type: "PDF",    platform: null,        size: 0, sizeStr: "2.1 MB",  mime: "application/pdf",   date: "Feb 14, 2026" },
-  { id: "seed-6", name: "LinkedIn Thought Leadership × 12", filename: "",  type: "Copy",   platform: "LinkedIn",  size: 0, sizeStr: "156 KB",  mime: "text/plain",        date: "Feb 5, 2026"  },
-];
+/* No seed data — deliverables start empty and populate as APEX delivers work */
 
 /* ─── Style map ─────────────────────────────────────────────────── */
 const typeStyle: Record<string, { color: string; bg: string; border: string }> = {
@@ -460,11 +452,9 @@ export default function HistoryPage() {
   const [viewing,    setViewing]    = useState<DeliverableEntry | null>(null);
   const [uploading,  setUploading]  = useState(false);
 
-  /* Merge uploaded entries on top of seed data */
+  /* All entries — only real uploads, no seed data */
   const allEntries = useCallback(() => {
-    const uploadedIds = new Set(entries.map((e) => e.id));
-    const seed = SEED.filter((s) => !uploadedIds.has(s.id));
-    return [...entries, ...seed];
+    return [...entries];
   }, [entries]);
 
   /* Fetch uploaded manifest on mount */
@@ -531,6 +521,8 @@ export default function HistoryPage() {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }).length;
 
+  const isEmpty = !loading && displayed.length === 0;
+
   return (
     <PagePad>
       {/* Modals */}
@@ -564,9 +556,9 @@ export default function HistoryPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 sm:gap-4">
-          <StatCard label="Total Files"  value={loading ? "—" : String(displayed.length)} />
-          <StatCard label="This Month"   value={loading ? "—" : String(thisMonth || (realCount > 0 ? thisMonth : 3))} />
-          <StatCard label="Total Size"   value={loading ? "—" : (realCount > 0 ? humanTotal : "437 MB")} />
+          <StatCard label="Total Files"  value={loading ? "—" : String(realCount)} />
+          <StatCard label="This Month"   value={loading ? "—" : String(thisMonth)} />
+          <StatCard label="Total Size"   value={loading ? "—" : (realCount > 0 ? humanTotal : "—")} />
         </div>
 
         {/* File list */}
@@ -576,17 +568,26 @@ export default function HistoryPage() {
             <span style={{ fontSize: 11, color: "var(--text-6)" }}>{displayed.length} deliverables</span>
           </div>
 
-          {displayed.map((d, i) => (
-            <DeliverableRow
-              key={d.id}
-              d={d}
-              index={i}
-              isLast={i === displayed.length - 1}
-              onView={()     => setViewing(d)}
-              onDownload={()  => handleDownload(d)}
-              onDelete={()    => handleDelete(d)}
-            />
-          ))}
+          {isEmpty ? (
+            <div className="px-8 py-14 text-center">
+              <p className="text-[14px] font-medium" style={{ color: "var(--text-4)" }}>No deliverables yet.</p>
+              <p className="text-[12px] mt-2" style={{ color: "var(--text-6)" }}>
+                Files uploaded by APEX or your team will appear here. Hit &ldquo;Upload&rdquo; to add your first file.
+              </p>
+            </div>
+          ) : (
+            displayed.map((d, i) => (
+              <DeliverableRow
+                key={d.id}
+                d={d}
+                index={i}
+                isLast={i === displayed.length - 1}
+                onView={()     => setViewing(d)}
+                onDownload={()  => handleDownload(d)}
+                onDelete={()    => handleDelete(d)}
+              />
+            ))
+          )}
         </div>
 
       </div>

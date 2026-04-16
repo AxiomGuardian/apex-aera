@@ -263,17 +263,18 @@ function VoiceProfileCard() {
 
 /* ── Team tab ── */
 function TeamTab() {
-  const [members] = useState([
-    { name: "Alex Morgan",   role: "Campaign Lead",     initials: "AM", status: "active"  },
-    { name: "Jordan Pierce", role: "Creative Director", initials: "JP", status: "active"  },
-    { name: "Riley Chen",    role: "Analyst",           initials: "RC", status: "pending" },
-  ]);
+  const [members] = useState<{ name: string; role: string; initials: string; status: string }[]>([]);
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 18 }}>
       <Card>
         <SectionHead label="Team Members" sub="Manage access and roles for your organization." />
-        {members.map((m) => (
+        {members.length === 0 ? (
+          <div style={{ padding: "28px 0", textAlign: "center" }}>
+            <p style={{ fontSize: 13, color: "var(--text-5)" }}>No team members yet.</p>
+            <p style={{ fontSize: 11, color: "var(--text-6)", marginTop: 5 }}>Invite your team using the button below.</p>
+          </div>
+        ) : members.map((m) => (
           <div key={m.name} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
             <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--surface-3)", border: "1px solid var(--border-mid)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)" }}>{m.initials}</span>
@@ -326,11 +327,11 @@ function BillingTab() {
               <span style={{ fontSize: 10, fontWeight: 600, color: "#22c55e", letterSpacing: "0.05em", textTransform: "uppercase" }}>Active</span>
             </div>
           </div>
-          <p style={{ fontSize: 11.5, color: "var(--text-5)", marginTop: 10 }}>Next billing: April 15, 2026 · Auto-renews annually</p>
+          <p style={{ fontSize: 11.5, color: "var(--text-5)", marginTop: 10 }}>Next billing: May 15, 2026 · Auto-renews monthly</p>
         </div>
-        <FieldRow label="Payment Method" value="Visa ending in ···4821"  action="Update" />
-        <FieldRow label="Billing Email"  value="billing@apexera.com"     action="Edit" />
-        <FieldRow label="Billing Cycle"  value="Monthly"                 badge="Annual savings available" />
+        <FieldRow label="Payment Method" value="—"                        action="Add" />
+        <FieldRow label="Billing Email"  value="—"                        action="Add" />
+        <FieldRow label="Billing Cycle"  value="Monthly"                  badge="Annual savings available" />
         <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
           <button style={{ flex: 1, padding: "9px 0", borderRadius: 9, border: "1px solid var(--border)", background: "transparent", color: "var(--text-4)", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.15s" }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--border-mid)"; e.currentTarget.style.color = "var(--text)"; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-4)"; }}>
             <Download style={{ width: 12, height: 12 }} strokeWidth={1.7} /> Invoices
@@ -343,24 +344,10 @@ function BillingTab() {
 
       <Card>
         <SectionHead label="Billing History" />
-        {[
-          { date: "Mar 15, 2026", amount: "$2,400", status: "Paid",    inv: "INV-2026-03" },
-          { date: "Feb 15, 2026", amount: "$2,400", status: "Paid",    inv: "INV-2026-02" },
-          { date: "Jan 15, 2026", amount: "$2,400", status: "Paid",    inv: "INV-2026-01" },
-          { date: "Dec 15, 2025", amount: "$2,400", status: "Paid",    inv: "INV-2025-12" },
-        ].map((row) => (
-          <div key={row.inv} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 0", borderBottom: "1px solid var(--border)" }}>
-            <div>
-              <p style={{ fontSize: 13, color: "var(--text-2)", fontWeight: 500 }}>{row.date}</p>
-              <p style={{ fontSize: 11, color: "var(--text-5)", marginTop: 2 }}>{row.inv}</p>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", letterSpacing: "-0.01em" }}>{row.amount}</span>
-              <span style={{ fontSize: 10, color: "#22c55e", fontWeight: 600 }}>{row.status}</span>
-              <button style={{ fontSize: 11, color: "var(--text-5)", background: "none", border: "none", cursor: "pointer" }}>PDF</button>
-            </div>
-          </div>
-        ))}
+        <div style={{ padding: "32px 0", textAlign: "center" }}>
+          <p style={{ fontSize: 13, color: "var(--text-5)" }}>No invoices yet.</p>
+          <p style={{ fontSize: 11, color: "var(--text-6)", marginTop: 6 }}>Your first invoice will appear here after the billing cycle completes.</p>
+        </div>
       </Card>
     </div>
   );
@@ -408,14 +395,7 @@ function PrivacyTab() {
 /* ── Security tab ── */
 function SecurityTab() {
 
-  const AUDIT_LOG = [
-    { event: "Logged in",                  detail: "Chrome · macOS · New York, NY",          time: "Today, 9:14 AM"     },
-    { event: "AERA Voice Mode enabled",    detail: "Full intelligence loop started",           time: "Today, 9:16 AM"     },
-    { event: "Campaign created",           detail: "Q2 Brand Refresh — Summer Identity",       time: "Yesterday, 3:02 PM" },
-    { event: "API key rotated",            detail: "Key ending ···4f8a",                       time: "Mar 28, 2026"       },
-    { event: "2FA enabled",                detail: "Authenticator app configured",             time: "Mar 15, 2026"       },
-    { event: "Password changed",           detail: "Successful from trusted device",           time: "Mar 10, 2026"       },
-  ];
+  const AUDIT_LOG: { event: string; detail: string; time: string }[] = [];
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 18 }}>
@@ -442,9 +422,7 @@ function SecurityTab() {
       <Card>
         <SectionHead label="Active Sessions" />
         {[
-          { device: "Chrome on macOS",       location: "New York, NY",  time: "Active now",        current: true  },
-          { device: "Safari on iPhone 16",   location: "New York, NY",  time: "2 hours ago",       current: false },
-          { device: "Chrome on Windows 11",  location: "Chicago, IL",   time: "Yesterday, 4:12 PM",current: false },
+          { device: "Current session",  location: "—",  time: "Active now", current: true },
         ].map((s) => (
           <div key={s.device} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", borderRadius: 10, background: s.current ? "rgba(45,212,255,0.04)" : "var(--surface-2)", border: `1px solid ${s.current ? "var(--cyan-border)" : "var(--border)"}`, marginBottom: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -468,7 +446,12 @@ function SecurityTab() {
       {/* Audit log */}
       <Card>
         <SectionHead label="Audit Log" sub="A record of security-relevant events on your account." />
-        {AUDIT_LOG.map((entry, i) => (
+        {AUDIT_LOG.length === 0 ? (
+          <div style={{ padding: "28px 0", textAlign: "center" }}>
+            <p style={{ fontSize: 13, color: "var(--text-5)" }}>No events recorded yet.</p>
+            <p style={{ fontSize: 11, color: "var(--text-6)", marginTop: 5 }}>Security events will appear here as they occur.</p>
+          </div>
+        ) : AUDIT_LOG.map((entry, i) => (
           <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "10px 0", borderBottom: i < AUDIT_LOG.length - 1 ? "1px solid var(--border)" : "none" }}>
             <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--cyan)", marginTop: 5, flexShrink: 0, boxShadow: "0 0 4px rgba(45,212,255,0.4)" }} />
             <div style={{ flex: 1 }}>

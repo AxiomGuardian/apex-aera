@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { BrandIcon, brandColor } from "@/components/ui/BrandIcon";
 import { Plus, Calendar, TrendingUp, ArrowLeft, BarChart3, Users, Target, Zap, CheckCircle2, Clock, Circle } from "lucide-react";
@@ -488,6 +489,7 @@ function SummaryCard({ label, value, accent }: { label: string; value: string; a
 
 /* ─── Page ──────────────────────────────────────────────────────────────── */
 export default function CampaignsPage() {
+  const router = useRouter();
   const [selected, setSelected] = useState<Campaign | null>(null);
 
   const handleSelect = (c: Campaign) => {
@@ -516,7 +518,7 @@ export default function CampaignsPage() {
             Campaigns
           </h2>
         </div>
-        <Button variant="primary" size="sm">
+        <Button variant="primary" size="sm" onClick={() => router.push("/chat?brief=1")}>
           <Plus className="h-3.5 w-3.5" />
           New Brief
         </Button>

@@ -88,7 +88,7 @@ const DEFAULT_MEMORY: MemoryState = {
   selectedAgentId: "aera",      // default to AERA voice
 };
 
-const STORAGE_KEY = "aera_client_memory_v1";
+const STORAGE_KEY = "aera_client_memory_v2";
 
 // ── localStorage helpers ────────────────────────────────────────
 

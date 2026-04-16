@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { MessageSquare, Mic, ArrowRight, Zap, Shield, Target, Users, Database, Bot } from "lucide-react";
 import { PagePad } from "@/components/layout/PagePad";
 import { AGENT_DISPLAY_ORDER, AGENTS } from "@/lib/agents";
@@ -33,6 +34,8 @@ const AGENT_ACTIVITY: Record<AgentId, {
   metric?: string;
   metricLabel?: string;
   updatedAgo: string;
+  connectHref?: string;
+  connectLabel?: string;
 }> = {
   aera: {
     action:     "Ready",
@@ -40,19 +43,25 @@ const AGENT_ACTIVITY: Record<AgentId, {
     updatedAgo: "Live",
   },
   marcus: {
-    action:     "Ready",
-    detail:     "Connect your Meta and Google Ads accounts to start tracking ROAS and bid performance.",
-    updatedAgo: "Ready",
+    action:       "Ready",
+    detail:       "Connect your Meta and Google Ads accounts to start tracking ROAS and bid performance.",
+    updatedAgo:   "Ready",
+    connectHref:  "https://business.facebook.com/overview",
+    connectLabel: "Connect Meta Ads →",
   },
   sophia: {
-    action:     "Ready",
-    detail:     "Share your brand guidelines and Sophia will monitor every asset for consistency.",
-    updatedAgo: "Ready",
+    action:       "Ready",
+    detail:       "Share your brand guidelines and Sophia will monitor every asset for consistency.",
+    updatedAgo:   "Ready",
+    connectHref:  "/chat?agent=sophia",
+    connectLabel: "Upload Guidelines →",
   },
   julian: {
-    action:     "Ready",
-    detail:     "Submit your first campaign brief and Julian will build out the launch sequence.",
-    updatedAgo: "Ready",
+    action:       "Ready",
+    detail:       "Submit your first campaign brief and Julian will build out the launch sequence.",
+    updatedAgo:   "Ready",
+    connectHref:  "/chat?brief=1",
+    connectLabel: "Start Brief →",
   },
   charlotte: {
     action:     "Ready",
@@ -60,9 +69,11 @@ const AGENT_ACTIVITY: Record<AgentId, {
     updatedAgo: "Ready",
   },
   victor: {
-    action:     "Ready",
-    detail:     "Connect your analytics stack and Victor will validate the attribution pipeline.",
-    updatedAgo: "Ready",
+    action:       "Ready",
+    detail:       "Connect your analytics stack and Victor will validate the attribution pipeline.",
+    updatedAgo:   "Ready",
+    connectHref:  "https://analytics.google.com",
+    connectLabel: "Connect GA4 →",
   },
 };
 
@@ -264,6 +275,49 @@ function AgentCard({
           {activity.detail}
         </p>
 
+        {/* Connect link */}
+        {activity.connectHref && activity.connectLabel && (
+          activity.connectHref.startsWith("http") ? (
+            <a
+              href={activity.connectHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-block",
+                marginTop: 8,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.04em",
+                color: agent.color,
+                textDecoration: "none",
+                opacity: 0.85,
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.85")}
+            >
+              {activity.connectLabel}
+            </a>
+          ) : (
+            <Link
+              href={activity.connectHref}
+              style={{
+                display: "inline-block",
+                marginTop: 8,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.04em",
+                color: agent.color,
+                textDecoration: "none",
+                opacity: 0.85,
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.85")}
+            >
+              {activity.connectLabel}
+            </Link>
+          )
+        )}
+
         {/* Metric badge */}
         {activity.metric && (
           <div style={{ marginTop: 8, display: "flex", alignItems: "baseline", gap: 5 }}>
@@ -426,10 +480,10 @@ function TeamMeetingBanner({
               fontSize: 15, fontWeight: 800, letterSpacing: "-0.035em",
               color: "var(--text)", lineHeight: 1,
             }}>
-              Start Team Meeting
+              Brief the Full Team
             </h3>
             <p style={{ fontSize: 12, color: "var(--text-5)", marginTop: 5, lineHeight: 1.5 }}>
-              AERA chairs a voice meeting with all 5 specialists — natural handoffs, real-time strategy.
+              Open AERA and brief all 5 specialists at once — strategy, creative, performance, and reporting.
             </p>
           </div>
         </div>
@@ -445,8 +499,8 @@ function TeamMeetingBanner({
             transition: "all 0.2s",
           }}
         >
-          <Mic style={{ width: 13, height: 13 }} strokeWidth={1.6} />
-          Voice Session
+          <MessageSquare style={{ width: 13, height: 13 }} strokeWidth={1.6} />
+          Open AERA
           <ArrowRight style={{ width: 13, height: 13 }} strokeWidth={2} />
         </div>
       </div>
@@ -477,9 +531,8 @@ export default function AgentsPage() {
   };
 
   const handleStartMeeting = () => {
-    // Set AERA as chair and open voice mode in chat
     setSelectedAgent("aera");
-    router.push("/chat?meeting=1");
+    router.push("/chat?brief=1");
   };
 
   const selectedAgent = AGENTS[selectedAgentId];
