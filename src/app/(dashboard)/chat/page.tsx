@@ -3,7 +3,7 @@
 import { useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mic, MicOff, Volume2, VolumeX, Radio, ArrowUp } from "lucide-react";
-import { AGENTS, AGENT_DISPLAY_ORDER } from "@/lib/agents";
+import { AGENTS, AGENT_DISPLAY_ORDER, hexToRgb } from "@/lib/agents";
 import type { AgentId } from "@/lib/agents";
 import { useAERA } from "@/context/AERAContext";
 import { useClientMemory } from "@/context/ClientMemory";
@@ -11,7 +11,6 @@ import { AERAOrb } from "@/components/chat/AERAOrb";
 import { VoiceWave, IdleWave } from "@/components/chat/VoiceWave";
 import { ThinkingDots } from "@/components/chat/ThinkingDots";
 import { ApexMark } from "@/components/chat/ApexMark";
-import { AERAAvatar } from "@/components/chat/AERAAvatar";
 import { ThinkingBubble } from "@/components/chat/ThinkingBubble";
 import { ThreadSidebar } from "@/components/chat/ThreadSidebar";
 import { useDeepgramSTT } from "@/hooks/useDeepgramSTT";
@@ -176,9 +175,12 @@ export default function ChatPage() {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  const handleSpeak = (text: string, id: string) => {
+  const handleSpeak = (text: string, id: string, agentId?: AgentId) => {
     if (speakingMessageId === id) stopSpeaking();
-    else speak(text, id);
+    else {
+      const voiceId = agentId ? AGENTS[agentId]?.voice_id : undefined;
+      speak(text, id, voiceId);
+    }
   };
 
   const handleToggleVoiceMode = () => {
@@ -364,7 +366,7 @@ export default function ChatPage() {
 
             {/* ── Voice Profile picker ── */}
             <div style={{ marginTop: 12, flexShrink: 0 }}>
-              <p style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-6)", marginBottom: 8 }}>Voice</p>
+              <p style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-6)", marginBottom: 8 }}>Team</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                 {AGENT_DISPLAY_ORDER.map((id: AgentId) => {
                   const a = AGENTS[id];
@@ -461,22 +463,43 @@ export default function ChatPage() {
                 }
                 style={{ display: "flex", flexDirection: msg.role === "user" ? "row-reverse" : "row", gap: 13, alignItems: "flex-start" }}
               >
-                {/* Avatar — AERAAvatar for AERA, no avatar for user (cleaner) */}
-                {msg.role === "aera" && (
-                  <div style={{ marginTop: 18, flexShrink: 0 }}>
-                    <AERAAvatar
-                      state={speakingMessageId === msg.id ? "speaking" : "idle"}
-                      size={36}
-                    />
-                  </div>
-                )}
+                {/* Agent avatar — shows the specific agent's initials + color */}
+                {msg.role === "aera" && (() => {
+                  const agent = AGENTS[msg.agentId ?? "aera"];
+                  const isTalking = speakingMessageId === msg.id;
+                  return (
+                    <div style={{ marginTop: 18, flexShrink: 0 }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 10,
+                        background: `rgba(${hexToRgb(agent.color)}, ${isTalking ? "0.18" : "0.10"})`,
+                        border: `1.5px solid rgba(${hexToRgb(agent.color)}, ${isTalking ? "0.55" : "0.28"})`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        boxShadow: isTalking ? `0 0 14px rgba(${hexToRgb(agent.color)}, 0.35)` : "none",
+                        transition: "all 0.3s",
+                      }}>
+                        <span style={{ fontSize: 10, fontWeight: 800, color: agent.color, letterSpacing: "-0.01em" }}>
+                          {agent.initials}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", gap: 5 }}>
 
-                  {/* Sender label */}
-                  <p className="msg-sender" style={{ color: msg.role === "aera" ? "rgba(45,212,255,0.55)" : "rgba(255,255,255,0.30)", paddingLeft: msg.role === "aera" ? 2 : 0, textAlign: msg.role === "user" ? "right" : "left" }}>
-                    {msg.role === "aera" ? "AERA" : "You"}
-                  </p>
+                  {/* Sender label — shows agent name with their accent color */}
+                  {msg.role === "aera" ? (() => {
+                    const agent = AGENTS[msg.agentId ?? "aera"];
+                    return (
+                      <p className="msg-sender" style={{ color: `rgba(${hexToRgb(agent.color)}, 0.70)`, paddingLeft: 2 }}>
+                        {agent.name.toUpperCase()}
+                      </p>
+                    );
+                  })() : (
+                    <p className="msg-sender" style={{ color: "rgba(255,255,255,0.30)", textAlign: "right" }}>
+                      You
+                    </p>
+                  )}
 
                   {/* Reasoning bubble */}
                   {msg.role === "aera" && msg.thinking && (
@@ -502,7 +525,7 @@ export default function ChatPage() {
                   {/* Hear / stop button */}
                   {msg.role === "aera" && (
                     <button
-                      onClick={() => handleSpeak(msg.content, msg.id)}
+                      onClick={() => handleSpeak(msg.content, msg.id, msg.agentId)}
                       title={speakingMessageId === msg.id ? "Stop" : "Hear this"}
                       style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 5, padding: "3px 8px", borderRadius: 6, border: "none", background: speakingMessageId === msg.id ? "rgba(45,212,255,0.10)" : "transparent", color: speakingMessageId === msg.id ? "#2DD4FF" : "rgba(255,255,255,0.22)", cursor: "pointer", transition: "all 0.15s", fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600 }}
                       onMouseEnter={(e) => { if (speakingMessageId !== msg.id) e.currentTarget.style.color = "rgba(255,255,255,0.50)"; }}
@@ -527,10 +550,27 @@ export default function ChatPage() {
                   style={{ display: "flex", gap: 13, alignItems: "flex-start" }}
                 >
                   <div style={{ marginTop: 18, flexShrink: 0 }}>
-                    <AERAAvatar state="typing" size={36} />
+                    {(() => {
+                      const agent = AGENTS[selectedAgentId];
+                      return (
+                        <div style={{
+                          width: 36, height: 36, borderRadius: 10,
+                          background: `rgba(${hexToRgb(agent.color)}, 0.08)`,
+                          border: `1.5px solid rgba(${hexToRgb(agent.color)}, 0.22)`,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          animation: "breathe 1.6s ease-in-out infinite",
+                        }}>
+                          <span style={{ fontSize: 10, fontWeight: 800, color: agent.color, opacity: 0.7 }}>
+                            {agent.initials}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    <p className="msg-sender" style={{ color: "rgba(45,212,255,0.55)" }}>AERA</p>
+                    <p className="msg-sender" style={{ color: `rgba(${hexToRgb(AGENTS[selectedAgentId].color)}, 0.55)` }}>
+                      {AGENTS[selectedAgentId].name.toUpperCase()}
+                    </p>
                     <div className="thinking-shimmer" style={{
                       padding: "14px 20px",
                       borderRadius: "3px 18px 18px 18px",

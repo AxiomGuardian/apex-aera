@@ -21,6 +21,7 @@ export type Message = {
   id: string;
   role: "aera" | "user";
   content: string;
+  agentId?: AgentId;       // which agent spoke this message (undefined = AERA/Sarah)
   thinking?: string | null;
   chart?: ChartData | null;
   timestamp: Date;
@@ -51,8 +52,9 @@ const MAX_STORED        = 100;
 const GREETING: Message = {
   id: "aera-intro",
   role: "aera",
+  agentId: "aera",
   content:
-    "Good morning. Your Q2 brand launch is running at 4.2× velocity — 18% ahead of target. How can I help you today?",
+    "Hey — what's on your mind?",
   timestamp: new Date(),
 };
 
@@ -150,7 +152,7 @@ type AERAContextType = {
   isTyping: boolean;
   isSpeaking: boolean;
   speakingMessageId: string | null;
-  speak: (text: string, id: string) => void;
+  speak: (text: string, id: string, voiceId?: string) => void;
   stopSpeaking: () => void;
   speakMultiAgent: (text: string, id: string) => void;
   unlockAudio: () => void;
@@ -364,16 +366,46 @@ export function AERAProvider({ children }: { children: ReactNode }) {
       const thinkingContent = res.ok ? (data.thinking ?? null) : null;
       const chartContent    = res.ok ? (data.chart ?? null) : null;
 
-      const aeraMsg: Message = {
-        id: `aera-${typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Date.now() + Math.random()}`,
-        role: "aera",
-        content: responseContent,
-        thinking: thinkingContent,
-        chart: chartContent,
-        timestamp: new Date(),
-      };
+      // ── Parse agent segments from response ───────────────────
+      // If the response contains **AgentName:** labels, split into
+      // individual Message objects — one per agent. Each gets its own
+      // bubble in the chat UI with the agent's name, color, and initials.
+      // Single-speaker responses get the selected agent's identity.
+      const segments = parseAgentSegments(responseContent);
+      const hasMultiple = segments.length > 1 || /\*\*[\w\s]+:\*\*/.test(responseContent);
 
-      const withAera = [...messagesRef.current, aeraMsg];
+      let newMessages: Message[];
+      if (hasMultiple && segments.length > 0) {
+        newMessages = segments.map((seg, i) => ({
+          id: `aera-${typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Date.now() + Math.random() + i}`,
+          role: "aera" as const,
+          agentId: seg.agentId,
+          content: seg.text,
+          // Only attach thinking + chart to the first message in a multi-agent thread
+          thinking: i === 0 ? thinkingContent : null,
+          chart: i === segments.length - 1 ? chartContent : null,
+          timestamp: new Date(Date.now() + i * 50), // tiny offset so order is stable
+        }));
+      } else {
+        // Single speaker — detect from content prefix or fall back to selected agent
+        let detectedAgent: AgentId = selectedAgentIdRef.current;
+        if (segments.length === 1) detectedAgent = segments[0].agentId;
+        newMessages = [{
+          id: `aera-${typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Date.now() + Math.random()}`,
+          role: "aera" as const,
+          agentId: detectedAgent,
+          // Strip **Name:** prefix from displayed content if present
+          content: segments.length === 1 ? segments[0].text : responseContent,
+          thinking: thinkingContent,
+          chart: chartContent,
+          timestamp: new Date(),
+        }];
+      }
+
+      // For backward-compat: keep aeraMsg as first message (used for TTS + memory)
+      const aeraMsg = newMessages[0];
+
+      const withAera = [...messagesRef.current, ...newMessages];
       messagesRef.current = withAera;
       setMessages(withAera);
       // Update active thread's messages in the threads array
