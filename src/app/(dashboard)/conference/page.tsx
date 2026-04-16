@@ -568,36 +568,40 @@ function ConferencePage() {
     entries: TranscriptEntry[],
     signal: AbortSignal,
   ) => {
-    if (!audioEnabled) return;
+    // Transcript entries are ALWAYS revealed — even if audio is disabled or TTS fails.
+    // Audio is purely additive on top of the transcript reveal.
 
-    // Ensure AudioContext exists and is running
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext ?? (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    // Set up AudioContext only if audio is enabled
+    let ctx: AudioContext | null = null;
+    if (audioEnabled) {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext ?? (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      }
+      ctx = audioCtxRef.current;
+      if (ctx.state === "suspended") await ctx.resume();
     }
-    const ctx = audioCtxRef.current;
-    if (ctx.state === "suspended") await ctx.resume();
 
-    // Fire ALL TTS requests at once — massively reduces total wait time.
-    // Each agent uses their own ttsSpeed override (default 1.25×).
-    const bufferPromises = segments.map((seg) =>
-      fetchAudioBuffer(
-        ctx,
-        seg.text,
-        AGENTS[seg.agentId].voice_id,
-        signal,
-        AGENTS[seg.agentId].ttsSpeed ?? 1.25,
-      )
-    );
+    // Fire ALL TTS requests in parallel (only if audio is enabled)
+    const bufferPromises: Promise<AudioBuffer | null>[] = audioEnabled && ctx
+      ? segments.map((seg) =>
+          fetchAudioBuffer(
+            ctx!,
+            seg.text,
+            AGENTS[seg.agentId].voice_id,
+            signal,
+            AGENTS[seg.agentId].ttsSpeed ?? 1.25,
+          )
+        )
+      : segments.map(() => Promise.resolve(null));
 
     for (let i = 0; i < segments.length; i++) {
       if (signal.aborted) break;
 
-      // ── Await buffer first so we know duration before revealing entry ──
-      // Buffers are already fetching in parallel — this usually resolves fast.
+      // Await buffer (already resolving in parallel — fast)
       const audioBuffer = await bufferPromises[i];
-      if (!audioBuffer || signal.aborted) continue;
+      if (signal.aborted) break;
 
-      const segDuration = audioBuffer.duration; // seconds
+      const segDuration = audioBuffer?.duration ?? 0;
 
       // Small stagger before first entry so the processing indicator fades
       if (i === 0) {
@@ -605,7 +609,7 @@ function ConferencePage() {
       }
       if (signal.aborted) break;
 
-      // Reveal this entry in the transcript (triggers fadeSlideIn animation)
+      // ── ALWAYS reveal transcript entry — regardless of audio success ──
       setTranscript((prev) => [...prev, entries[i]]);
 
       // Brief pause — text appears, user reads name, then voice starts
@@ -616,15 +620,23 @@ function ConferencePage() {
       setSpeakingDuration(segDuration);
       setSpeakingAgentId(segments[i].agentId);
 
-      // Play audio
-      await new Promise<void>((resolve) => {
-        const source = ctx.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(ctx.destination);
-        sourceRef.current = source;
-        source.onended = () => resolve();
-        source.start(0);
-      });
+      if (audioBuffer && ctx) {
+        // Play audio
+        await new Promise<void>((resolve) => {
+          const source = ctx!.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(ctx!.destination);
+          sourceRef.current = source;
+          source.onended = () => resolve();
+          source.start(0);
+        });
+      } else {
+        // No audio — wait based on word count so text is readable before next segment
+        const wordCount = segments[i].text.split(" ").length;
+        await new Promise<void>((resolve) =>
+          setTimeout(resolve, Math.max(1500, wordCount * 180))
+        );
+      }
 
       if (signal.aborted) break;
       // Per-agent inter-segment gap (default 100ms).
