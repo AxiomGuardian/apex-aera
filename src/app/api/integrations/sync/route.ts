@@ -1,13 +1,23 @@
 // ─── AERA Integration Sync ────────────────────────────────────────────────────
-// Aggregates data from all configured ad platforms (Meta, Google, YouTube,
-// LinkedIn) into a single response that Marcus can use for real-time context.
-//
-// Called internally by the chat API route when Marcus context is needed,
-// and externally by the Integrations dashboard to show connection status.
-//
 // GET /api/integrations/sync
+// Reads all platform tokens from the user's encrypted cookies, calls each
+// platform's API in parallel, and returns a unified SyncData response.
+//
+// Calls fetcher functions directly — no internal HTTP chaining — so user
+// cookies are always available in this server-side context.
+//
+// Marcus uses this to get live ad performance injected into his system prompt.
+// The Integrations page uses this for connection status and metrics.
 
 import { NextResponse } from "next/server";
+import { getAllTokens, getConnectionStatuses } from "@/lib/integrations/tokenStore";
+import {
+  fetchMetaData,
+  fetchGoogleAdsData,
+  fetchYouTubeData,
+  fetchLinkedInData,
+  emptyYouTubeData,
+} from "@/lib/integrations/fetchers";
 import type {
   SyncData,
   MetaAdsData,
@@ -18,31 +28,7 @@ import type {
   IntegrationApiResponse,
 } from "@/lib/integrations/types";
 
-// ─── Internal fetch helpers ───────────────────────────────────────────────────
-// We call our own API routes to keep all credentials/logic in one place.
-// In production, use absolute URL from env; in dev, fall back to localhost.
-
-function getBaseUrl(): string {
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
-  return "http://localhost:3000";
-}
-
-async function safeFetch<T>(path: string): Promise<T | null> {
-  try {
-    const res = await fetch(`${getBaseUrl()}${path}`, {
-      next: { revalidate: 300 }, // cache 5 min
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as T;
-  } catch {
-    return null;
-  }
-}
-
 // ─── Marcus Summary Builder ───────────────────────────────────────────────────
-// Produces a concise natural-language block injected into Marcus's system
-// prompt so he can speak knowledgeably about live performance.
 
 function buildMarcusSummary(sync: Omit<SyncData, "marcusSummary">): string {
   const { aggregate, platforms } = sync;
@@ -53,8 +39,7 @@ function buildMarcusSummary(sync: Omit<SyncData, "marcusSummary">): string {
 
   const fmt = (n: number, prefix = "$") =>
     `${prefix}${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
-  const fmtK = (n: number) =>
-    n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n);
+  const fmtK = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n));
 
   const lines: string[] = [
     `## Live Ad Performance — Last 30 Days`,
@@ -64,7 +49,6 @@ function buildMarcusSummary(sync: Omit<SyncData, "marcusSummary">): string {
     ``,
   ];
 
-  // Per-platform breakdown
   if (platforms.meta?.status === "connected") {
     const m = platforms.meta;
     lines.push(
@@ -72,14 +56,10 @@ function buildMarcusSummary(sync: Omit<SyncData, "marcusSummary">): string {
       `Spend: ${fmt(m.totalSpend)} | ROAS: ${m.totalRoas.toFixed(2)}x | Conversions: ${m.totalConversions}`,
       `Active campaigns: ${m.campaigns.filter((c) => c.status === "ACTIVE").length} / ${m.campaigns.length} total`,
     );
-    const topCampaigns = [...m.campaigns]
-      .sort((a, b) => b.roas - a.roas)
-      .slice(0, 3);
-    if (topCampaigns.length) {
+    const top = [...m.campaigns].sort((a, b) => b.roas - a.roas).slice(0, 3);
+    if (top.length) {
       lines.push(`Top campaigns by ROAS:`);
-      topCampaigns.forEach((c) =>
-        lines.push(`  - "${c.name}": ${c.roas.toFixed(2)}x ROAS, ${fmt(c.spend)} spend`)
-      );
+      top.forEach((c) => lines.push(`  - "${c.name}": ${c.roas.toFixed(2)}x ROAS, ${fmt(c.spend)} spend`));
     }
     lines.push("");
   }
@@ -91,14 +71,10 @@ function buildMarcusSummary(sync: Omit<SyncData, "marcusSummary">): string {
       `Spend: ${fmt(g.totalSpend)} | ROAS: ${g.totalRoas.toFixed(2)}x | Conversions: ${g.totalConversions}`,
       `Campaigns: ${g.campaigns.filter((c) => c.status === "ACTIVE").length} active / ${g.campaigns.length} total`,
     );
-    const topGoogle = [...g.campaigns]
-      .sort((a, b) => b.roas - a.roas)
-      .slice(0, 3);
-    if (topGoogle.length) {
+    const top = [...g.campaigns].sort((a, b) => b.roas - a.roas).slice(0, 3);
+    if (top.length) {
       lines.push(`Top campaigns by ROAS:`);
-      topGoogle.forEach((c) =>
-        lines.push(`  - "${c.name}": ${c.roas.toFixed(2)}x ROAS, ${fmt(c.spend)} spend`)
-      );
+      top.forEach((c) => lines.push(`  - "${c.name}": ${c.roas.toFixed(2)}x ROAS, ${fmt(c.spend)} spend`));
     }
     lines.push("");
   }
@@ -108,18 +84,18 @@ function buildMarcusSummary(sync: Omit<SyncData, "marcusSummary">): string {
     lines.push(
       `### YouTube Ads`,
       `Spend: ${fmt(y.totalSpend)} | ROAS: ${y.totalRoas.toFixed(2)}x | Views: ${fmtK(y.totalViews)} | Watch time: ${fmtK(y.totalWatchTime)} min`,
+      ``,
     );
-    lines.push("");
   }
 
   if (platforms.linkedin?.status === "connected") {
     const l = platforms.linkedin;
     lines.push(
-      `### LinkedIn Ads (Account: ${l.accountId})`,
+      `### LinkedIn Ads (${l.accountName ?? l.accountId})`,
       `Spend: ${fmt(l.totalSpend)} | ROAS: ${l.totalRoas.toFixed(2)}x | Conversions: ${l.totalConversions}`,
       `Campaigns: ${l.campaigns.filter((c) => c.status === "ACTIVE").length} active / ${l.campaigns.length} total`,
+      ``,
     );
-    lines.push("");
   }
 
   if (aggregate.notConfigured.length > 0) {
@@ -141,92 +117,116 @@ function buildMarcusSummary(sync: Omit<SyncData, "marcusSummary">): string {
 // ─── Route Handler ────────────────────────────────────────────────────────────
 
 export async function GET(): Promise<NextResponse<IntegrationApiResponse<SyncData>>> {
-  const [metaResult, googleResult, linkedinResult] = await Promise.all([
-    safeFetch<IntegrationApiResponse<MetaAdsData>>("/api/integrations/meta"),
-    safeFetch<{ google: IntegrationApiResponse<GoogleAdsData>; youtube: IntegrationApiResponse<YouTubeData> }>(
-      "/api/integrations/google"
-    ),
-    safeFetch<IntegrationApiResponse<LinkedInData>>("/api/integrations/linkedin"),
+  // Fast path: check which platforms have tokens before making external API calls
+  const statuses = await getConnectionStatuses();
+  const tokens   = await getAllTokens();
+
+  const activePlatforms: PlatformId[]    = [];
+  const notConfigured:   PlatformId[]    = [];
+  const allPlatforms:    PlatformId[]    = ["meta", "google", "youtube", "linkedin"];
+
+  // Determine what's connected
+  if (statuses.meta)     activePlatforms.push("meta");     else notConfigured.push("meta");
+  if (statuses.google)   activePlatforms.push("google");   else notConfigured.push("google");
+  if (statuses.google)   { /* youtube uses google token */ } else notConfigured.push("youtube");
+  if (statuses.linkedin) activePlatforms.push("linkedin"); else notConfigured.push("linkedin");
+
+  // Parallel fetch from connected platforms
+  const [metaResult, googleResult, linkedinResult] = await Promise.allSettled([
+    tokens.meta     ? fetchMetaData(tokens.meta)         : Promise.resolve(null),
+    tokens.google   ? fetchGoogleAdsData(tokens.google)  : Promise.resolve(null),
+    tokens.linkedin ? fetchLinkedInData(tokens.linkedin) : Promise.resolve(null),
   ]);
 
-  const meta = metaResult?.data;
-  const google = googleResult?.google?.data;
-  const youtube = googleResult?.youtube?.data;
-  const linkedin = linkedinResult?.data;
+  const meta:    MetaAdsData | null = metaResult.status     === "fulfilled" ? metaResult.value     : null;
+  const google:  GoogleAdsData | null = googleResult.status === "fulfilled" ? googleResult.value   : null;
+  const linkedin: LinkedInData | null = linkedinResult.status === "fulfilled" ? linkedinResult.value : null;
 
-  const activePlatforms: PlatformId[] = [];
-  const notConfigured: PlatformId[] = [];
-
-  if (meta?.status === "connected") activePlatforms.push("meta");
-  else if (meta?.status === "not_configured") notConfigured.push("meta");
-
-  if (google?.status === "connected") activePlatforms.push("google");
-  else if (google?.status === "not_configured") notConfigured.push("google");
-
-  if (youtube?.status === "connected") activePlatforms.push("youtube");
-  else if (youtube?.status === "not_configured") notConfigured.push("youtube");
-
-  if (linkedin?.status === "connected") activePlatforms.push("linkedin");
-  else if (linkedin?.status === "not_configured") notConfigured.push("linkedin");
-
-  // Default not-configured for all platforms when env vars are absent
-  const allPlatforms: PlatformId[] = ["meta", "google", "youtube", "linkedin"];
-  for (const p of allPlatforms) {
-    if (!activePlatforms.includes(p) && !notConfigured.includes(p)) {
-      notConfigured.push(p);
+  // YouTube uses Google token + optional channel ID
+  let youtube: YouTubeData | null = null;
+  if (tokens.google && google) {
+    const channelId = process.env.YOUTUBE_CHANNEL_ID;
+    if (channelId) {
+      try {
+        youtube = await fetchYouTubeData(tokens.google, channelId, google.campaigns);
+        if (!activePlatforms.includes("youtube")) activePlatforms.push("youtube");
+        const ytIdx = notConfigured.indexOf("youtube");
+        if (ytIdx !== -1) notConfigured.splice(ytIdx, 1);
+      } catch {
+        youtube = emptyYouTubeData("error", channelId);
+      }
     }
   }
 
-  // Aggregate cross-platform totals (only from active platforms)
-  const sumSpend =
-    (meta?.status === "connected" ? meta.totalSpend : 0) +
-    (google?.status === "connected" ? google.totalSpend : 0) +
-    (youtube?.status === "connected" ? youtube.totalSpend : 0) +
-    (linkedin?.status === "connected" ? linkedin.totalSpend : 0);
+  // Mark failed fetches as error status
+  const metaData: MetaAdsData = meta ?? {
+    platform: "meta", status: statuses.meta ? "error" : "not_configured",
+    campaigns: [], audienceInsights: [], totalSpend: 0, totalRevenue: 0, totalRoas: 0,
+    totalImpressions: 0, totalClicks: 0, totalConversions: 0, dateRange: "last_30_days",
+  };
+  const googleData: GoogleAdsData = google ?? {
+    platform: "google", status: statuses.google ? "error" : "not_configured",
+    campaigns: [], totalSpend: 0, totalRevenue: 0, totalRoas: 0,
+    totalImpressions: 0, totalClicks: 0, totalConversions: 0, dateRange: "last_30_days",
+  };
+  const linkedinData: LinkedInData = linkedin ?? {
+    platform: "linkedin", status: statuses.linkedin ? "error" : "not_configured",
+    campaigns: [], totalSpend: 0, totalImpressions: 0,
+    totalClicks: 0, totalConversions: 0, totalRoas: 0, dateRange: "last_30_days",
+  };
 
-  const sumRevenue =
-    (meta?.status === "connected" ? meta.totalRevenue : 0) +
-    (google?.status === "connected" ? google.totalRevenue : 0) +
-    (youtube?.status === "connected" ? youtube.totalRoas * youtube.totalSpend : 0) +
-    (linkedin?.status === "connected" ? linkedin.totalRoas * linkedin.totalSpend : 0);
+  // Aggregate totals from active platforms only
+  const connectedMeta     = metaData.status     === "connected";
+  const connectedGoogle   = googleData.status   === "connected";
+  const connectedYouTube  = youtube?.status     === "connected";
+  const connectedLinkedIn = linkedinData.status === "connected";
 
-  const sumImpressions =
-    (meta?.status === "connected" ? meta.totalImpressions : 0) +
-    (google?.status === "connected" ? google.totalImpressions : 0) +
-    (youtube?.status === "connected" ? youtube.totalImpressions : 0) +
-    (linkedin?.status === "connected" ? linkedin.totalImpressions : 0);
+  const sumSpend       = (connectedMeta     ? metaData.totalSpend     : 0)
+                       + (connectedGoogle   ? googleData.totalSpend   : 0)
+                       + (connectedYouTube  ? youtube!.totalSpend     : 0)
+                       + (connectedLinkedIn ? linkedinData.totalSpend : 0);
 
-  const sumClicks =
-    (meta?.status === "connected" ? meta.totalClicks : 0) +
-    (google?.status === "connected" ? google.totalClicks : 0) +
-    (youtube?.status === "connected" ? youtube.totalClicks : 0) +
-    (linkedin?.status === "connected" ? linkedin.totalClicks : 0);
+  const sumRevenue     = (connectedMeta     ? metaData.totalRevenue           : 0)
+                       + (connectedGoogle   ? googleData.totalRevenue         : 0)
+                       + (connectedYouTube  ? youtube!.totalRoas * youtube!.totalSpend : 0)
+                       + (connectedLinkedIn ? linkedinData.totalRoas * linkedinData.totalSpend : 0);
 
-  const sumConversions =
-    (meta?.status === "connected" ? meta.totalConversions : 0) +
-    (google?.status === "connected" ? google.totalConversions : 0) +
-    (youtube?.status === "connected" ? youtube.totalConversions : 0) +
-    (linkedin?.status === "connected" ? linkedin.totalConversions : 0);
+  const sumImpressions = (connectedMeta     ? metaData.totalImpressions     : 0)
+                       + (connectedGoogle   ? googleData.totalImpressions   : 0)
+                       + (connectedYouTube  ? youtube!.totalImpressions     : 0)
+                       + (connectedLinkedIn ? linkedinData.totalImpressions : 0);
 
-  const blendedRoas = sumSpend > 0 ? sumRevenue / sumSpend : 0;
+  const sumClicks      = (connectedMeta     ? metaData.totalClicks     : 0)
+                       + (connectedGoogle   ? googleData.totalClicks   : 0)
+                       + (connectedYouTube  ? youtube!.totalClicks     : 0)
+                       + (connectedLinkedIn ? linkedinData.totalClicks : 0);
+
+  const sumConversions = (connectedMeta     ? metaData.totalConversions     : 0)
+                       + (connectedGoogle   ? googleData.totalConversions   : 0)
+                       + (connectedYouTube  ? youtube!.totalConversions     : 0)
+                       + (connectedLinkedIn ? linkedinData.totalConversions : 0);
+
+  // Deduplicate platform lists
+  const uniqueActive    = [...new Set(activePlatforms)];
+  const uniqueNotConfig = allPlatforms.filter((p) => !uniqueActive.includes(p));
 
   const syncBase: Omit<SyncData, "marcusSummary"> = {
     syncedAt: new Date().toISOString(),
     platforms: {
-      meta: meta ?? undefined,
-      google: google ?? undefined,
-      youtube: youtube ?? undefined,
-      linkedin: linkedin ?? undefined,
+      meta:     metaData,
+      google:   googleData,
+      youtube:  youtube ?? emptyYouTubeData("not_configured"),
+      linkedin: linkedinData,
     },
     aggregate: {
-      totalSpend: parseFloat(sumSpend.toFixed(2)),
-      totalRevenue: parseFloat(sumRevenue.toFixed(2)),
-      totalRoas: parseFloat(blendedRoas.toFixed(2)),
+      totalSpend:       parseFloat(sumSpend.toFixed(2)),
+      totalRevenue:     parseFloat(sumRevenue.toFixed(2)),
+      totalRoas:        sumSpend > 0 ? parseFloat((sumRevenue / sumSpend).toFixed(2)) : 0,
       totalImpressions: sumImpressions,
-      totalClicks: sumClicks,
+      totalClicks:      sumClicks,
       totalConversions: sumConversions,
-      activePlatforms,
-      notConfigured,
+      activePlatforms:  uniqueActive,
+      notConfigured:    uniqueNotConfig,
     },
   };
 
