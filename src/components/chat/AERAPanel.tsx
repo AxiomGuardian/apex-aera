@@ -20,8 +20,9 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAERA } from "@/context/AERAContext";
 import { useClientMemory } from "@/context/ClientMemory";
+import { AGENTS, hexToRgb } from "@/lib/agents";
+import type { AgentId } from "@/lib/agents";
 import { AERAOrb } from "./AERAOrb";
-import { ApexMark } from "./ApexMark";
 import { ThinkingDots } from "./ThinkingDots";
 import { ThinkingBubble } from "./ThinkingBubble";
 import { VoiceWave, IdleWave } from "./VoiceWave";
@@ -330,7 +331,12 @@ export function AERAPanel() {
               )}
 
               {/* Message list */}
-              {recentMessages.map((msg) => (
+              {recentMessages.map((msg) => {
+                const agentId: AgentId = (msg.role === "aera" ? (msg.agentId ?? "aera") : "aera") as AgentId;
+                const agent    = msg.role === "aera" ? AGENTS[agentId] ?? AGENTS.aera : null;
+                const agentRgb = agent ? hexToRgb(agent.color) : "45,212,255";
+
+                return (
                 <motion.div
                   key={msg.id}
                   initial={{ opacity: 0, y: 6 }}
@@ -339,15 +345,27 @@ export function AERAPanel() {
                   style={{ display: "flex", flexDirection: msg.role === "user" ? "row-reverse" : "row", gap: 8, alignItems: "flex-start" }}
                 >
                   {/* Avatar */}
-                  <div style={{ width: 22, height: 22, borderRadius: "50%", flexShrink: 0, marginTop: 1, display: "flex", alignItems: "center", justifyContent: "center", background: msg.role === "aera" ? "rgba(45,212,255,0.08)" : "rgba(255,255,255,0.05)", border: `1px solid ${msg.role === "aera" ? "rgba(45,212,255,0.20)" : "rgba(255,255,255,0.10)"}` }}>
-                    {msg.role === "aera"
-                      ? <ApexMark size={10} glow />
+                  <div style={{
+                    width: 22, height: 22, borderRadius: "50%", flexShrink: 0, marginTop: 1,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    background: agent ? `rgba(${agentRgb},0.12)` : "rgba(255,255,255,0.05)",
+                    border: `1px solid ${agent ? `rgba(${agentRgb},0.30)` : "rgba(255,255,255,0.10)"}`,
+                  }}>
+                    {agent
+                      ? <span style={{ fontSize: 7, fontWeight: 800, color: agent.color, letterSpacing: "0.02em" }}>{agent.initials}</span>
                       : <span style={{ fontSize: 7.5, fontWeight: 700, color: "rgba(255,255,255,0.40)" }}>I</span>
                     }
                   </div>
 
                   {/* Bubble */}
                   <div style={{ maxWidth: "82%", display: "flex", flexDirection: "column", gap: 3 }}>
+
+                    {/* Sender label (agent messages only) */}
+                    {agent && (
+                      <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: agent.color, opacity: 0.75, paddingLeft: 2 }}>
+                        {agent.name}
+                      </span>
+                    )}
 
                     {/* Reasoning bubble (compact) */}
                     {msg.role === "aera" && msg.thinking && (
@@ -393,7 +411,7 @@ export function AERAPanel() {
                     )}
                   </div>
                 </motion.div>
-              ))}
+              ); })}
 
               {/* Thinking indicator */}
               <AnimatePresence>
@@ -403,8 +421,8 @@ export function AERAPanel() {
                     transition={{ duration: 0.2 }}
                     style={{ display: "flex", gap: 8, alignItems: "center" }}
                   >
-                    <div style={{ width: 22, height: 22, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(45,212,255,0.08)", border: "1px solid rgba(45,212,255,0.20)" }}>
-                      <ApexMark size={10} glow />
+                    <div style={{ width: 22, height: 22, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(45,212,255,0.12)", border: "1px solid rgba(45,212,255,0.30)" }}>
+                      <span style={{ fontSize: 7, fontWeight: 800, color: "#2DD4FF", letterSpacing: "0.02em" }}>SA</span>
                     </div>
                     <div style={{ padding: "7px 12px", borderRadius: "3px 10px 10px 10px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", gap: 7 }}>
                       <ThinkingDots size={3} gap={3} />

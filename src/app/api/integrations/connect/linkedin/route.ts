@@ -14,16 +14,17 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { randomBytes } from "crypto";
 
-function getAppUrl(): string {
-  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
-  if (process.env.VERCEL_URL)          return `https://${process.env.VERCEL_URL}`;
-  return "http://localhost:3000";
-}
+export async function GET(request: Request): Promise<NextResponse> {
+  // Derive base URL from actual request so error redirects stay on the same
+  // domain the user is on (avoids cross-domain session loss on Vercel aliases).
+  // For the OAuth callback URI we prefer NEXT_PUBLIC_APP_URL (stable production
+  // domain registered in LinkedIn Developer Portal); otherwise fall back to origin.
+  const requestOrigin = new URL(request.url).origin;
+  const callbackBase  = process.env.NEXT_PUBLIC_APP_URL ?? requestOrigin;
 
-export async function GET(): Promise<NextResponse> {
   const clientId = process.env.LINKEDIN_CLIENT_ID;
   if (!clientId) {
-    return NextResponse.redirect(`${getAppUrl()}/integrations?error=linkedin_not_configured`);
+    return NextResponse.redirect(`${requestOrigin}/integrations?error=linkedin_not_configured`);
   }
 
   const state = randomBytes(16).toString("hex");
@@ -36,7 +37,7 @@ export async function GET(): Promise<NextResponse> {
     maxAge:   600,
   });
 
-  const redirectUri = `${getAppUrl()}/api/integrations/connect/linkedin/callback`;
+  const redirectUri = `${callbackBase}/api/integrations/connect/linkedin/callback`;
 
   // r_ads: read ad performance, r_ads_reporting: read reports
   const scopes = ["r_ads", "r_ads_reporting"].join(" ");
