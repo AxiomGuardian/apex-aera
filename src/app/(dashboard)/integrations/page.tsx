@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   CheckCircle2,
@@ -162,8 +162,10 @@ const TOAST_MESSAGES: Record<string, { type: "success" | "error"; text: string }
 };
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
+// useSearchParams() requires a Suspense boundary in Next.js App Router.
+// IntegrationsInner contains the actual UI; the default export wraps it.
 
-export default function IntegrationsPage() {
+function IntegrationsInner() {
   const searchParams  = useSearchParams();
   const [syncData,   setSyncData]   = useState<SyncData | null>(null);
   const [loading,    setLoading]    = useState(true);
@@ -483,5 +485,18 @@ export default function IntegrationsPage() {
       {/* Toast */}
       {toast && <Toast message={toast.message} type={toast.type} />}
     </div>
+  );
+}
+
+export default function IntegrationsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex-1 flex items-center justify-center" style={{ background: "var(--bg)" }}>
+        <div className="h-5 w-5 rounded-full border-2 border-t-transparent animate-spin"
+          style={{ borderColor: "rgba(45,212,255,0.4)", borderTopColor: "transparent" }} />
+      </div>
+    }>
+      <IntegrationsInner />
+    </Suspense>
   );
 }
