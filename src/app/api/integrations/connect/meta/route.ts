@@ -14,12 +14,17 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { randomBytes } from "crypto";
 
-export async function GET(): Promise<NextResponse> {
+export async function GET(request: Request): Promise<NextResponse> {
+  // Always derive base URL from the actual request origin so error redirects
+  // stay on the same domain the user is on (avoids cross-domain session loss).
+  // For the OAuth callback URI we prefer NEXT_PUBLIC_APP_URL if set (stable
+  // production domain); otherwise fall back to the request origin.
+  const requestOrigin = new URL(request.url).origin;
+  const callbackBase  = process.env.NEXT_PUBLIC_APP_URL ?? requestOrigin;
+
   const appId = process.env.META_APP_ID;
   if (!appId) {
-    return NextResponse.redirect(
-      `${getAppUrl()}/integrations?error=meta_not_configured`
-    );
+    return NextResponse.redirect(`${requestOrigin}/integrations?error=meta_not_configured`);
   }
 
   // CSRF state token — verified in callback
@@ -33,8 +38,8 @@ export async function GET(): Promise<NextResponse> {
     maxAge:   600, // 10 min
   });
 
-  const scopes = ["ads_read", "business_management"].join(",");
-  const redirectUri = `${getAppUrl()}/api/integrations/connect/meta/callback`;
+  const scopes      = ["ads_read", "business_management"].join(",");
+  const redirectUri = `${callbackBase}/api/integrations/connect/meta/callback`;
 
   const oauthUrl = new URL("https://www.facebook.com/v19.0/dialog/oauth");
   oauthUrl.searchParams.set("client_id",     appId);
@@ -44,10 +49,4 @@ export async function GET(): Promise<NextResponse> {
   oauthUrl.searchParams.set("response_type", "code");
 
   return NextResponse.redirect(oauthUrl.toString());
-}
-
-function getAppUrl(): string {
-  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
-  if (process.env.VERCEL_URL)          return `https://${process.env.VERCEL_URL}`;
-  return "http://localhost:3000";
 }

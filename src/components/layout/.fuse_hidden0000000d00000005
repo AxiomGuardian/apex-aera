@@ -16,7 +16,7 @@ const navItems = [
   { label: "Campaigns",         href: "/campaigns",  icon: Rocket         },
   { label: "Integrations",      href: "/integrations", icon: Plug         },
   { label: "Deliverables",      href: "/history",    icon: FolderOpen     },
-  { label: "Contact",      href: "/contact",    icon: MessageSquare  },
+  { label: "Contact APEX",      href: "/contact",    icon: MessageSquare  },
 ];
 
 export function MobileHeader() {

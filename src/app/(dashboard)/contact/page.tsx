@@ -31,14 +31,6 @@ const team = [
 /* ─── Contact actions ───────────────────────────────────────────────────── */
 const contactActions = [
   {
-    label: "Message on Slack",
-    brandIcon: "Slack",
-    icon: MessageSquare,
-    desc: "Direct message via Slack workspace",
-    href: "https://apex-team.slack.com",
-    external: true,
-  },
-  {
     label: "Email Team",
     brandIcon: "Gmail",
     icon: Mail,
@@ -46,14 +38,15 @@ const contactActions = [
     href: "mailto:guardian.v.artemis@gmail.com?subject=APEX%20AERA%20%E2%80%94%20Client%20Request&body=Hi%20Isaac%2C%0A%0A",
     external: false,
   },
-  {
+    {
     label: "Book a Call",
-    brandIcon: "Calendly",
+    brandIcon: "Email",
     icon: Video,
-    desc: "Schedule a strategy session",
-    href: "https://calendly.com/apex-team",
-    external: true,
+    desc: "Request a strategy session",
+    href: "mailto:guardian.v.artemis@gmail.com?subject=APEX%20%E2%80%94%20Book%20a%20Call",
+    external: false,
   },
+
 ];
 
 function TeamRow({
@@ -162,14 +155,6 @@ function TeamRow({
           border: `1px solid ${member.online ? "rgba(34,197,94,0.16)" : "var(--border)"}`,
         }}>
           {member.online ? "Available" : "Away"}
-        </span>
-        <span style={{
-          fontSize: 10, color: hovered ? "var(--text-5)" : "var(--text-6)",
-          transition: "color 0.2s",
-          display: "flex", alignItems: "center", gap: 4,
-        }}>
-          <Mail style={{ width: 9, height: 9 }} />
-          {member.email}
         </span>
       </div>
     </a>
@@ -323,7 +308,7 @@ export default function ContactPage() {
       {/* Contact action cards */}
       <div>
         <p className="label-eyebrow mb-5">Get in Touch</p>
-        <div className="grid sm:grid-cols-3 gap-4">
+        <div className="grid sm:grid-cols-2 gap-4">
           {contactActions.map((a) => (
             <ContactCard
               key={a.label}

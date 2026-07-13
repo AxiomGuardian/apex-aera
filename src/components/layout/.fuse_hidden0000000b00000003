@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Menu, X, Sparkles,
-  LayoutDashboard, BrainCircuit, Rocket, FolderOpen, MessageSquare, Plug,
+  LayoutDashboard, BrainCircuit, Rocket, FolderOpen, MessageSquare,
 } from "lucide-react";
 import { useAERA } from "@/context/AERAContext";
 
@@ -14,9 +14,8 @@ const navItems = [
   { label: "Dashboard",         href: "/dashboard", icon: LayoutDashboard },
   { label: "AERA Intelligence", href: "/chat",       icon: BrainCircuit   },
   { label: "Campaigns",         href: "/campaigns",  icon: Rocket         },
-  { label: "Integrations",      href: "/integrations", icon: Plug         },
   { label: "Deliverables",      href: "/history",    icon: FolderOpen     },
-  { label: "Contact",      href: "/contact",    icon: MessageSquare  },
+  { label: "Contact APEX",      href: "/contact",    icon: MessageSquare  },
 ];
 
 export function MobileHeader() {

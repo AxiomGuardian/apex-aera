@@ -35,7 +35,7 @@ export default function LoginPage() {
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse 60% 40% at 50% 50%, rgba(0,212,255,0.06) 0%, transparent 70%)",
+            "radial-gradient(ellipse 60% 40% at 50% 50%, rgba(45,212,255,0.06) 0%, transparent 70%)",
         }}
       />
 
@@ -45,19 +45,23 @@ export default function LoginPage() {
           <div
             className="w-16 h-16 rounded-full mb-4 flex items-center justify-center"
             style={{
-              background: "radial-gradient(circle, rgba(0,212,255,0.15) 0%, rgba(0,0,0,0.8) 100%)",
-              border: "1px solid rgba(0,212,255,0.3)",
-              boxShadow: "0 0 32px rgba(0,212,255,0.15)",
+              background: "radial-gradient(circle, rgba(45,212,255,0.15) 0%, rgba(0,0,0,0.8) 100%)",
+              border: "1px solid rgba(45,212,255,0.3)",
+              boxShadow: "0 0 32px rgba(45,212,255,0.15)",
             }}
           >
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <path d="M16 4L28 10V22L16 28L4 22V10L16 4Z" stroke="rgba(0,212,255,0.9)" strokeWidth="1.5" fill="none" />
-              <path d="M16 9L23 13V20L16 24L9 20V13L16 9Z" fill="rgba(0,212,255,0.2)" stroke="rgba(0,212,255,0.6)" strokeWidth="1" />
+                        <svg viewBox="0 0 28 28" fill="none" width="30" height="30">
+              <path d="M14 3L26 24H2L14 3Z" stroke="rgba(45,212,255,0.9)" strokeWidth="1.4" strokeLinejoin="round" fill="none" />
+              <path d="M8.5 18H19.5" stroke="rgba(45,212,255,0.9)" strokeWidth="1.4" strokeLinecap="round" />
+              <path d="M14 10L18.5 18" stroke="rgba(45,212,255,0.5)" strokeWidth="1.2" strokeLinecap="round" />
+              <path d="M14 10L9.5 18" stroke="rgba(45,212,255,0.5)" strokeWidth="1.2" strokeLinecap="round" />
+              <circle cx="14" cy="3" r="1.4" fill="#2DD4FF" />
             </svg>
+
           </div>
           <h1
             className="text-2xl font-semibold tracking-widest uppercase"
-            style={{ color: "rgba(0,212,255,0.9)" }}
+            style={{ color: "rgba(45,212,255,0.9)" }}
           >
             APEX
           </h1>
@@ -95,7 +99,7 @@ export default function LoginPage() {
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = "rgba(255,255,255,0.10)";
-              e.currentTarget.style.borderColor = "rgba(0,212,255,0.4)";
+              e.currentTarget.style.borderColor = "rgba(45,212,255,0.4)";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = "rgba(255,255,255,0.06)";
@@ -134,7 +138,7 @@ export default function LoginPage() {
                 border: "1px solid rgba(255,255,255,0.10)",
                 color: "rgba(255,255,255,0.85)",
               }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(0,212,255,0.4)")}
+              onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(45,212,255,0.4)")}
               onBlur={(e)  => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)")}
             />
             <input
@@ -149,7 +153,7 @@ export default function LoginPage() {
                 border: "1px solid rgba(255,255,255,0.10)",
                 color: "rgba(255,255,255,0.85)",
               }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(0,212,255,0.4)")}
+              onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(45,212,255,0.4)")}
               onBlur={(e)  => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)")}
             />
 
@@ -164,16 +168,16 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full py-3 rounded-xl text-sm font-semibold transition-all duration-200 mt-1"
               style={{
-                background: loading ? "rgba(0,212,255,0.12)" : "rgba(0,212,255,0.16)",
-                border: "1px solid rgba(0,212,255,0.30)",
-                color: loading ? "rgba(0,212,255,0.5)" : "rgba(0,212,255,0.95)",
+                background: loading ? "rgba(45,212,255,0.12)" : "rgba(45,212,255,0.16)",
+                border: "1px solid rgba(45,212,255,0.30)",
+                color: loading ? "rgba(45,212,255,0.5)" : "rgba(45,212,255,0.95)",
                 cursor: loading ? "not-allowed" : "pointer",
               }}
               onMouseEnter={(e) => {
-                if (!loading) e.currentTarget.style.background = "rgba(0,212,255,0.22)";
+                if (!loading) e.currentTarget.style.background = "rgba(45,212,255,0.22)";
               }}
               onMouseLeave={(e) => {
-                if (!loading) e.currentTarget.style.background = "rgba(0,212,255,0.16)";
+                if (!loading) e.currentTarget.style.background = "rgba(45,212,255,0.16)";
               }}
             >
               {loading ? "Signing in…" : "Sign in"}

@@ -18,6 +18,7 @@ import {
   LogOut,
   Settings,
   ChevronDown,
+  Bot,
   Plug,
 } from "lucide-react";
 
