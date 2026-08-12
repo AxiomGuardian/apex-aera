@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
 type SessionData = {
-  user: { id: string; name: string; email: string };
+  user: { id: string; name: string; email: string; image?: string | null };
 } | null;
 
 const SessionContext = createContext<{
@@ -34,7 +34,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const name =
           (user.user_metadata?.full_name as string) ||
           (user.email ? user.email.split("@")[0] : "User");
-        setData({ user: { id: user.id, name, email: user.email ?? "" } });
+        setData({
+          user: {
+            id: user.id,
+            name,
+            email: user.email ?? "",
+            image: (user.user_metadata?.avatar_url as string | undefined) ?? null,
+          },
+        });
         setStatus("authenticated");
       } else {
         setData(null);
