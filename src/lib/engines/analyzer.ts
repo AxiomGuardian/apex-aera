@@ -25,7 +25,7 @@ Respond with STRICT JSON only — no markdown fences, no commentary:
 export async function analyzeAsset(sb: SupabaseClient, assetId: string) {
   const { data: asset } = await sb
     .from("content_assets")
-    .select("id,brand_id,type,status,title,storage_path,duration_seconds,metadata")
+    .select("id,brand_id,type,status,title,description,storage_path,duration_seconds,metadata")
     .eq("id", assetId)
     .single();
   if (!asset) throw new Error("Asset not found");
@@ -48,6 +48,7 @@ export async function analyzeAsset(sb: SupabaseClient, assetId: string) {
       ``,
       `ASSET`,
       `Title: ${asset.title ?? "Untitled"}`,
+      asset.description ? `What's in it (from the creator): ${asset.description}` : ``,
       `Type: ${asset.type}`,
       asset.duration_seconds ? `Duration: ${asset.duration_seconds}s` : ``,
       meta.mime ? `Format: ${meta.mime}` : ``,

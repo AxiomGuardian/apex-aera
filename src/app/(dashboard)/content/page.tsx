@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PagePad } from "@/components/layout/PagePad";
 import {
-  Upload, FileText, CheckCircle2, Loader2, AlertCircle, Video, Image as ImageIcon,
+  Upload, FileText, CheckCircle2, Loader2, AlertCircle, Video, Image as ImageIcon, Trash2,
 } from "lucide-react";
 
 type Brand = { id: string; name: string };
@@ -55,6 +55,19 @@ const STATUS_STYLE: Record<string, { color: string; bg: string }> = {
   archived:  { color: "#737373", bg: "rgba(115,115,115,0.08)" },
 };
 
+function fmtMST(iso: string) {
+  return (
+    new Date(iso).toLocaleString("en-US", {
+      timeZone: "America/Phoenix",
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }) + " MST"
+  );
+}
+
 function fmtSize(bytes?: number) {
   if (!bytes) return "";
   if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
@@ -96,6 +109,10 @@ export default function ContentPage() {
   const [captions,  setCaptions]   = useState<Record<string, { platform: string; text: string; hashtags: string[] }[]>>({});
   const [capBusy,   setCapBusy]    = useState<string | null>(null);
   const [schedBusy, setSchedBusy]  = useState<string | null>(null);
+  const [note,      setNote]       = useState("");
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const [deleting,   setDeleting]   = useState<string | null>(null);
+  const [sched,     setSched]      = useState<Record<string, { platform: string; scheduled_at: string; status: string }[]>>({});
   const [analyzing, setAnalyzing]  = useState<string | null>(null);
   const [expanded,  setExpanded]   = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -145,6 +162,16 @@ export default function ContentPage() {
       capMap[c.asset_id] = list;
     }
     setCaptions(capMap);
+    const { data: sp } = await supabase
+      .from("scheduled_posts")
+      .select("asset_id,platform,scheduled_at,status")
+      .eq("brand_id", bid)
+      .order("scheduled_at");
+    const spMap: Record<string, { platform: string; scheduled_at: string; status: string }[]> = {};
+    for (const post of sp ?? []) {
+      (spMap[post.asset_id] = spMap[post.asset_id] ?? []).push(post);
+    }
+    setSched(spMap);
     setLoading(false);
   }, []);
 
@@ -188,6 +215,7 @@ export default function ContentPage() {
           type,
           status: "uploaded",
           title: file.name.replace(/\.[^/.]+$/, ""),
+          description: note.trim() || null,
           storage_path: path,
           duration_seconds: duration,
           metadata: { size: file.size, mime: file.type },
@@ -198,8 +226,9 @@ export default function ContentPage() {
       }
     }
     setUploading(null);
+    setNote("");
     void refreshAssets(brandId);
-  }, [brandId, refreshAssets]);
+  }, [brandId, note, refreshAssets]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -224,6 +253,25 @@ export default function ContentPage() {
       setError(e instanceof Error ? e.message : "Analysis failed — try again.");
     } finally {
       setAnalyzing(null);
+      if (brandId) void refreshAssets(brandId);
+    }
+  }, [brandId, refreshAssets]);
+
+  const deleteAsset = useCallback(async (asset: AssetRow) => {
+    setDeleting(asset.id);
+    setError(null);
+    try {
+      const supabase = createClient();
+      if (asset.storage_path) {
+        await supabase.storage.from("media").remove([asset.storage_path]);
+      }
+      const { error: delErr } = await supabase.from("content_assets").delete().eq("id", asset.id);
+      if (delErr) throw new Error(delErr.message);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Delete failed — try again.");
+    } finally {
+      setDeleting(null);
+      setConfirmDel(null);
       if (brandId) void refreshAssets(brandId);
     }
   }, [brandId, refreshAssets]);
@@ -330,6 +378,14 @@ export default function ContentPage() {
           />
         </div>
 
+        {/* What's in it — feeds AERA's analysis + captions */}
+        <input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Optional: describe what's in the content — e.g. 'precision drills at the range, slow-mo finish' (makes AERA's captions dramatically better, especially for video)"
+          style={{ width: "100%", padding: "13px 16px", borderRadius: 12, background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)", fontSize: 13, outline: "none", boxSizing: "border-box", marginTop: -14 }}
+        />
+
         {error && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 10, background: "rgba(251,113,133,0.07)", border: "1px solid rgba(251,113,133,0.18)" }}>
             <AlertCircle style={{ width: 15, height: 15, color: "#fb7185", flexShrink: 0 }} strokeWidth={1.6} />
@@ -377,6 +433,7 @@ export default function ContentPage() {
                       {a.duration_seconds ? ` · ${a.duration_seconds}s` : ""}
                       {a.metadata?.size ? ` · ${fmtSize(a.metadata.size)}` : ""}
                       {" · "}{new Date(a.created_at).toLocaleDateString()}
+                      {sched[a.id]?.length ? <span style={{ color: "#34D399" }}>{" · next: "}{fmtMST(sched[a.id][0].scheduled_at)}</span> : null}
                     </p>
                   </div>
                   <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", padding: "4px 10px", borderRadius: 20, color: ss.color, background: ss.bg, border: `1px solid ${ss.color}30`, flexShrink: 0 }}>
@@ -390,6 +447,24 @@ export default function ContentPage() {
                     >
                       {analyzing === a.id ? <Loader2 className="animate-spin" style={{ width: 11, height: 11 }} /> : null}
                       {analyzing === a.id ? "AERA is analyzing…" : "Analyze"}
+                    </button>
+                  )}
+                  {confirmDel === a.id ? (
+                    <button
+                      onClick={() => void deleteAsset(a)}
+                      disabled={deleting === a.id}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 9, background: "rgba(251,113,133,0.12)", border: "1px solid rgba(251,113,133,0.35)", color: "#fb7185", fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
+                    >
+                      {deleting === a.id ? <Loader2 className="animate-spin" style={{ width: 11, height: 11 }} /> : <Trash2 style={{ width: 11, height: 11 }} />}
+                      {deleting === a.id ? "Deleting…" : "Confirm delete"}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => { setConfirmDel(a.id); setTimeout(() => setConfirmDel((c) => (c === a.id ? null : c)), 4000); }}
+                      title="Delete asset"
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 8, background: "transparent", border: "1px solid var(--border)", color: "var(--text-6)", cursor: "pointer", flexShrink: 0 }}
+                    >
+                      <Trash2 style={{ width: 12, height: 12 }} strokeWidth={1.6} />
                     </button>
                   )}
                   {a.status === "analyzed" && analyses[a.id] && (
@@ -446,6 +521,18 @@ export default function ContentPage() {
                                 <p style={{ fontSize: 11, color: "var(--text-5)", marginTop: 5 }}>{c.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")}</p>
                               )}
                             </div>
+                          ))}
+                        </div>
+                      )}
+                      {sched[a.id] && sched[a.id].length > 0 && (
+                        <div style={{ marginTop: 16 }}>
+                          <p style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--text-6)", marginBottom: 8 }}>Scheduled</p>
+                          {sched[a.id].map((sp, si) => (
+                            <p key={si} style={{ fontSize: 12, color: "var(--text-3)", lineHeight: 1.9 }}>
+                              <span style={{ color: "#34D399", fontWeight: 700, textTransform: "capitalize" }}>{sp.platform.replace("_", " ")}</span>
+                              {" — "}<span style={{ color: "var(--text-2)", fontWeight: 600 }}>{fmtMST(sp.scheduled_at)}</span>
+                              <span style={{ color: "var(--text-6)" }}> · {sp.status}</span>
+                            </p>
                           ))}
                         </div>
                       )}

@@ -2,12 +2,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { completeText } from "@/lib/ai/llm";
 import { parseJson, PLATFORMS } from "./core";
 
-const SYSTEM = `You are AERA's caption engine. Write platform-native captions for one content asset, strictly in the brand's voice.
+const SYSTEM = `You are AERA's caption engine. Write scroll-stopping, platform-native captions for one piece of content, in the brand's voice.
 
 Rules:
-- One caption per requested platform, tuned to that platform's culture (length, tone, emoji norms, hashtag norms).
-- Stay true to the brand tone of voice. Never invent product claims, prices, or facts not given.
-- hashtags: platform-appropriate count (Instagram/TikTok more, LinkedIn/X few, google_business none).
+- Write about the CONTENT. Use the creator's description and AERA's analysis as your source of truth. Never invent facts, claims, or details you weren't given.
+- Do NOT stuff the brand or workspace name into captions. Never use a company or workspace name as a hashtag. Mention the brand only if it reads naturally.
+- No generic filler ("precision", "premium", "excellence" as empty words). Every line should feel like a human who saw the content wrote it.
+- Match each platform's culture: instagram = engaging hook + line break + relevant niche hashtags; tiktok = casual, punchy, trend-aware, a few hashtags; youtube = searchable title-style line, 2-3 tags; linkedin = a genuine professional insight, 0-2 hashtags; x = one sharp line; facebook = conversational; google_business = informative, zero hashtags.
+- Hashtags describe the content and niche (what viewers would search), never the company.
+- If content details are thin, lean on what IS known and keep it specific and human — short beats generic.
 
 Respond with STRICT JSON only:
 {"captions": [{"platform": "...", "text": "...", "hashtags": ["tag1"]}]}`;
@@ -17,7 +20,7 @@ type Rec = { platform: string; fit: string };
 export async function generateCaptions(sb: SupabaseClient, assetId: string) {
   const { data: asset } = await sb
     .from("content_assets")
-    .select("id,brand_id,type,title,duration_seconds")
+    .select("id,brand_id,type,title,description,duration_seconds")
     .eq("id", assetId)
     .single();
   if (!asset) throw new Error("Asset not found");
@@ -45,6 +48,7 @@ export async function generateCaptions(sb: SupabaseClient, assetId: string) {
     `Target audience: ${brand?.target_audience ?? "not specified"}`,
     ``,
     `ASSET: ${asset.title ?? "Untitled"} (${asset.type}${asset.duration_seconds ? `, ${asset.duration_seconds}s` : ""})`,
+    asset.description ? `WHAT'S IN IT (from the creator): ${asset.description}` : ``,
     analysis?.summary ? `AERA's read on it: ${analysis.summary}` : ``,
     ``,
     `Write captions for: ${platforms.join(", ")}`,

@@ -21,6 +21,19 @@ type ReadyAsset = {
   brands: { name: string } | null;
 };
 
+function fmtMST(iso: string) {
+  return (
+    new Date(iso).toLocaleString("en-US", {
+      timeZone: "America/Phoenix",
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }) + " MST"
+  );
+}
+
 export default function ApprovalsPage() {
   const [posts,   setPosts]   = useState<PendingPost[]>([]);
   const [ready,   setReady]   = useState<ReadyAsset[]>([]);
@@ -83,7 +96,7 @@ export default function ApprovalsPage() {
               <Clock style={{ width: 14, height: 14, color: "#F59E0B", flexShrink: 0 }} strokeWidth={1.6} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontSize: 13, color: "var(--text-2)" }}>{p.content_assets?.title ?? "Untitled"} → <span style={{ textTransform: "capitalize" }}>{p.platform.replace("_", " ")}</span></p>
-                <p style={{ fontSize: 11, color: "var(--text-6)", marginTop: 3 }}>{p.brands?.name} · {new Date(p.scheduled_at).toLocaleString()}</p>
+                <p style={{ fontSize: 11, color: "var(--text-6)", marginTop: 3 }}>{p.brands?.name} · {fmtMST(p.scheduled_at)}</p>
               </div>
               <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 20, color: p.status === "proposed" ? "#F59E0B" : "#34D399", background: p.status === "proposed" ? "rgba(245,158,11,0.08)" : "rgba(52,211,153,0.08)", border: `1px solid ${p.status === "proposed" ? "rgba(245,158,11,0.2)" : "rgba(52,211,153,0.2)"}` }}>
                 {p.status === "proposed" ? "Needs yes" : "Autopilot"}
