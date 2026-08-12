@@ -13,9 +13,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "APEX AERA — Client Dashboard",
+  title: "APEX AERA — Agentic AI Marketing",
   description:
-    "The private premium intelligence dashboard for APEX clients. Powered by AERA — your AI brand companion.",
+    "Marketing that runs itself. AERA researches your market, writes platform-native content, schedules, publishes, and reports — 24/7.",
 };
 
 export default function RootLayout({

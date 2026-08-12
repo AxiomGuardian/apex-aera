@@ -3,7 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 
 /**
  * APEX AERA auth guard — Supabase session refresh + route protection.
- * Public: /login, /auth/*, /access-denied. Everything else requires a user.
+ * Public: / (front page), /login, /auth/*, /welcome, /access-denied.
+ * Everything else requires a user.
  */
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -34,6 +35,7 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isPublic =
+    pathname === "/" ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/welcome") ||

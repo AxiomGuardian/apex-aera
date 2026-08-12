@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PagePad } from "@/components/layout/PagePad";
-import { ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle2, Radar, FileText, Filter, RefreshCw } from "lucide-react";
 
 type Brand = {
   id: string; name: string; slug: string; status: string;
@@ -14,6 +14,17 @@ type Brand = {
 type Member = { user_id: string; profiles: { email: string; full_name: string | null } | null };
 type Asset  = { id: string; title: string | null; type: string; status: string; created_at: string };
 type Conn   = { platform: string; status: string; account_name: string | null };
+type Brief  = { id: string; niche: string | null; summary: string | null; created_at: string };
+type Report = { id: string; summary: string | null; period_start: string | null; period_end: string | null; created_at: string };
+type Funnel = { id: string; name: string; status: string; created_at: string };
+
+function fmtMST(iso: string) {
+  return new Date(iso).toLocaleString("en-US", {
+    timeZone: "America/Phoenix",
+    month: "short", day: "numeric",
+    hour: "numeric", minute: "2-digit",
+  }) + " MST";
+}
 
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -27,14 +38,22 @@ export default function ClientDetailPage() {
   const [website,  setWebsite]  = useState("");
   const [saving,  setSaving]  = useState(false);
   const [saved,   setSaved]   = useState(false);
+  const [brief,   setBrief]   = useState<Brief | null>(null);
+  const [report,  setReport]  = useState<Report | null>(null);
+  const [funnels, setFunnels] = useState<Funnel[]>([]);
+  const [busy,    setBusy]    = useState<"" | "trends" | "report" | "funnel">("");
+  const [engineErr, setEngineErr] = useState("");
 
   const load = useCallback(async () => {
     const supabase = createClient();
-    const [b, m, a, c] = await Promise.all([
+    const [b, m, a, c, t, r, f] = await Promise.all([
       supabase.from("brands").select("*").eq("id", id).single(),
       supabase.from("brand_members").select("user_id,profiles(email,full_name)").eq("brand_id", id),
       supabase.from("content_assets").select("id,title,type,status,created_at").eq("brand_id", id).order("created_at", { ascending: false }).limit(10),
       supabase.from("platform_connections").select("platform,status,account_name").eq("brand_id", id),
+      supabase.from("trend_briefs").select("id,niche,summary,created_at").eq("brand_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("reports").select("id,summary,period_start,period_end,created_at").eq("brand_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("funnels").select("id,name,status,created_at").eq("brand_id", id).order("created_at", { ascending: false }).limit(5),
     ]);
     if (b.data) {
       const br = b.data as Brand;
@@ -46,6 +65,9 @@ export default function ClientDetailPage() {
     setMembers((m.data ?? []) as unknown as Member[]);
     setAssets((a.data ?? []) as Asset[]);
     setConns((c.data ?? []) as Conn[]);
+    setBrief((t.data ?? null) as Brief | null);
+    setReport((r.data ?? null) as Report | null);
+    setFunnels((f.data ?? []) as Funnel[]);
   }, [id]);
 
   useEffect(() => { void load(); }, [load]);
@@ -64,6 +86,25 @@ export default function ClientDetailPage() {
     setTimeout(() => setSaved(false), 2500);
   }
 
+  async function runEngine(kind: "trends" | "report" | "funnel", url: string) {
+    setBusy(kind);
+    setEngineErr("");
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandId: id }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Engine failed");
+      await load();
+    } catch (err) {
+      setEngineErr(err instanceof Error ? err.message : "Engine failed");
+    } finally {
+      setBusy("");
+    }
+  }
+
   const inputStyle: React.CSSProperties = {
     width: "100%", padding: "11px 13px", borderRadius: 10,
     background: "var(--surface-2)", border: "1px solid var(--border)",
@@ -72,6 +113,11 @@ export default function ClientDetailPage() {
   const cardStyle: React.CSSProperties = {
     padding: "24px 26px", borderRadius: 18,
     background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-card)",
+  };
+  const engineBtn: React.CSSProperties = {
+    display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", borderRadius: 10,
+    background: "rgba(45,212,255,0.10)", border: "1px solid rgba(45,212,255,0.26)",
+    color: "var(--cyan)", fontSize: 12, fontWeight: 700, cursor: "pointer",
   };
 
   if (!brand) {
@@ -157,6 +203,92 @@ export default function ClientDetailPage() {
                   <span style={{ fontSize: 10.5, color: c.status === "connected" ? "#34D399" : "var(--text-6)" }}>{c.status}</span>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── AERA Intelligence — trend brief, reports, funnels ── */}
+        <div>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+            <span className="section-label">AERA Intelligence</span>
+            {engineErr && <span style={{ fontSize: 11.5, color: "#f87171" }}>{engineErr}</span>}
+          </div>
+          <div className="grid lg:grid-cols-3 gap-5">
+            {/* Trend brief */}
+            <div style={cardStyle}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <Radar style={{ width: 14, height: 14, color: "var(--cyan)" }} />
+                <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-3)", letterSpacing: "0.05em", textTransform: "uppercase" }}>Trend Brief</p>
+              </div>
+              {brief ? (
+                <>
+                  {brief.niche && <p style={{ fontSize: 11, color: "var(--cyan)", marginBottom: 6, fontWeight: 600 }}>{brief.niche}</p>}
+                  <p style={{ fontSize: 12.5, color: "var(--text-4)", lineHeight: 1.65, marginBottom: 10, display: "-webkit-box", WebkitLineClamp: 6, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                    {brief.summary ?? "Brief generated — no summary text."}
+                  </p>
+                  <p style={{ fontSize: 10.5, color: "var(--text-6)", marginBottom: 14 }}>Researched {fmtMST(brief.created_at)}</p>
+                </>
+              ) : (
+                <p style={{ fontSize: 12.5, color: "var(--text-6)", lineHeight: 1.6, marginBottom: 14 }}>
+                  No trend research yet. AERA will scan the live web and X for what is moving in this brand&apos;s niche.
+                </p>
+              )}
+              <button onClick={() => void runEngine("trends", "/api/aera/trends")} disabled={busy !== ""} style={{ ...engineBtn, opacity: busy && busy !== "trends" ? 0.5 : 1 }}>
+                {busy === "trends" ? <Loader2 className="animate-spin" style={{ width: 12, height: 12 }} /> : <RefreshCw style={{ width: 12, height: 12 }} />}
+                {busy === "trends" ? "Researching…" : brief ? "Refresh brief" : "Research now"}
+              </button>
+            </div>
+
+            {/* Weekly report */}
+            <div style={cardStyle}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <FileText style={{ width: 14, height: 14, color: "var(--cyan)" }} />
+                <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-3)", letterSpacing: "0.05em", textTransform: "uppercase" }}>Weekly Report</p>
+              </div>
+              {report ? (
+                <>
+                  <p style={{ fontSize: 12.5, color: "var(--text-4)", lineHeight: 1.65, marginBottom: 10, display: "-webkit-box", WebkitLineClamp: 6, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                    {report.summary ?? "Report generated."}
+                  </p>
+                  <p style={{ fontSize: 10.5, color: "var(--text-6)", marginBottom: 14 }}>
+                    {report.period_start && report.period_end ? `${report.period_start} → ${report.period_end}` : `Generated ${fmtMST(report.created_at)}`}
+                  </p>
+                </>
+              ) : (
+                <p style={{ fontSize: 12.5, color: "var(--text-6)", lineHeight: 1.6, marginBottom: 14 }}>
+                  No reports yet. AERA builds digests from real activity only — it never invents a number.
+                </p>
+              )}
+              <button onClick={() => void runEngine("report", "/api/reports/generate")} disabled={busy !== ""} style={{ ...engineBtn, opacity: busy && busy !== "report" ? 0.5 : 1 }}>
+                {busy === "report" ? <Loader2 className="animate-spin" style={{ width: 12, height: 12 }} /> : null}
+                {busy === "report" ? "Writing…" : "Generate report"}
+              </button>
+            </div>
+
+            {/* Funnels */}
+            <div style={cardStyle}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <Filter style={{ width: 14, height: 14, color: "var(--cyan)" }} />
+                <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-3)", letterSpacing: "0.05em", textTransform: "uppercase" }}>Funnels</p>
+              </div>
+              {funnels.length === 0 ? (
+                <p style={{ fontSize: 12.5, color: "var(--text-6)", lineHeight: 1.6, marginBottom: 14 }}>
+                  No funnels drafted yet. AERA can sketch a landing-page structure from this brand&apos;s profile.
+                </p>
+              ) : (
+                <div style={{ marginBottom: 14 }}>
+                  {funnels.map((f, i) => (
+                    <div key={f.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "7px 0", borderBottom: i < funnels.length - 1 ? "1px solid var(--border)" : "none" }}>
+                      <p style={{ fontSize: 12.5, color: "var(--text-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</p>
+                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", padding: "2px 8px", borderRadius: 20, color: "var(--text-5)", background: "var(--surface-2)", border: "1px solid var(--border)", flexShrink: 0 }}>{f.status}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button onClick={() => void runEngine("funnel", "/api/aera/funnel")} disabled={busy !== ""} style={{ ...engineBtn, opacity: busy && busy !== "funnel" ? 0.5 : 1 }}>
+                {busy === "funnel" ? <Loader2 className="animate-spin" style={{ width: 12, height: 12 }} /> : null}
+                {busy === "funnel" ? "Drafting…" : "Draft funnel"}
+              </button>
             </div>
           </div>
         </div>
