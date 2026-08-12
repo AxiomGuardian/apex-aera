@@ -28,6 +28,8 @@ export async function completeText(opts: {
   imageUrls?: string[];
   /** Grok live search (web_search + x_search built-in tools). xAI only. */
   liveSearch?: boolean;
+  /** Creative temperature (0-1). Default: provider default. */
+  temperature?: number;
 }): Promise<string> {
   const maxTokens = opts.maxTokens ?? 2048;
   const images = opts.imageUrls ?? (opts.imageUrl ? [opts.imageUrl] : []);
@@ -55,6 +57,7 @@ export async function completeText(opts: {
       messages,
       max_tokens: maxTokens,
     };
+    if (opts.temperature !== undefined) body.temperature = opts.temperature;
     if (opts.liveSearch) {
       body.tools = [{ type: "web_search" }, { type: "x_search" }];
     }
@@ -92,6 +95,7 @@ export async function completeText(opts: {
     max_tokens: maxTokens,
     system: opts.system,
     messages: turns,
+    ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
   });
   const textBlock = response.content.find((b) => b.type === "text");
   return textBlock ? (textBlock as { type: "text"; text: string }).text : "";
