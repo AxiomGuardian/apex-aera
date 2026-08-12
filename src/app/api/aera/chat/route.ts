@@ -1,9 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { completeText, type ChatTurn } from "@/lib/ai/llm";
 import type { SyncData, IntegrationApiResponse } from "@/lib/integrations/types";
-
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
 
 // ─── Marcus Platform Context Injection ───────────────────────────────────────
 // When Marcus is the active agent, we pull live ad platform data from the sync
@@ -209,22 +205,19 @@ export async function POST(request: Request) {
         ? `${contextBlocks.join("\n\n")}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nBASE INTELLIGENCE LAYER — always applies:\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${AERA_SYSTEM_PROMPT}`
         : AERA_SYSTEM_PROMPT;
 
-    const anthropicMessages: Anthropic.MessageParam[] = messages.map(
+    const chatTurns: ChatTurn[] = messages.map(
       (msg: { role: string; content: string }) => ({
-        role: msg.role === "aera" ? "assistant" : "user",
+        role: msg.role === "aera" ? ("assistant" as const) : ("user" as const),
         content: msg.content,
       })
     );
 
-    const response = await client.messages.create({
-      model: "claude-opus-4-8",
-      max_tokens: 2048,
-      system: effectiveSystem,
-      messages: anthropicMessages,
-    });
-
-    const textBlock = response.content.find((b) => b.type === "text");
-    const rawText   = textBlock ? (textBlock as { type: "text"; text: string }).text : "I'm processing your request.";
+    const rawText =
+      (await completeText({
+        system: effectiveSystem,
+        messages: chatTurns,
+        maxTokens: 2048,
+      })) || "I'm processing your request.";
 
     // Parse optional <obs>...</obs> reasoning tag from start of response
     const obsMatch = rawText.match(/^\s*<obs>([\s\S]*?)<\/obs>\s*/);

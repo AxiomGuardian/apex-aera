@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useSession } from "@/components/layout/SessionProvider";
+import { useSession } from "next-auth/react";
 import { PagePad } from "@/components/layout/PagePad";
 import {
   User, Users, CreditCard, Shield, MonitorSmartphone,

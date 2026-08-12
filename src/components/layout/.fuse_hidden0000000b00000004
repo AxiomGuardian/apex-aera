@@ -25,7 +25,7 @@ const navItems = [
   { label: "Clients",   href: "/clients",   icon: Users           },
   { label: "Onboard",   href: "/onboard",   icon: Plus            },
   { label: "Content",   href: "/content",   icon: Upload          },
-  { label: "Queue",     href: "/approvals", icon: CheckCircle2    },
+  { label: "Approvals", href: "/approvals", icon: CheckCircle2    },
   { label: "AERA",      href: "/chat",      icon: Wand2           },
 ];
 

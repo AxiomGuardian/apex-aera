@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,17 +15,23 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const res = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    const supabase = createClient();
+    const { error: err } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (res?.ok) {
+    if (!err) {
       router.push("/dashboard");
+      router.refresh();
     } else {
       setError("Invalid email or password.");
     }
+  }
+
+  function handleGoogle() {
+    const supabase = createClient();
+    supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
   }
 
   return (
@@ -50,14 +56,13 @@ export default function LoginPage() {
               boxShadow: "0 0 32px rgba(45,212,255,0.15)",
             }}
           >
-                        <svg viewBox="0 0 28 28" fill="none" width="30" height="30">
+            <svg viewBox="0 0 28 28" fill="none" width="30" height="30">
               <path d="M14 3L26 24H2L14 3Z" stroke="rgba(45,212,255,0.9)" strokeWidth="1.4" strokeLinejoin="round" fill="none" />
               <path d="M8.5 18H19.5" stroke="rgba(45,212,255,0.9)" strokeWidth="1.4" strokeLinecap="round" />
               <path d="M14 10L18.5 18" stroke="rgba(45,212,255,0.5)" strokeWidth="1.2" strokeLinecap="round" />
               <path d="M14 10L9.5 18" stroke="rgba(45,212,255,0.5)" strokeWidth="1.2" strokeLinecap="round" />
               <circle cx="14" cy="3" r="1.4" fill="#2DD4FF" />
             </svg>
-
           </div>
           <h1
             className="text-2xl font-semibold tracking-widest uppercase"
@@ -91,7 +96,7 @@ export default function LoginPage() {
 
           {/* Google */}
           <button
-            onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+            onClick={handleGoogle}
             className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl transition-all duration-200"
             style={{
               background: "rgba(255,255,255,0.06)",

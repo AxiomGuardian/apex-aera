@@ -10,23 +10,25 @@ import { useAERA } from "@/context/AERAContext";
 import {
   LayoutDashboard,
   Wand2,
-  Upload,
-  Users,
-  Plus,
-  CheckCircle2,
+  Rocket,
+  FolderOpen,
+  MessageSquare,
   Sparkles,
+  UserCircle,
   LogOut,
   Settings,
   ChevronDown,
+  Plug,
 } from "lucide-react";
 
 const navItems = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Clients",   href: "/clients",   icon: Users           },
-  { label: "Onboard",   href: "/onboard",   icon: Plus            },
-  { label: "Content",   href: "/content",   icon: Upload          },
-  { label: "Queue",     href: "/approvals", icon: CheckCircle2    },
-  { label: "AERA",      href: "/chat",      icon: Wand2           },
+  { label: "Dashboard",         href: "/dashboard",     icon: LayoutDashboard },
+  { label: "AERA Intelligence", href: "/chat",           icon: Wand2           },
+  { label: "Content",           href: "/content",        icon: Upload          },
+  { label: "Campaigns",         href: "/campaigns",      icon: Rocket          },
+  { label: "Integrations",      href: "/integrations",   icon: Plug            },
+  { label: "Deliverables",      href: "/history",        icon: FolderOpen      },
+  { label: "Contact",          href: "/contact",       icon: MessageSquare   },
 ];
 
 export function TopNav() {

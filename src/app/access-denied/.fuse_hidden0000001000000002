@@ -1,6 +1,6 @@
 "use client";
 
-import { signOut } from "@/components/layout/SessionProvider";
+import { signOut } from "next-auth/react";
 
 export default function AccessDeniedPage() {
   return (

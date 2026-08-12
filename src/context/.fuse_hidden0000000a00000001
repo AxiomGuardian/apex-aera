@@ -8,7 +8,6 @@ import { useClientMemory, extractMetricsFromText } from "./ClientMemory";
 import { useElevenLabsTTS, TTSSpeed } from "@/hooks/useElevenLabsTTS";
 import { AGENTS, parseAgentSegments } from "@/lib/agents";
 import type { AgentId } from "@/lib/agents";
-import * as cloud from "@/lib/chat/cloudSync";
 
 export type ChartData = {
   type: "bar" | "line" | "radar" | "pie";
@@ -303,25 +302,6 @@ export function AERAProvider({ children }: { children: ReactNode }) {
     foldersRef.current      = loadedFolders;
     activeThreadRef.current = activeThread.id;
     messagesRef.current     = activeThread.messages;
-
-    // ── Cloud hydrate — Supabase is source of truth when signed in ──
-    void cloud.loadCloud().then((data) => {
-      if (!data) return; // signed out or offline → stay on local cache
-      if (data.threads.length) {
-        threadsRef.current = data.threads;
-        foldersRef.current = data.folders;
-        setThreads(data.threads);
-        setFolders(data.folders);
-        const active = data.threads.find((t) => t.id === activeThreadRef.current) ?? data.threads[0];
-        activeThreadRef.current = active.id;
-        setActiveThreadId(active.id);
-        messagesRef.current = active.messages;
-        setMessages(active.messages);
-      } else {
-        // First signed-in load: move pre-cloud local history up
-        void cloud.migrateLocal(threadsRef.current, foldersRef.current);
-      }
-    });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persist whenever threads, folders, or active thread changes
@@ -370,7 +350,6 @@ export function AERAProvider({ children }: { children: ReactNode }) {
       t.id === activeThreadRef.current ? { ...t, messages: withUser, updatedAt: new Date().toISOString() } : t
     );
     setThreads([...threadsRef.current]);
-    void cloud.saveMessages(activeThreadRef.current, [userMsg]);
     setIsTyping(true);
 
     try {
@@ -439,7 +418,6 @@ export function AERAProvider({ children }: { children: ReactNode }) {
         t.id === activeThreadRef.current ? { ...t, messages: withAera, updatedAt: new Date().toISOString() } : t
       );
       setThreads([...threadsRef.current]);
-      void cloud.saveMessages(activeThreadRef.current, newMessages);
 
       // ── Save to memory ──────────────────────────────────────
       if (res.ok && responseContent.length > 20) {
@@ -475,7 +453,6 @@ export function AERAProvider({ children }: { children: ReactNode }) {
         t.id === activeThreadRef.current ? { ...t, messages: withFallback, updatedAt: new Date().toISOString() } : t
       );
       setThreads([...threadsRef.current]);
-      void cloud.saveMessages(activeThreadRef.current, [fallback]);
       if (voiceModeRef.current) {
         const agentVoiceId = AGENTS[selectedAgentIdRef.current]?.voice_id;
         speak(fallback.content, fallback.id, agentVoiceId); // fallback is always single voice
@@ -487,7 +464,6 @@ export function AERAProvider({ children }: { children: ReactNode }) {
 
   const clearHistory = useCallback(() => {
     stopSpeaking();
-    void cloud.clearThreadMessages(activeThreadRef.current);
     const reset = [GREETING];
     messagesRef.current = reset;
     setMessages(reset);
@@ -510,7 +486,6 @@ export function AERAProvider({ children }: { children: ReactNode }) {
       createdAt: now,
       updatedAt: now,
     };
-    void cloud.upsertThread(newThread);
     threadsRef.current = [newThread, ...threadsRef.current];
     setThreads([...threadsRef.current]);
     // Switch to new thread
@@ -534,7 +509,6 @@ export function AERAProvider({ children }: { children: ReactNode }) {
 
   const renameThread = useCallback((id: string, name: string) => {
     threadsRef.current = threadsRef.current.map((t) => t.id === id ? { ...t, name } : t);
-    void cloud.renameThread(id, name);
     setThreads([...threadsRef.current]);
     saveThreads(threadsRef.current, foldersRef.current, activeThreadRef.current);
   }, []);
@@ -543,7 +517,6 @@ export function AERAProvider({ children }: { children: ReactNode }) {
     // Cannot delete last thread
     if (threadsRef.current.length <= 1) return;
     threadsRef.current = threadsRef.current.filter((t) => t.id !== id);
-    void cloud.deleteThread(id);
     setThreads([...threadsRef.current]);
     // If deleting active thread, switch to first available
     if (activeThreadRef.current === id) {
@@ -558,7 +531,6 @@ export function AERAProvider({ children }: { children: ReactNode }) {
 
   const moveThread = useCallback((threadId: string, folderId: string | null) => {
     threadsRef.current = threadsRef.current.map((t) => t.id === threadId ? { ...t, folderId } : t);
-    void cloud.moveThread(threadId, folderId);
     setThreads([...threadsRef.current]);
     saveThreads(threadsRef.current, foldersRef.current, activeThreadRef.current);
   }, []);
@@ -566,14 +538,12 @@ export function AERAProvider({ children }: { children: ReactNode }) {
   const createFolder = useCallback((name: string) => {
     const folder: ChatFolder = { id: `folder-${newId()}`, name, createdAt: new Date().toISOString() };
     foldersRef.current = [...foldersRef.current, folder];
-    void cloud.upsertFolder(folder);
     setFolders([...foldersRef.current]);
     saveThreads(threadsRef.current, foldersRef.current, activeThreadRef.current);
   }, []);
 
   const renameFolder = useCallback((id: string, name: string) => {
     foldersRef.current = foldersRef.current.map((f) => f.id === id ? { ...f, name } : f);
-    void cloud.renameFolder(id, name);
     setFolders([...foldersRef.current]);
     saveThreads(threadsRef.current, foldersRef.current, activeThreadRef.current);
   }, []);
@@ -582,7 +552,6 @@ export function AERAProvider({ children }: { children: ReactNode }) {
     // Move all threads in this folder to root before deleting
     threadsRef.current = threadsRef.current.map((t) => t.folderId === id ? { ...t, folderId: null } : t);
     foldersRef.current = foldersRef.current.filter((f) => f.id !== id);
-    void cloud.deleteFolder(id);
     setThreads([...threadsRef.current]);
     setFolders([...foldersRef.current]);
     saveThreads(threadsRef.current, foldersRef.current, activeThreadRef.current);

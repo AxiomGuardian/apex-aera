@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Wand2, Rocket, FolderOpen, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Users, Plus, Upload, Wand2 } from "lucide-react";
 
 const navItems = [
-  { label: "Dashboard",    href: "/dashboard", icon: LayoutDashboard },
-  { label: "AERA",         href: "/chat",      icon: Wand2           },
-  { label: "Campaigns",    href: "/campaigns", icon: Rocket          },
-  { label: "Deliverables", href: "/history",   icon: FolderOpen      },
-  { label: "Contact",      href: "/contact",   icon: MessageSquare   },
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Clients",   href: "/clients",   icon: Users           },
+  { label: "Onboard",   href: "/onboard",   icon: Plus            },
+  { label: "Content",   href: "/content",   icon: Upload          },
+  { label: "AERA",      href: "/chat",      icon: Wand2           },
 ];
 
 export function MobileNav() {
