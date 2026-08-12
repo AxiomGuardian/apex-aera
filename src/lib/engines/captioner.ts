@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { completeText } from "@/lib/ai/llm";
 import { parseJson, PLATFORMS } from "./core";
+import { getFreshBrief } from "./trends";
 
 const SYSTEM = `You are AERA's caption engine. Write scroll-stopping, platform-native captions for one piece of content, in the brand's voice.
 
@@ -20,15 +21,16 @@ type Rec = { platform: string; fit: string };
 export async function generateCaptions(sb: SupabaseClient, assetId: string) {
   const { data: asset } = await sb
     .from("content_assets")
-    .select("id,brand_id,type,title,description,duration_seconds")
+    .select("id,brand_id,type,title,description,transcript,duration_seconds")
     .eq("id", assetId)
     .single();
   if (!asset) throw new Error("Asset not found");
 
-  const [{ data: brand }, { data: analysis }] = await Promise.all([
+  const [{ data: brand }, { data: analysis }, trendBrief] = await Promise.all([
     sb.from("brands").select("name,tone_of_voice,target_audience").eq("id", asset.brand_id).single(),
     sb.from("analyses").select("platform_recommendations,summary").eq("asset_id", assetId)
       .order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    getFreshBrief(sb, asset.brand_id),
   ]);
 
   const recs = ((analysis?.platform_recommendations ?? []) as Rec[])
@@ -49,7 +51,9 @@ export async function generateCaptions(sb: SupabaseClient, assetId: string) {
     ``,
     `ASSET: ${asset.title ?? "Untitled"} (${asset.type}${asset.duration_seconds ? `, ${asset.duration_seconds}s` : ""})`,
     asset.description ? `WHAT'S IN IT (from the creator): ${asset.description}` : ``,
+    asset.transcript ? `WHAT'S SAID IN IT (transcript excerpt): ${asset.transcript.slice(0, 1500)}` : ``,
     analysis?.summary ? `AERA's read on it: ${analysis.summary}` : ``,
+    trendBrief ? `THIS WEEK'S TREND BRIEF for the niche (use it — current styles, hashtags, formats): ${JSON.stringify(trendBrief.brief).slice(0, 2500)}` : ``,
     ``,
     `Write captions for: ${platforms.join(", ")}`,
   ].filter(Boolean).join("\n");

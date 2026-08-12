@@ -98,6 +98,53 @@ function classifyVideo(file: File): Promise<{ type: string; duration: number | n
   });
 }
 
+/** Capture still frames from a video (10%, 45%, 80%) so AERA can SEE it. */
+function extractFrames(file: File): Promise<Blob[]> {
+  return new Promise((resolve) => {
+    try {
+      const url = URL.createObjectURL(file);
+      const video = document.createElement("video");
+      video.preload = "auto";
+      video.muted = true;
+      video.playsInline = true;
+      video.src = url;
+      const done = (frames: Blob[]) => {
+        URL.revokeObjectURL(url);
+        resolve(frames);
+      };
+      video.onerror = () => done([]);
+      video.onloadedmetadata = async () => {
+        try {
+          if (!Number.isFinite(video.duration) || video.duration <= 0) return done([]);
+          const canvas = document.createElement("canvas");
+          const w = Math.min(video.videoWidth || 1280, 1280);
+          canvas.width = w;
+          canvas.height = Math.round(w * ((video.videoHeight || 720) / (video.videoWidth || 1280)));
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return done([]);
+          const frames: Blob[] = [];
+          for (const point of [0.1, 0.45, 0.8]) {
+            await new Promise<void>((r) => {
+              const onSeek = () => { video.removeEventListener("seeked", onSeek); r(); };
+              video.addEventListener("seeked", onSeek);
+              video.currentTime = video.duration * point;
+              setTimeout(() => { video.removeEventListener("seeked", onSeek); r(); }, 3000);
+            });
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.8));
+            if (blob) frames.push(blob);
+          }
+          done(frames);
+        } catch {
+          done([]);
+        }
+      };
+    } catch {
+      resolve([]);
+    }
+  });
+}
+
 export default function ContentPage() {
   const [brands,    setBrands]    = useState<Brand[]>([]);
   const [brandId,   setBrandId]   = useState<string | null>(null);
@@ -207,6 +254,17 @@ export default function ContentPage() {
         const { error: upErr } = await supabase.storage.from("media").upload(path, file);
         if (upErr) throw new Error(upErr.message);
 
+        // 2b) Video: capture still frames so AERA can see it
+        const framePaths: string[] = [];
+        if (file.type.startsWith("video/")) {
+          const frames = await extractFrames(file);
+          for (let fi = 0; fi < frames.length; fi++) {
+            const fp = `${brandId}/${assetId}/frame-${fi}.jpg`;
+            const { error: fErr } = await supabase.storage.from("thumbnails").upload(fp, frames[fi], { contentType: "image/jpeg" });
+            if (!fErr) framePaths.push(fp);
+          }
+        }
+
         // 3) Record the asset
         const { error: insErr } = await supabase.from("content_assets").insert({
           id: assetId,
@@ -218,7 +276,7 @@ export default function ContentPage() {
           description: note.trim() || null,
           storage_path: path,
           duration_seconds: duration,
-          metadata: { size: file.size, mime: file.type },
+          metadata: { size: file.size, mime: file.type, frames: framePaths },
         });
         if (insErr) throw new Error(insErr.message);
       } catch (e) {

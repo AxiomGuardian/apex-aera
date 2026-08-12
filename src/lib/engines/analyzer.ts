@@ -2,6 +2,31 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { completeText, activeModel } from "@/lib/ai/llm";
 import { parseJson } from "./core";
 
+/** Transcribe a video's audio via Deepgram (URL-based, uses existing key). */
+async function transcribeVideo(sb: SupabaseClient, storagePath: string): Promise<string | null> {
+  if (!process.env.DEEPGRAM_API_KEY) return null;
+  try {
+    const { data: signed } = await sb.storage.from("media").createSignedUrl(storagePath, 600);
+    if (!signed?.signedUrl) return null;
+    const res = await fetch("https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true", {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${process.env.DEEPGRAM_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url: signed.signedUrl }),
+    });
+    if (!res.ok) return null;
+    const j = (await res.json()) as {
+      results?: { channels?: { alternatives?: { transcript?: string }[] }[] };
+    };
+    const t = j.results?.channels?.[0]?.alternatives?.[0]?.transcript ?? "";
+    return t.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 const SYSTEM = `You are AERA's content analysis engine for a premium marketing intelligence platform.
 
 You are given a brand profile and one finished content asset (its metadata, and the image itself when the asset is a photo/graphic). Recommend how to distribute it.
@@ -25,7 +50,7 @@ Respond with STRICT JSON only — no markdown fences, no commentary:
 export async function analyzeAsset(sb: SupabaseClient, assetId: string) {
   const { data: asset } = await sb
     .from("content_assets")
-    .select("id,brand_id,type,status,title,description,storage_path,duration_seconds,metadata")
+    .select("id,brand_id,type,status,title,description,transcript,storage_path,duration_seconds,metadata")
     .eq("id", assetId)
     .single();
   if (!asset) throw new Error("Asset not found");
@@ -39,7 +64,16 @@ export async function analyzeAsset(sb: SupabaseClient, assetId: string) {
   await sb.from("content_assets").update({ status: "analyzing" }).eq("id", asset.id);
 
   try {
-    const meta = (asset.metadata ?? {}) as { size?: number; mime?: string };
+    const meta = (asset.metadata ?? {}) as { size?: number; mime?: string; frames?: string[] };
+
+    // ── Video understanding: transcript (audio) ──
+    let transcript: string | null = asset.transcript ?? null;
+    if (!transcript && asset.type.startsWith("video") && asset.storage_path) {
+      transcript = await transcribeVideo(sb, asset.storage_path);
+      if (transcript) {
+        await sb.from("content_assets").update({ transcript }).eq("id", asset.id);
+      }
+    }
     const lines = [
       `BRAND PROFILE`,
       `Name: ${brand?.name ?? "Unknown"}`,
@@ -52,20 +86,28 @@ export async function analyzeAsset(sb: SupabaseClient, assetId: string) {
       `Type: ${asset.type}`,
       asset.duration_seconds ? `Duration: ${asset.duration_seconds}s` : ``,
       meta.mime ? `Format: ${meta.mime}` : ``,
+      transcript ? `` : ``,
+      transcript ? `TRANSCRIPT (what is said in the video): ${transcript.slice(0, 4000)}` : ``,
+      meta.frames?.length ? `Attached: ${meta.frames.length} still frames captured from the video — analyze them as what the video looks like.` : ``,
     ].filter(Boolean);
 
-    let imageUrl: string | undefined;
+    const imageUrls: string[] = [];
     const IMAGE_MIMES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
     if (asset.type === "image" && asset.storage_path && meta.mime && IMAGE_MIMES.includes(meta.mime)) {
       const { data: signed } = await sb.storage.from("media").createSignedUrl(asset.storage_path, 120);
-      if (signed?.signedUrl) imageUrl = signed.signedUrl;
+      if (signed?.signedUrl) imageUrls.push(signed.signedUrl);
+    }
+    // Video keyframes (captured at upload) → AERA sees the video
+    for (const framePath of meta.frames ?? []) {
+      const { data: signed } = await sb.storage.from("thumbnails").createSignedUrl(framePath, 120);
+      if (signed?.signedUrl) imageUrls.push(signed.signedUrl);
     }
 
     const raw = await completeText({
       system: SYSTEM,
       messages: [{ role: "user", content: lines.join("\n") }],
       maxTokens: 1500,
-      imageUrl,
+      imageUrls,
     });
     const parsed = parseJson<Record<string, unknown>>(raw);
 

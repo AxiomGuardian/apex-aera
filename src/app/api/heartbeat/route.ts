@@ -5,6 +5,7 @@ import { analyzeAsset } from "@/lib/engines/analyzer";
 import { generateCaptions } from "@/lib/engines/captioner";
 import { scheduleAsset } from "@/lib/engines/scheduler";
 import { publishDue } from "@/lib/engines/publisher";
+import { generateTrendBrief, getFreshBrief } from "@/lib/engines/trends";
 
 /**
  * The Heartbeat — APEX AERA's 24/7 autonomy loop.
@@ -38,12 +39,23 @@ export async function POST(request: Request) {
   }
 
   const sb = adminClient();
-  let analyzed = 0, captioned = 0, scheduled = 0;
+  let analyzed = 0, captioned = 0, scheduled = 0, trends = 0;
   const errors: string[] = [];
 
   const { data: brands } = await sb.from("brands").select("id,name").eq("autopilot", true).eq("status", "active");
 
   for (const brand of brands ?? []) {
+    // 0) Weekly trend research (only when the brief is stale)
+    try {
+      const fresh = await getFreshBrief(sb, brand.id);
+      if (!fresh) {
+        await generateTrendBrief(sb, brand.id);
+        trends++;
+      }
+    } catch (e) {
+      errors.push(`trends ${brand.name}: ${e instanceof Error ? e.message : "failed"}`);
+    }
+
     // 1) Analyze fresh uploads (max 2 per brand per beat)
     const { data: uploads } = await sb
       .from("content_assets").select("id").eq("brand_id", brand.id).eq("status", "uploaded")
@@ -72,8 +84,8 @@ export async function POST(request: Request) {
   // 3) Publish anything due
   const pub = await publishDue(sb);
 
-  const summary = `analyzed ${analyzed}, captioned ${captioned}, scheduled ${scheduled}, due ${pub.due} (published ${pub.published}, awaiting platform connections ${pub.blocked})`;
-  return NextResponse.json({ ok: true, summary, analyzed, captioned, scheduled, publish: pub, errors });
+  const summary = `trends ${trends}, analyzed ${analyzed}, captioned ${captioned}, scheduled ${scheduled}, due ${pub.due} (published ${pub.published}, awaiting platform connections ${pub.blocked})`;
+  return NextResponse.json({ ok: true, summary, trends, analyzed, captioned, scheduled, publish: pub, errors });
 }
 
 export async function GET(request: Request) {
