@@ -75,8 +75,8 @@ export default function EnginesPage() {
         sub="AERA is a single brand companion built from six specialized engines. Each one does a job a marketing team member would do, and they run together on their own."
       />
       {/* The system behind the engines */}
-      <section className="mx-auto max-w-4xl px-6 pb-14 pt-2">
-        <div className="mkt-card mkt-line-cyan p-8 sm:p-10">
+      <section className="mx-auto max-w-4xl px-5 sm:px-6 pb-12 sm:pb-14 pt-2">
+        <div className="mkt-card mkt-line-cyan p-6 sm:p-10">
           <h2 className="font-semibold text-lg mb-3" style={{ color: "var(--text-2, #d8d8d8)" }}>
             First, what the system actually is
           </h2>
@@ -114,12 +114,12 @@ export default function EnginesPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-6 pb-20 pt-4">
+      <section className="mx-auto max-w-6xl px-5 sm:px-6 pb-16 sm:pb-20 pt-4">
         <div className="grid gap-5 md:grid-cols-2">
           {ENGINES.map((e, i) => (
             <div
               key={e.title}
-              className="mkt-card mkt-quiet mkt-reveal p-8"
+              className="mkt-card mkt-quiet mkt-reveal p-6 sm:p-8"
               style={{ animationDelay: (0.05 + i * 0.06).toFixed(2) + "s" }}
             >
               <div className="flex items-center gap-4 mb-4">

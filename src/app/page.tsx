@@ -67,7 +67,7 @@ export default function HomePage() {
           className="absolute inset-0 pointer-events-none"
           style={{ background: "radial-gradient(ellipse 40% 30% at 85% 70%, rgba(45,212,255,0.05) 0%, transparent 70%)" }}
         />
-        <div className="relative mx-auto max-w-6xl px-6 pt-24 pb-24 sm:pt-32 sm:pb-28 text-center">
+        <div className="relative mx-auto max-w-6xl px-5 sm:px-6 pt-16 pb-16 sm:pt-32 sm:pb-28 text-center">
           <p
             className="mkt-reveal inline-block text-[11px] tracking-[0.28em] uppercase mb-6 px-4 py-1.5 rounded-full"
             style={{ color: "#7fd9f7", border: "1px solid rgba(45,212,255,0.25)", background: "rgba(45,212,255,0.06)" }}
@@ -90,10 +90,10 @@ export default function HomePage() {
             native content, schedules it, publishes it, and reports on it. It works around the
             clock so you can run your business.
           </p>
-          <div className="mkt-reveal mt-10 flex items-center justify-center gap-4 flex-wrap" style={{ animationDelay: "0.24s" }}>
+          <div className="mkt-reveal mt-9 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4" style={{ animationDelay: "0.24s" }}>
             <Link
               href="/login"
-              className="mkt-btn text-sm font-semibold px-7 py-3 rounded-full"
+              className="mkt-btn w-full max-w-xs sm:w-auto text-center text-sm font-semibold px-7 py-3 rounded-full"
               style={{
                 background: "linear-gradient(180deg, rgba(45,212,255,0.95), rgba(24,160,200,0.95))",
                 color: "#04131a",
@@ -104,7 +104,7 @@ export default function HomePage() {
             </Link>
             <Link
               href="/how-it-works"
-              className="mkt-btn text-sm font-medium px-7 py-3 rounded-full"
+              className="mkt-btn w-full max-w-xs sm:w-auto text-center text-sm font-medium px-7 py-3 rounded-full"
               style={{ border: "1px solid rgba(255,255,255,0.14)", color: "var(--text-3, #bebebe)" }}
             >
               See how it works
@@ -117,7 +117,7 @@ export default function HomePage() {
       </section>
 
       {/* Three doors */}
-      <section className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
+      <section className="mx-auto max-w-6xl px-5 sm:px-6 py-14 sm:py-24">
         <div className="mb-12 text-center">
           <h2 className="text-2xl sm:text-4xl font-bold tracking-tight" style={{ color: "var(--text, #ececec)" }}>
             One platform. Three doors.
@@ -128,7 +128,7 @@ export default function HomePage() {
         </div>
         <div className="grid gap-5 sm:grid-cols-3">
           {DOORS.map((d) => (
-            <div key={d.title} className={"mkt-card " + d.accent + " p-7"}>
+            <div key={d.title} className={"mkt-card " + d.accent + " p-6 sm:p-7"}>
               <div
                 className="w-11 h-11 rounded-xl mb-5 flex items-center justify-center"
                 style={{ background: d.iconBg, border: "1px solid rgba(255,255,255,0.08)" }}
@@ -152,7 +152,7 @@ export default function HomePage() {
           className="absolute inset-0 pointer-events-none"
           style={{ background: "radial-gradient(ellipse 55% 60% at 50% 100%, rgba(45,212,255,0.05) 0%, transparent 70%)" }}
         />
-        <div className="relative mx-auto max-w-6xl px-6 py-20 sm:py-24">
+        <div className="relative mx-auto max-w-6xl px-5 sm:px-6 py-14 sm:py-24">
           <div className="mb-12 text-center">
             <h2 className="text-2xl sm:text-4xl font-bold tracking-tight" style={{ color: "var(--text, #ececec)" }}>
               On your desk. In your pocket.
@@ -162,7 +162,7 @@ export default function HomePage() {
             </p>
           </div>
           <div className="grid gap-5 sm:grid-cols-2">
-            <div className="mkt-card mkt-quiet p-8">
+            <div className="mkt-card mkt-quiet p-6 sm:p-8">
               <div
                 className="w-11 h-11 rounded-xl mb-5 flex items-center justify-center"
                 style={{ background: "rgba(45,212,255,0.08)", border: "1px solid rgba(255,255,255,0.08)" }}
@@ -178,7 +178,7 @@ export default function HomePage() {
                 happens right here on this domain, one sign in away.
               </p>
             </div>
-            <div className="mkt-card mkt-quiet p-8">
+            <div className="mkt-card mkt-quiet p-6 sm:p-8">
               <div
                 className="w-11 h-11 rounded-xl mb-5 flex items-center justify-center"
                 style={{ background: "rgba(167,139,250,0.08)", border: "1px solid rgba(255,255,255,0.08)" }}
@@ -207,7 +207,7 @@ export default function HomePage() {
       </section>
 
       {/* Engines preview */}
-      <section className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
+      <section className="mx-auto max-w-6xl px-5 sm:px-6 py-14 sm:py-24">
         <div className="mb-12 text-center">
           <h2 className="text-2xl sm:text-4xl font-bold tracking-tight" style={{ color: "var(--text, #ececec)" }}>
             Powered by six engines
@@ -218,7 +218,7 @@ export default function HomePage() {
         </div>
         <div className="grid gap-5 sm:grid-cols-3">
           {ENGINE_PREVIEW.map((e) => (
-            <div key={e.title} className="mkt-card mkt-quiet p-7">
+            <div key={e.title} className="mkt-card mkt-quiet p-6 sm:p-7">
               <div
                 className="w-11 h-11 rounded-xl mb-5 flex items-center justify-center"
                 style={{ background: "rgba(45,212,255,0.08)", border: "1px solid rgba(255,255,255,0.08)" }}

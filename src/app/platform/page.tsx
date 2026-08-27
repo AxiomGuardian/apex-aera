@@ -39,7 +39,7 @@ export default function PlatformPage() {
       />
 
       {/* One domain flow */}
-      <section className="mx-auto max-w-6xl px-6 pb-16 pt-4">
+      <section className="mx-auto max-w-6xl px-5 sm:px-6 pb-14 sm:pb-16 pt-4">
         <div className="grid gap-5 sm:grid-cols-3">
           {FLOW.map((f, i) => (
             <div key={f.title} className="relative">
@@ -76,7 +76,7 @@ export default function PlatformPage() {
           className="absolute inset-0 pointer-events-none"
           style={{ background: "radial-gradient(ellipse 55% 60% at 50% 0%, rgba(45,212,255,0.05) 0%, transparent 70%)" }}
         />
-        <div className="relative mx-auto max-w-6xl px-6 py-20">
+        <div className="relative mx-auto max-w-6xl px-5 sm:px-6 py-14 sm:py-20">
           <div className="mb-12 text-center">
             <h2 className="text-2xl sm:text-4xl font-bold tracking-tight" style={{ color: "var(--text, #ececec)" }}>
               Inside the portal
@@ -109,9 +109,9 @@ export default function PlatformPage() {
       </section>
 
       {/* Access */}
-      <section className="mx-auto max-w-6xl px-6 py-20">
+      <section className="mx-auto max-w-6xl px-5 sm:px-6 py-14 sm:py-20">
         <div className="grid gap-5 sm:grid-cols-2">
-          <div className="mkt-card mkt-quiet p-8">
+          <div className="mkt-card mkt-quiet p-6 sm:p-8">
             <div className="flex items-center gap-3 mb-3">
               <Monitor style={{ width: 17, height: 17, color: "#2dd4ff" }} />
               <h3 className="font-semibold" style={{ color: "var(--text-2, #d8d8d8)" }}>Web portal, live today</h3>
@@ -121,7 +121,7 @@ export default function PlatformPage() {
               your whole operation is waiting for you.
             </p>
           </div>
-          <div className="mkt-card mkt-quiet p-8">
+          <div className="mkt-card mkt-quiet p-6 sm:p-8">
             <div className="flex items-center gap-3 mb-3">
               <Smartphone style={{ width: 17, height: 17, color: "#a78bfa" }} />
               <h3 className="font-semibold" style={{ color: "var(--text-2, #d8d8d8)" }}>Mobile app, on the way</h3>

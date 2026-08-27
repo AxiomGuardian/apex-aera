@@ -1041,3 +1041,7 @@ body {
   background: rgba(23, 26, 31, 0.85);
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.4);
 }
+
+/* Hide scrollbar on the mobile tab strip */
+.mkt-noscroll { scrollbar-width: none; }
+.mkt-noscroll::-webkit-scrollbar { display: none; }

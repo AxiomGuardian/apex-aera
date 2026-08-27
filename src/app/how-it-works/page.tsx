@@ -44,7 +44,7 @@ export default function HowItWorksPage() {
         sub="Four steps, and only the first one is yours. Everything after happens on its own, around the clock."
       />
 
-      <section className="mx-auto max-w-4xl px-6 pb-16 pt-4">
+      <section className="mx-auto max-w-4xl px-5 sm:px-6 pb-14 sm:pb-16 pt-4">
         <div className="relative">
           <div
             className="absolute left-[27px] top-6 bottom-6 w-px hidden sm:block"
@@ -67,7 +67,7 @@ export default function HowItWorksPage() {
                 >
                   <s.icon style={{ width: 20, height: 20, color: "#2dd4ff" }} />
                 </div>
-                <div className="mkt-card mkt-quiet flex-1 p-7">
+                <div className="mkt-card mkt-quiet flex-1 p-6 sm:p-7">
                   <div className="text-xs font-bold tracking-[0.25em] mb-3" style={{ color: "#5ecdf0" }}>
                     {s.n}
                   </div>
@@ -85,8 +85,8 @@ export default function HowItWorksPage() {
       </section>
 
       {/* Autopilot */}
-      <section className="mx-auto max-w-4xl px-6 pb-20">
-        <div className="mkt-card mkt-line-amber p-8 sm:p-10">
+      <section className="mx-auto max-w-4xl px-5 sm:px-6 pb-16 sm:pb-20">
+        <div className="mkt-card mkt-line-amber p-6 sm:p-10">
           <div className="flex items-center gap-4 mb-4">
             <div
               className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
