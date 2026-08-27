@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Radar, ScanEye, PenLine, CalendarClock, Send, BarChart3 } from "lucide-react";
+import Link from "next/link";
+import { Radar, ScanEye, PenLine, CalendarClock, Send, BarChart3, ArrowRight } from "lucide-react";
 import { MarketingNav, MarketingFooter, PageHeader, CtaBand } from "@/components/marketing/Shell";
 
 export const metadata: Metadata = {
@@ -73,12 +74,52 @@ export default function EnginesPage() {
         title="One companion. Six engines."
         sub="AERA is a single brand companion built from six specialized engines. Each one does a job a marketing team member would do, and they run together on their own."
       />
+      {/* The system behind the engines */}
+      <section className="mx-auto max-w-4xl px-6 pb-14 pt-2">
+        <div className="mkt-card mkt-line-cyan p-8 sm:p-10">
+          <h2 className="font-semibold text-lg mb-3" style={{ color: "var(--text-2, #d8d8d8)" }}>
+            First, what the system actually is
+          </h2>
+          <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--text-4, #9a9a9a)" }}>
+            AERA is one system, not six separate tools. When content enters your workspace, it moves
+            through a single pipeline: the research informs the writing, the writing fills the
+            calendar, the calendar drives the publishing, and the publishing feeds the reports. Each
+            engine below handles one leg of that trip.
+          </p>
+          <p className="text-sm leading-relaxed mb-7" style={{ color: "var(--text-4, #9a9a9a)" }}>
+            The whole loop runs on its own every few minutes, day and night, for every workspace on
+            the platform. You upload. It carries everything from there.
+          </p>
+          <div className="flex flex-wrap items-center gap-2 mb-7">
+            {["Research", "Watch", "Write", "Schedule", "Publish", "Report"].map((step, i) => (
+              <span key={step} className="flex items-center gap-2">
+                <span
+                  className="text-xs font-semibold px-3.5 py-1.5 rounded-full"
+                  style={{ color: "#9be7ff", border: "1px solid rgba(45,212,255,0.28)", background: "rgba(45,212,255,0.06)" }}
+                >
+                  {step}
+                </span>
+                {i < 5 && <ArrowRight style={{ width: 13, height: 13, color: "rgba(45,212,255,0.45)" }} />}
+              </span>
+            ))}
+          </div>
+          <Link
+            href="/how-it-works"
+            className="inline-flex items-center gap-2 text-sm font-semibold"
+            style={{ color: "#7fd9f7" }}
+          >
+            Walk through the full pipeline
+            <ArrowRight style={{ width: 14, height: 14 }} />
+          </Link>
+        </div>
+      </section>
+
       <section className="mx-auto max-w-6xl px-6 pb-20 pt-4">
         <div className="grid gap-5 md:grid-cols-2">
           {ENGINES.map((e, i) => (
             <div
               key={e.title}
-              className={"mkt-card mkt-reveal " + e.accent + " p-8"}
+              className="mkt-card mkt-quiet mkt-reveal p-8"
               style={{ animationDelay: (0.05 + i * 0.06).toFixed(2) + "s" }}
             >
               <div className="flex items-center gap-4 mb-4">

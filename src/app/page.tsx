@@ -162,7 +162,7 @@ export default function HomePage() {
             </p>
           </div>
           <div className="grid gap-5 sm:grid-cols-2">
-            <div className="mkt-card mkt-line-cyan p-8">
+            <div className="mkt-card mkt-quiet p-8">
               <div
                 className="w-11 h-11 rounded-xl mb-5 flex items-center justify-center"
                 style={{ background: "rgba(45,212,255,0.08)", border: "1px solid rgba(255,255,255,0.08)" }}
@@ -178,7 +178,7 @@ export default function HomePage() {
                 happens right here on this domain, one sign in away.
               </p>
             </div>
-            <div className="mkt-card mkt-line-violet p-8">
+            <div className="mkt-card mkt-quiet p-8">
               <div
                 className="w-11 h-11 rounded-xl mb-5 flex items-center justify-center"
                 style={{ background: "rgba(167,139,250,0.08)", border: "1px solid rgba(255,255,255,0.08)" }}
@@ -218,7 +218,7 @@ export default function HomePage() {
         </div>
         <div className="grid gap-5 sm:grid-cols-3">
           {ENGINE_PREVIEW.map((e) => (
-            <div key={e.title} className="mkt-card mkt-line-cyan p-7">
+            <div key={e.title} className="mkt-card mkt-quiet p-7">
               <div
                 className="w-11 h-11 rounded-xl mb-5 flex items-center justify-center"
                 style={{ background: "rgba(45,212,255,0.08)", border: "1px solid rgba(255,255,255,0.08)" }}

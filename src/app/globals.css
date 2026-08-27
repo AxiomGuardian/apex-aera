@@ -1031,3 +1031,13 @@ body {
   background-clip: text;
   color: transparent;
 }
+
+/* Quiet cards: no aura line or border beam, calm hover only */
+.mkt-card.mkt-quiet::before,
+.mkt-card.mkt-quiet::after { content: none; }
+.mkt-card.mkt-quiet:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(23, 26, 31, 0.85);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.4);
+}

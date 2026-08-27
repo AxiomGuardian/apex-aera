@@ -67,7 +67,7 @@ export default function HowItWorksPage() {
                 >
                   <s.icon style={{ width: 20, height: 20, color: "#2dd4ff" }} />
                 </div>
-                <div className="mkt-card mkt-line-cyan flex-1 p-7">
+                <div className="mkt-card mkt-quiet flex-1 p-7">
                   <div className="text-xs font-bold tracking-[0.25em] mb-3" style={{ color: "#5ecdf0" }}>
                     {s.n}
                   </div>

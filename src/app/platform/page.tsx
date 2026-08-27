@@ -44,7 +44,7 @@ export default function PlatformPage() {
           {FLOW.map((f, i) => (
             <div key={f.title} className="relative">
               <div
-                className="mkt-card mkt-reveal mkt-line-cyan p-7 h-full"
+                className="mkt-card mkt-quiet mkt-reveal p-7 h-full"
                 style={{ animationDelay: (0.05 + i * 0.08).toFixed(2) + "s" }}
               >
                 <div
@@ -87,7 +87,7 @@ export default function PlatformPage() {
           </div>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => (
-              <div key={f.title} className="mkt-card mkt-line-cyan p-6">
+              <div key={f.title} className="mkt-card mkt-quiet p-6">
                 <div className="flex items-center gap-3 mb-3">
                   <div
                     className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
@@ -111,7 +111,7 @@ export default function PlatformPage() {
       {/* Access */}
       <section className="mx-auto max-w-6xl px-6 py-20">
         <div className="grid gap-5 sm:grid-cols-2">
-          <div className="mkt-card mkt-line-cyan p-8">
+          <div className="mkt-card mkt-quiet p-8">
             <div className="flex items-center gap-3 mb-3">
               <Monitor style={{ width: 17, height: 17, color: "#2dd4ff" }} />
               <h3 className="font-semibold" style={{ color: "var(--text-2, #d8d8d8)" }}>Web portal, live today</h3>
@@ -121,7 +121,7 @@ export default function PlatformPage() {
               your whole operation is waiting for you.
             </p>
           </div>
-          <div className="mkt-card mkt-line-violet p-8">
+          <div className="mkt-card mkt-quiet p-8">
             <div className="flex items-center gap-3 mb-3">
               <Smartphone style={{ width: 17, height: 17, color: "#a78bfa" }} />
               <h3 className="font-semibold" style={{ color: "var(--text-2, #d8d8d8)" }}>Mobile app, on the way</h3>
