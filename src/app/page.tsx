@@ -1,150 +1,99 @@
 import Link from "next/link";
+import { ArrowRight, Command, Building2, Layers, Radar, ScanEye, PenLine, Monitor, Smartphone } from "lucide-react";
+import { MarketingNav, MarketingFooter, CtaBand } from "@/components/marketing/Shell";
 
 /**
- * APEX AERA — Public front page (apexaera.com)
- * Dark, quiet, premium. Sign-in portal top right → /login → dashboard.
- * No fabricated stats, no fake logos, no invented testimonials.
+ * APEX AERA public front page. Premium dark, cyan accent, line-trace effects.
+ * No fabricated stats, logos, or testimonials.
  */
 
-const ENGINES = [
+const DOORS = [
   {
+    icon: Command,
+    accent: "mkt-line-cyan",
+    iconColor: "#2dd4ff",
+    iconBg: "rgba(45,212,255,0.08)",
+    title: "Agency Command",
+    body: "The master view. Every client, every queue, every engine in one place, with full control of the whole operation from a single screen.",
+  },
+  {
+    icon: Building2,
+    accent: "mkt-line-green",
+    iconColor: "#34d399",
+    iconBg: "rgba(52,211,153,0.08)",
+    title: "Brand Workspaces",
+    body: "A private portal for each client. Their content, their calendar, their reports, their conversations with AERA. Nothing from anyone else.",
+  },
+  {
+    icon: Layers,
+    accent: "mkt-line-amber",
+    iconColor: "#fbbf24",
+    iconBg: "rgba(251,191,36,0.08)",
+    title: "Enterprise",
+    body: "Built for organizations that carry many brands under one roof, with roles for every seat and qualification gates at every door.",
+  },
+];
+
+const ENGINE_PREVIEW = [
+  {
+    icon: Radar,
     title: "Trend Research",
-    body: "AERA scours the live web and X for what is moving in your niche right now — fresh briefs, not stale templates.",
+    body: "AERA scans the live web and X for what is moving in your niche right now, then writes with that knowledge in hand.",
   },
   {
+    icon: ScanEye,
     title: "Content Intelligence",
-    body: "Upload a video and AERA watches it — frames, audio, transcript — and understands what it is actually about.",
+    body: "Upload a video and AERA watches it. Frames, audio, transcript. It understands what your content is actually about.",
   },
   {
+    icon: PenLine,
     title: "Caption Studio",
     body: "A distinct angle for every platform. Instagram is not TikTok is not LinkedIn, and AERA writes like it knows the difference.",
   },
-  {
-    title: "Autonomous Scheduling",
-    body: "Your posting windows become a living calendar. Content is timed, queued, and sequenced without you touching it.",
-  },
-  {
-    title: "Publishing",
-    body: "When a post is due, it goes out. Connected platforms publish automatically — around the clock, in your timezone.",
-  },
-  {
-    title: "Honest Reporting",
-    body: "Reports built only from real numbers in your account. AERA never invents a metric to look good.",
-  },
 ];
-
-const STEPS = [
-  {
-    n: "01",
-    title: "Drop in your content",
-    body: "Upload raw video or creative. Add a sentence about it if you like — or don't.",
-  },
-  {
-    n: "02",
-    title: "AERA studies everything",
-    body: "It analyzes your content, reads your brand profile, and researches your market before writing a word.",
-  },
-  {
-    n: "03",
-    title: "It runs itself",
-    body: "Captions, schedules, publishing, reports. On autopilot by default — you watch it work from your dashboard.",
-  },
-];
-
-function ApexMark({ size = 26 }: { size?: number }) {
-  return (
-    <svg viewBox="0 0 28 28" fill="none" width={size} height={size} aria-hidden>
-      <path
-        d="M14 3L26 24H2L14 3Z"
-        stroke="rgba(45,212,255,0.9)"
-        strokeWidth="1.4"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    </svg>
-  );
-}
 
 export default function HomePage() {
   return (
     <main className="min-h-screen" style={{ background: "var(--bg-deep, #0c0c0c)", color: "var(--text, #e8e8e8)" }}>
-      {/* ── Nav ── */}
-      <header
-        className="sticky top-0 z-50 backdrop-blur-md"
-        style={{ background: "rgba(12,12,12,0.82)", borderBottom: "1px solid rgba(255,255,255,0.07)" }}
-      >
-        <div className="mx-auto max-w-6xl px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <ApexMark />
-            <span className="font-semibold tracking-[0.18em] text-sm" style={{ color: "var(--text, #e8e8e8)" }}>
-              APEX&nbsp;AERA
-            </span>
-          </div>
-          <nav className="flex items-center gap-6">
-            <a href="#engines" className="hidden sm:block text-sm transition-colors hover:text-white" style={{ color: "var(--text-4, #9a9a9a)" }}>
-              Engines
-            </a>
-            <a href="#how" className="hidden sm:block text-sm transition-colors hover:text-white" style={{ color: "var(--text-4, #9a9a9a)" }}>
-              How it works
-            </a>
-            <Link
-              href="/login"
-              className="text-sm font-medium px-4 py-2 rounded-full transition-all hover:brightness-110"
-              style={{
-                background: "rgba(45,212,255,0.12)",
-                border: "1px solid rgba(45,212,255,0.35)",
-                color: "#9be7ff",
-                boxShadow: "0 0 24px rgba(45,212,255,0.10)",
-              }}
-            >
-              Sign in
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <MarketingNav />
 
-      {/* ── Hero ── */}
-      <section className="relative overflow-hidden">
+      {/* Hero */}
+      <section className="relative overflow-hidden mkt-grid">
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(ellipse 70% 50% at 50% 0%, rgba(45,212,255,0.09) 0%, transparent 65%)",
-          }}
+          style={{ background: "radial-gradient(ellipse 70% 50% at 50% 0%, rgba(45,212,255,0.10) 0%, transparent 65%)" }}
         />
-        <div className="relative mx-auto max-w-6xl px-6 pt-24 pb-20 sm:pt-32 sm:pb-28 text-center">
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: "radial-gradient(ellipse 40% 30% at 85% 70%, rgba(45,212,255,0.05) 0%, transparent 70%)" }}
+        />
+        <div className="relative mx-auto max-w-6xl px-6 pt-24 pb-24 sm:pt-32 sm:pb-28 text-center">
           <p
-            className="inline-block text-[11px] tracking-[0.28em] uppercase mb-6 px-4 py-1.5 rounded-full"
+            className="mkt-reveal inline-block text-[11px] tracking-[0.28em] uppercase mb-6 px-4 py-1.5 rounded-full"
             style={{ color: "#7fd9f7", border: "1px solid rgba(45,212,255,0.25)", background: "rgba(45,212,255,0.06)" }}
           >
             Agentic AI Marketing
           </p>
           <h1
-            className="font-extrabold leading-[1.05] tracking-tight text-4xl sm:text-6xl"
-            style={{ color: "var(--text, #ececec)" }}
+            className="mkt-reveal font-extrabold leading-[1.05] tracking-tight text-4xl sm:text-6xl"
+            style={{ color: "var(--text, #ececec)", animationDelay: "0.08s" }}
           >
             Your marketing,
             <br />
-            <span
-              style={{
-                background: "linear-gradient(90deg, #2DD4FF 0%, #8be9ff 60%, #d7f7ff 100%)",
-                WebkitBackgroundClip: "text",
-                backgroundClip: "text",
-                color: "transparent",
-              }}
-            >
-              running itself.
-            </span>
+            <span className="mkt-gradient-text">running itself.</span>
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-base sm:text-lg leading-relaxed" style={{ color: "var(--text-4, #9a9a9a)" }}>
-            APEX AERA studies your brand, researches your market in real time, writes
-            platform-native content, schedules it, publishes it, and reports on it —
-            24 hours a day, while you run your business.
+          <p
+            className="mkt-reveal mx-auto mt-6 max-w-2xl text-base sm:text-lg leading-relaxed"
+            style={{ color: "var(--text-4, #9a9a9a)", animationDelay: "0.16s" }}
+          >
+            APEX AERA studies your brand, researches your market in real time, writes platform
+            native content, schedules it, publishes it, and reports on it. It works around the
+            clock so you can run your business.
           </p>
-          <div className="mt-10 flex items-center justify-center gap-4">
+          <div className="mkt-reveal mt-10 flex items-center justify-center gap-4 flex-wrap" style={{ animationDelay: "0.24s" }}>
             <Link
               href="/login"
-              className="text-sm font-semibold px-7 py-3 rounded-full transition-all hover:brightness-110"
+              className="mkt-btn text-sm font-semibold px-7 py-3 rounded-full"
               style={{
                 background: "linear-gradient(180deg, rgba(45,212,255,0.95), rgba(24,160,200,0.95))",
                 color: "#04131a",
@@ -153,44 +102,130 @@ export default function HomePage() {
             >
               Enter the portal
             </Link>
-            <a
-              href="#how"
-              className="text-sm font-medium px-7 py-3 rounded-full transition-colors hover:text-white"
+            <Link
+              href="/how-it-works"
+              className="mkt-btn text-sm font-medium px-7 py-3 rounded-full"
               style={{ border: "1px solid rgba(255,255,255,0.14)", color: "var(--text-3, #bebebe)" }}
             >
               See how it works
-            </a>
+            </Link>
           </div>
-          <p className="mt-8 text-xs tracking-wide" style={{ color: "var(--text-5, #6e6e6e)" }}>
+          <p className="mkt-reveal mt-8 text-xs tracking-wide" style={{ color: "var(--text-5, #6e6e6e)", animationDelay: "0.32s" }}>
             Access is by invitation. Every client workspace is private and qualified.
           </p>
         </div>
       </section>
 
-      {/* ── Engines ── */}
-      <section id="engines" className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
+      {/* Three doors */}
+      <section className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
         <div className="mb-12 text-center">
           <h2 className="text-2xl sm:text-4xl font-bold tracking-tight" style={{ color: "var(--text, #ececec)" }}>
-            One brand companion. Six engines.
+            One platform. Three doors.
+          </h2>
+          <p className="mt-3 text-sm sm:text-base" style={{ color: "var(--text-4, #9a9a9a)" }}>
+            Everyone signs in through the same portal. What you see on the other side depends on who you are.
+          </p>
+        </div>
+        <div className="grid gap-5 sm:grid-cols-3">
+          {DOORS.map((d) => (
+            <div key={d.title} className={"mkt-card " + d.accent + " p-7"}>
+              <div
+                className="w-11 h-11 rounded-xl mb-5 flex items-center justify-center"
+                style={{ background: d.iconBg, border: "1px solid rgba(255,255,255,0.08)" }}
+              >
+                <d.icon style={{ width: 18, height: 18, color: d.iconColor }} />
+              </div>
+              <h3 className="font-semibold text-lg mb-2.5" style={{ color: "var(--text-2, #d8d8d8)" }}>
+                {d.title}
+              </h3>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-4, #9a9a9a)" }}>
+                {d.body}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Web portal + mobile app */}
+      <section className="relative mkt-grid">
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: "radial-gradient(ellipse 55% 60% at 50% 100%, rgba(45,212,255,0.05) 0%, transparent 70%)" }}
+        />
+        <div className="relative mx-auto max-w-6xl px-6 py-20 sm:py-24">
+          <div className="mb-12 text-center">
+            <h2 className="text-2xl sm:text-4xl font-bold tracking-tight" style={{ color: "var(--text, #ececec)" }}>
+              On your desk. In your pocket.
+            </h2>
+            <p className="mt-3 text-sm sm:text-base" style={{ color: "var(--text-4, #9a9a9a)" }}>
+              AERA never sleeps, so your access should never be out of reach.
+            </p>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="mkt-card mkt-line-cyan p-8">
+              <div
+                className="w-11 h-11 rounded-xl mb-5 flex items-center justify-center"
+                style={{ background: "rgba(45,212,255,0.08)", border: "1px solid rgba(255,255,255,0.08)" }}
+              >
+                <Monitor style={{ width: 18, height: 18, color: "#2dd4ff" }} />
+              </div>
+              <h3 className="font-semibold text-lg mb-2.5" style={{ color: "var(--text-2, #d8d8d8)" }}>
+                The Web Portal
+              </h3>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-4, #9a9a9a)" }}>
+                The full command center, live today. Upload content, watch AERA analyze it, review
+                the queue, read your trend briefs and reports, and talk to AERA directly. Everything
+                happens right here on this domain, one sign in away.
+              </p>
+            </div>
+            <div className="mkt-card mkt-line-violet p-8">
+              <div
+                className="w-11 h-11 rounded-xl mb-5 flex items-center justify-center"
+                style={{ background: "rgba(167,139,250,0.08)", border: "1px solid rgba(255,255,255,0.08)" }}
+              >
+                <Smartphone style={{ width: 18, height: 18, color: "#a78bfa" }} />
+              </div>
+              <div className="flex items-center gap-3 mb-2.5">
+                <h3 className="font-semibold text-lg" style={{ color: "var(--text-2, #d8d8d8)" }}>
+                  The Mobile App
+                </h3>
+                <span
+                  className="text-[10px] font-bold tracking-[0.14em] uppercase px-2.5 py-1 rounded-full"
+                  style={{ color: "#c4b5fd", border: "1px solid rgba(167,139,250,0.3)", background: "rgba(167,139,250,0.08)" }}
+                >
+                  On the way
+                </span>
+              </div>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-4, #9a9a9a)" }}>
+                iOS and Android apps are in the works. Shoot a video on your phone, drop it straight
+                into your workspace, approve a post from the checkout line, and get a ping when your
+                content goes live. Same account, same brain, wherever you are.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Engines preview */}
+      <section className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
+        <div className="mb-12 text-center">
+          <h2 className="text-2xl sm:text-4xl font-bold tracking-tight" style={{ color: "var(--text, #ececec)" }}>
+            Powered by six engines
           </h2>
           <p className="mt-3 text-sm sm:text-base" style={{ color: "var(--text-4, #9a9a9a)" }}>
             AERA is not a scheduler with a chatbot bolted on. It is a system that thinks before it posts.
           </p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {ENGINES.map((e) => (
-            <div
-              key={e.title}
-              className="rounded-2xl p-6 transition-colors"
-              style={{ background: "var(--surface, #1a1a1a)", border: "1px solid rgba(255,255,255,0.08)" }}
-            >
+        <div className="grid gap-5 sm:grid-cols-3">
+          {ENGINE_PREVIEW.map((e) => (
+            <div key={e.title} className="mkt-card mkt-line-cyan p-7">
               <div
-                className="w-9 h-9 rounded-full mb-4 flex items-center justify-center"
-                style={{ background: "rgba(45,212,255,0.08)", border: "1px solid rgba(45,212,255,0.25)" }}
+                className="w-11 h-11 rounded-xl mb-5 flex items-center justify-center"
+                style={{ background: "rgba(45,212,255,0.08)", border: "1px solid rgba(255,255,255,0.08)" }}
               >
-                <ApexMark size={16} />
+                <e.icon style={{ width: 18, height: 18, color: "#2dd4ff" }} />
               </div>
-              <h3 className="font-semibold mb-2" style={{ color: "var(--text-2, #d8d8d8)" }}>
+              <h3 className="font-semibold mb-2.5" style={{ color: "var(--text-2, #d8d8d8)" }}>
                 {e.title}
               </h3>
               <p className="text-sm leading-relaxed" style={{ color: "var(--text-4, #9a9a9a)" }}>
@@ -199,85 +234,25 @@ export default function HomePage() {
             </div>
           ))}
         </div>
-      </section>
-
-      {/* ── How it works ── */}
-      <section id="how" className="relative">
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: "radial-gradient(ellipse 60% 60% at 50% 100%, rgba(45,212,255,0.05) 0%, transparent 70%)" }}
-        />
-        <div className="relative mx-auto max-w-6xl px-6 py-20 sm:py-24">
-          <div className="mb-12 text-center">
-            <h2 className="text-2xl sm:text-4xl font-bold tracking-tight" style={{ color: "var(--text, #ececec)" }}>
-              How it works
-            </h2>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {STEPS.map((s) => (
-              <div
-                key={s.n}
-                className="rounded-2xl p-6"
-                style={{ background: "var(--bg-raised, #141414)", border: "1px solid rgba(255,255,255,0.08)" }}
-              >
-                <div className="text-xs font-semibold tracking-[0.25em] mb-4" style={{ color: "#5ecdf0" }}>
-                  {s.n}
-                </div>
-                <h3 className="font-semibold mb-2" style={{ color: "var(--text-2, #d8d8d8)" }}>
-                  {s.title}
-                </h3>
-                <p className="text-sm leading-relaxed" style={{ color: "var(--text-4, #9a9a9a)" }}>
-                  {s.body}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Closing CTA ── */}
-      <section className="mx-auto max-w-6xl px-6 pb-24 sm:pb-32">
-        <div
-          className="rounded-3xl px-8 py-14 sm:py-16 text-center"
-          style={{
-            background: "linear-gradient(180deg, rgba(45,212,255,0.07), rgba(20,20,20,0.6))",
-            border: "1px solid rgba(45,212,255,0.18)",
-          }}
-        >
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: "var(--text, #ececec)" }}>
-            Already a client?
-          </h2>
-          <p className="mt-3 text-sm sm:text-base" style={{ color: "var(--text-4, #9a9a9a)" }}>
-            Your workspace is live and AERA is already working. Step inside.
-          </p>
+        <div className="mt-10 text-center">
           <Link
-            href="/login"
-            className="mt-8 inline-block text-sm font-semibold px-8 py-3 rounded-full transition-all hover:brightness-110"
-            style={{
-              background: "linear-gradient(180deg, rgba(45,212,255,0.95), rgba(24,160,200,0.95))",
-              color: "#04131a",
-              boxShadow: "0 8px 32px rgba(45,212,255,0.25)",
-            }}
+            href="/engines"
+            className="mkt-btn inline-flex items-center gap-2 text-sm font-semibold px-7 py-3 rounded-full"
+            style={{ border: "1px solid rgba(45,212,255,0.3)", color: "#7fd9f7", background: "rgba(45,212,255,0.06)" }}
           >
-            Sign in to your dashboard
+            Explore all six engines
+            <ArrowRight style={{ width: 15, height: 15 }} />
           </Link>
         </div>
       </section>
 
-      {/* ── Footer ── */}
-      <footer style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-        <div className="mx-auto max-w-6xl px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <ApexMark size={16} />
-            <span className="text-xs tracking-[0.18em]" style={{ color: "var(--text-5, #6e6e6e)" }}>
-              APEX AERA
-            </span>
-          </div>
-          <p className="text-xs" style={{ color: "var(--text-6, #4e4e4e)" }}>
-            © 2026 APEX AERA. All rights reserved.
-          </p>
-        </div>
-      </footer>
+      <CtaBand
+        title="Already a client?"
+        sub="Your workspace is live and AERA is already working. Step inside."
+        cta="Sign in to your dashboard"
+      />
+
+      <MarketingFooter />
     </main>
   );
 }
