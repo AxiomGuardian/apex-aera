@@ -238,12 +238,23 @@ export default function ClientDetailPage() {
                   </div>
                 </div>
               ))}
-              <a
-                href={"/api/aera/connect/meta?brandId=" + id}
-                style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 14, padding: "9px 15px", borderRadius: 10, background: "rgba(45,212,255,0.10)", border: "1px solid rgba(45,212,255,0.26)", color: "var(--cyan)", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
-              >
-                Connect Meta (Facebook + Instagram)
-              </a>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
+                <a
+                  href={"/api/aera/connect/instagram?brandId=" + id}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", borderRadius: 10, background: "rgba(45,212,255,0.10)", border: "1px solid rgba(45,212,255,0.26)", color: "var(--cyan)", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
+                >
+                  Connect Instagram
+                </a>
+                <a
+                  href={"/api/aera/connect/meta?brandId=" + id}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", borderRadius: 10, background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-3)", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
+                >
+                  Connect Facebook Page
+                </a>
+              </div>
+              <p style={{ fontSize: 11, color: "var(--text-6)", marginTop: 8, lineHeight: 1.5 }}>
+                Instagram connects with your Instagram login, no Facebook needed. Facebook Page posting connects through a Facebook account with Page access.
+              </p>
             </div>
           </div>
         </div>

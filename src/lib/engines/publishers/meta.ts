@@ -8,15 +8,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  */
 
 const GRAPH = "https://graph.facebook.com/v21.0";
+const IG_GRAPH = "https://graph.instagram.com/v21.0";
 
 type PubResult = { ok: boolean; platformPostId?: string; error?: string };
 
 type MetaCreds = {
+  kind?: "instagram_login" | "facebook_login";
   page_id?: string;
   page_token?: string;
   page_name?: string;
   ig_user_id?: string;
   ig_username?: string;
+  access_token?: string; // Instagram Login token
 };
 
 async function loadPost(sb: SupabaseClient, postId: string) {
@@ -59,9 +62,9 @@ async function loadPost(sb: SupabaseClient, postId: string) {
   return { post, creds, captionText, mediaUrl, isVideo };
 }
 
-async function graph(path: string, params: Record<string, string>): Promise<Record<string, unknown>> {
+async function graph(path: string, params: Record<string, string>, base: string = GRAPH): Promise<Record<string, unknown>> {
   const body = new URLSearchParams(params);
-  const res = await fetch(GRAPH + path, { method: "POST", body });
+  const res = await fetch(base + path, { method: "POST", body });
   const json = (await res.json()) as Record<string, unknown>;
   if (!res.ok) {
     const err = json?.error as { message?: string } | undefined;
@@ -70,9 +73,9 @@ async function graph(path: string, params: Record<string, string>): Promise<Reco
   return json;
 }
 
-async function waitForContainer(creationId: string, token: string): Promise<void> {
+async function waitForContainer(creationId: string, token: string, base: string = GRAPH): Promise<void> {
   for (let i = 0; i < 20; i++) {
-    const res = await fetch(GRAPH + "/" + creationId + "?fields=status_code&access_token=" + encodeURIComponent(token));
+    const res = await fetch(base + "/" + creationId + "?fields=status_code&access_token=" + encodeURIComponent(token));
     const json = (await res.json()) as { status_code?: string };
     if (json.status_code === "FINISHED") return;
     if (json.status_code === "ERROR") throw new Error("Instagram could not process the media");
@@ -84,13 +87,17 @@ async function waitForContainer(creationId: string, token: string): Promise<void
 export async function publishInstagram(sb: SupabaseClient, postId: string): Promise<PubResult> {
   try {
     const { creds, captionText, mediaUrl, isVideo } = await loadPost(sb, postId);
-    if (!creds.ig_user_id || !creds.page_token) {
+    // Two ways in: Instagram Login (direct token) or Facebook Login (page token)
+    const viaInstagram = creds.kind === "instagram_login";
+    const token = viaInstagram ? creds.access_token : creds.page_token;
+    const base = viaInstagram ? IG_GRAPH : GRAPH;
+    if (!creds.ig_user_id || !token) {
       return { ok: false, error: "Instagram not connected for this brand" };
     }
     if (!mediaUrl) return { ok: false, error: "Instagram requires an image or video" };
 
     const params: Record<string, string> = {
-      access_token: creds.page_token,
+      access_token: token,
       caption: captionText.slice(0, 2200),
     };
     if (isVideo) {
@@ -100,14 +107,14 @@ export async function publishInstagram(sb: SupabaseClient, postId: string): Prom
       params.image_url = mediaUrl;
     }
 
-    const container = await graph("/" + creds.ig_user_id + "/media", params);
+    const container = await graph("/" + creds.ig_user_id + "/media", params, base);
     const creationId = String(container.id);
-    if (isVideo) await waitForContainer(creationId, creds.page_token);
+    if (isVideo) await waitForContainer(creationId, token, base);
 
     const published = await graph("/" + creds.ig_user_id + "/media_publish", {
-      access_token: creds.page_token,
+      access_token: token,
       creation_id: creationId,
-    });
+    }, base);
     return { ok: true, platformPostId: String(published.id) };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Instagram publish failed" };
