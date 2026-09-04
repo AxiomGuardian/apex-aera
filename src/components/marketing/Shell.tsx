@@ -156,6 +156,12 @@ export function MarketingFooter() {
               {t.label}
             </Link>
           ))}
+          <Link href="/privacy" className="text-xs transition-colors hover:text-white" style={{ color: "var(--text-5, #6e6e6e)" }}>
+            Privacy
+          </Link>
+          <Link href="/terms" className="text-xs transition-colors hover:text-white" style={{ color: "var(--text-5, #6e6e6e)" }}>
+            Terms
+          </Link>
           <Link href="/login" className="text-xs font-semibold" style={{ color: "#7fd9f7" }}>
             Sign in
           </Link>

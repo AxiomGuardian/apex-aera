@@ -34,11 +34,30 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
+  const host = request.headers.get("host") ?? "";
+  const isKitHost = host.includes("kingdominitiativetechnologies");
+
+  if (isKitHost && !pathname.startsWith("/kit")) {
+    const mapped = mapKitHostPath(pathname);
+    if (mapped) {
+      const url = request.nextUrl.clone();
+      url.pathname = mapped;
+      const rewrite = NextResponse.rewrite(url);
+      supabaseResponse.cookies.getAll().forEach((cookie) => {
+        rewrite.cookies.set(cookie.name, cookie.value);
+      });
+      return rewrite;
+    }
+  }
+
   const isPublic =
     pathname === "/" ||
+    pathname.startsWith("/kit") ||
     pathname.startsWith("/engines") ||
     pathname.startsWith("/how-it-works") ||
     pathname.startsWith("/platform") ||
+    pathname.startsWith("/privacy") ||
+    pathname.startsWith("/terms") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/welcome") ||
@@ -52,6 +71,17 @@ export async function middleware(request: NextRequest) {
   }
 
   return supabaseResponse;
+}
+
+function mapKitHostPath(pathname: string): string | null {
+  if (pathname.startsWith("/kit")) return null;
+  const stripped = pathname.replace(/\/$/, "") || "/";
+  if (stripped === "/") return "/kit";
+  const first = stripped.split("/")[1] ?? "";
+  if (["wisdomwatch", "kcrm", "vision", "guardrails", "contact"].includes(first)) {
+    return `/kit${stripped}`;
+  }
+  return null;
 }
 
 export const config = {

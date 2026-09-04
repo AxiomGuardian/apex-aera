@@ -9,6 +9,7 @@ import { ArrowLeft, Loader2, CheckCircle2, Radar, FileText, Filter, RefreshCw } 
 type Brand = {
   id: string; name: string; slug: string; status: string;
   tone_of_voice: string | null; target_audience: string | null; website_url: string | null;
+  autopilot: boolean;
   created_at: string;
 };
 type Member = { user_id: string; profiles: { email: string; full_name: string | null } | null };
@@ -38,6 +39,8 @@ export default function ClientDetailPage() {
   const [website,  setWebsite]  = useState("");
   const [saving,  setSaving]  = useState(false);
   const [saved,   setSaved]   = useState(false);
+  const [autopilot, setAutopilot] = useState(true);
+  const [flipping, setFlipping] = useState(false);
   const [brief,   setBrief]   = useState<Brief | null>(null);
   const [report,  setReport]  = useState<Report | null>(null);
   const [funnels, setFunnels] = useState<Funnel[]>([]);
@@ -61,6 +64,7 @@ export default function ClientDetailPage() {
       setTone(br.tone_of_voice ?? "");
       setAudience(br.target_audience ?? "");
       setWebsite(br.website_url ?? "");
+      setAutopilot(br.autopilot !== false);
     }
     setMembers((m.data ?? []) as unknown as Member[]);
     setAssets((a.data ?? []) as Asset[]);
@@ -84,6 +88,16 @@ export default function ClientDetailPage() {
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+  }
+
+  async function toggleAutopilot() {
+    const next = !autopilot;
+    setFlipping(true);
+    setAutopilot(next);
+    const supabase = createClient();
+    const { error } = await supabase.from("brands").update({ autopilot: next }).eq("id", id);
+    if (error) setAutopilot(!next);
+    setFlipping(false);
   }
 
   async function runEngine(kind: "trends" | "report" | "funnel", url: string) {
@@ -147,9 +161,27 @@ export default function ClientDetailPage() {
         <div className="grid lg:grid-cols-2 gap-5">
           {/* Brand profile (AERA reads this on every analysis) */}
           <div style={cardStyle}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", borderRadius: 12, marginBottom: 18, background: autopilot ? "rgba(52,211,153,0.06)" : "rgba(251,191,36,0.06)", border: "1px solid " + (autopilot ? "rgba(52,211,153,0.22)" : "rgba(251,191,36,0.22)") }}>
+              <div>
+                <p style={{ fontSize: 12.5, fontWeight: 700, color: autopilot ? "#34D399" : "#fbbf24" }}>
+                  {autopilot ? "Autopilot on" : "Manual approval"}
+                </p>
+                <p style={{ fontSize: 11, color: "var(--text-5)", marginTop: 2, lineHeight: 1.5 }}>
+                  {autopilot ? "AERA schedules and publishes on its own. Pull anything from the Queue." : "Every post waits in the Queue for a yes before it goes out."}
+                </p>
+              </div>
+              <button
+                onClick={() => void toggleAutopilot()}
+                disabled={flipping}
+                aria-label="Toggle autopilot"
+                style={{ position: "relative", width: 44, height: 24, borderRadius: 999, flexShrink: 0, cursor: "pointer", border: "none", background: autopilot ? "rgba(52,211,153,0.55)" : "rgba(255,255,255,0.14)", transition: "background 0.25s" }}
+              >
+                <span style={{ position: "absolute", top: 3, left: autopilot ? 23 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 0.25s" }} />
+              </button>
+            </div>
             <p className="section-label" style={{ display: "block", marginBottom: 6 }}>Brand Profile</p>
             <p style={{ fontSize: 11.5, color: "var(--text-6)", marginBottom: 18, lineHeight: 1.6 }}>
-              AERA reads this on every analysis — the better this is, the sharper the recommendations.
+              AERA reads this on every analysis. The better this is, the sharper the recommendations.
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
@@ -198,11 +230,20 @@ export default function ClientDetailPage() {
                   None connected yet. Per-brand platform connections activate with the publishing engine.
                 </p>
               ) : conns.map((c) => (
-                <div key={c.platform} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0" }}>
+                <div key={c.platform} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 0" }}>
                   <p style={{ fontSize: 13, color: "var(--text-2)", textTransform: "capitalize" }}>{c.platform.replace("_", " ")}</p>
-                  <span style={{ fontSize: 10.5, color: c.status === "connected" ? "#34D399" : "var(--text-6)" }}>{c.status}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {c.account_name && <span style={{ fontSize: 11, color: "var(--text-5)" }}>{c.account_name}</span>}
+                    <span style={{ fontSize: 10.5, fontWeight: 600, color: c.status === "connected" ? "#34D399" : c.status === "expired" ? "#fbbf24" : "var(--text-6)" }}>{c.status === "expired" ? "expired, reconnect below" : c.status}</span>
+                  </div>
                 </div>
               ))}
+              <a
+                href={"/api/aera/connect/meta?brandId=" + id}
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 14, padding: "9px 15px", borderRadius: 10, background: "rgba(45,212,255,0.10)", border: "1px solid rgba(45,212,255,0.26)", color: "var(--cyan)", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
+              >
+                Connect Meta (Facebook + Instagram)
+              </a>
             </div>
           </div>
         </div>

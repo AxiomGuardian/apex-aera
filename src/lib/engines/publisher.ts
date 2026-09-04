@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { publishInstagram, publishFacebook } from "./publishers/meta";
 
 /**
  * Publishing engine (wireframe). Finds due posts and pushes them through
@@ -6,10 +7,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * with an honest error — nothing is ever faked as "published".
  */
 
-type Adapter = (post: { id: string; platform: string }) => Promise<{ ok: boolean; platformPostId?: string; error?: string }>;
+type Adapter = (sb: SupabaseClient, postId: string) => Promise<{ ok: boolean; platformPostId?: string; error?: string }>;
 
-// Platform adapters plug in here as OAuth connections are built (Meta first).
-const ADAPTERS: Record<string, Adapter | undefined> = {};
+// Platform adapters. Meta (Instagram + Facebook) is live; more plug in here.
+const ADAPTERS: Record<string, Adapter | undefined> = {
+  instagram: publishInstagram,
+  facebook: publishFacebook,
+};
 
 export async function publishDue(sb: SupabaseClient) {
   const nowIso = new Date().toISOString();
@@ -27,21 +31,21 @@ export async function publishDue(sb: SupabaseClient) {
       .select("status")
       .eq("brand_id", post.brand_id)
       .eq("platform", post.platform)
-      .eq("status", "connected")
       .maybeSingle();
 
     const adapter = ADAPTERS[post.platform];
-    if (!conn || !adapter) {
+    if (!conn || conn.status !== "connected" || !adapter) {
       blocked++;
-      await sb.from("scheduled_posts").update({
-        error: "Awaiting platform connection — connect this platform in the client workspace to publish.",
-      }).eq("id", post.id);
+      const msg = conn?.status === "expired"
+        ? "Platform connection expired. Reconnect this platform in the client workspace to publish."
+        : "Awaiting platform connection. Connect this platform in the client workspace to publish.";
+      await sb.from("scheduled_posts").update({ error: msg }).eq("id", post.id);
       continue;
     }
 
     await sb.from("scheduled_posts").update({ status: "publishing" }).eq("id", post.id);
     try {
-      const result = await adapter({ id: post.id, platform: post.platform });
+      const result = await adapter(sb, post.id);
       if (result.ok) {
         published++;
         await sb.from("scheduled_posts").update({

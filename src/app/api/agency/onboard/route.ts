@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createBareClient } from "@supabase/supabase-js";
+import { adminClient } from "@/lib/engines/core";
+import { emailEnabled, sendEmail, inviteEmail } from "@/lib/email";
 
 /** Onboard a client: create their brand workspace, record the invite,
  *  and email them a sign-in link that lands on /welcome. Agency only. */
@@ -37,8 +39,30 @@ export async function POST(request: Request) {
   });
   if (invErr) return NextResponse.json({ error: invErr.message }, { status: 500 });
 
-  // Send the sign-in link from a bare client so the agency session is untouched
   const origin = new URL(request.url).origin;
+  const cleanEmail = email.trim().toLowerCase();
+
+  // Branded invite via Resend when configured: generate the invite link
+  // ourselves and send it from our own domain.
+  if (emailEnabled()) {
+    const admin = adminClient();
+    const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+      type: "invite",
+      email: cleanEmail,
+      options: { redirectTo: `${origin}/welcome` },
+    });
+    const actionLink = linkData?.properties?.action_link;
+    if (!linkErr && actionLink) {
+      const mail = inviteEmail({ brandName: brand.name, link: actionLink });
+      const sent = await sendEmail({ to: cleanEmail, ...mail });
+      if (sent.ok) return NextResponse.json({ ok: true, brand, via: "resend" });
+      console.error("[Onboard] Resend failed, falling back to Supabase mailer:", sent.error);
+    } else if (linkErr) {
+      console.error("[Onboard] generateLink failed, falling back:", linkErr.message);
+    }
+  }
+
+  // Fallback: Supabase's built-in magic link from a bare client so the agency session is untouched
   const bare = createBareClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

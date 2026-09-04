@@ -6,6 +6,7 @@ import { generateCaptions } from "@/lib/engines/captioner";
 import { scheduleAsset } from "@/lib/engines/scheduler";
 import { publishDue } from "@/lib/engines/publisher";
 import { generateTrendBrief, getFreshBrief } from "@/lib/engines/trends";
+import { checkConnections } from "@/lib/engines/health";
 
 /**
  * The Heartbeat — APEX AERA's 24/7 autonomy loop.
@@ -81,11 +82,14 @@ export async function POST(request: Request) {
     }
   }
 
-  // 3) Publish anything due
+  // 3) Connection health (rolling, every 6h per connection)
+  const health = await checkConnections(sb);
+
+  // 4) Publish anything due
   const pub = await publishDue(sb);
 
-  const summary = `trends ${trends}, analyzed ${analyzed}, captioned ${captioned}, scheduled ${scheduled}, due ${pub.due} (published ${pub.published}, awaiting platform connections ${pub.blocked})`;
-  return NextResponse.json({ ok: true, summary, trends, analyzed, captioned, scheduled, publish: pub, errors });
+  const summary = `trends ${trends}, analyzed ${analyzed}, captioned ${captioned}, scheduled ${scheduled}, due ${pub.due} (published ${pub.published}, awaiting platform connections ${pub.blocked}), connections checked ${health.checked} (expired ${health.expired})`;
+  return NextResponse.json({ ok: true, summary, trends, analyzed, captioned, scheduled, health, publish: pub, errors });
 }
 
 export async function GET(request: Request) {
