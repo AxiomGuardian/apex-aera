@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PagePad } from "@/components/layout/PagePad";
-import { CheckCircle2, Loader2, AlertCircle, Mail } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, Mail, Link2, RefreshCw } from "lucide-react";
 
 type InviteRow = {
   id: string;
@@ -20,6 +20,8 @@ export default function OnboardPage() {
   const [done,      setDone]      = useState<string | null>(null);
   const [error,     setError]     = useState<string | null>(null);
   const [invites,   setInvites]   = useState<InviteRow[]>([]);
+  const [rowBusy,   setRowBusy]   = useState<string>("");
+  const [rowMsg,    setRowMsg]    = useState<{ id: string; text: string } | null>(null);
 
   const loadInvites = useCallback(async () => {
     const supabase = createClient();
@@ -46,7 +48,7 @@ export default function OnboardPage() {
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) throw new Error(j.error ?? "Something went wrong");
-      setDone(`Invite sent to ${email}. Their workspace "${brandName}" is ready and waiting.`);
+      setDone(`Invite sent to ${email}. Workspace "${brandName}" is ready. If the email does not land, use Copy link below.`);
       setBrandName("");
       setEmail("");
       void loadInvites();
@@ -54,6 +56,30 @@ export default function OnboardPage() {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setSending(false);
+    }
+  }
+
+  async function inviteAction(id: string, action: "link" | "resend") {
+    setRowBusy(id + action);
+    setRowMsg(null);
+    try {
+      const res = await fetch("/api/agency/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inviteId: id, action }),
+      });
+      const j = (await res.json()) as { ok?: boolean; link?: string; via?: string; error?: string };
+      if (!res.ok || !j.ok) throw new Error(j.error ?? "Failed");
+      if (action === "link" && j.link) {
+        try { await navigator.clipboard.writeText(j.link); setRowMsg({ id, text: "Link copied. Send it however you like." }); }
+        catch { setRowMsg({ id, text: j.link }); }
+      } else {
+        setRowMsg({ id, text: j.via === "resend" ? "Sent from APEX." : "Sent via the built-in mailer." });
+      }
+    } catch (err) {
+      setRowMsg({ id, text: err instanceof Error ? err.message : "Failed" });
+    } finally {
+      setRowBusy("");
     }
   }
 
@@ -81,7 +107,7 @@ export default function OnboardPage() {
             <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-5)", letterSpacing: "0.06em", textTransform: "uppercase", display: "block", marginBottom: 7 }}>
               Brand / Business name
             </label>
-            <input value={brandName} onChange={(e) => setBrandName(e.target.value)} placeholder="e.g. Daisy Fitness" required style={inputStyle} />
+            <input value={brandName} onChange={(e) => setBrandName(e.target.value)} placeholder="Brand or business name" required style={inputStyle} />
           </div>
           <div>
             <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-5)", letterSpacing: "0.06em", textTransform: "uppercase", display: "block", marginBottom: 7 }}>
@@ -129,13 +155,26 @@ export default function OnboardPage() {
             <p style={{ padding: "26px", fontSize: 13, color: "var(--text-6)", textAlign: "center" }}>No invites sent yet.</p>
           ) : (
             invites.map((inv, i) => (
-              <div key={inv.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 24px", borderBottom: i < invites.length - 1 ? "1px solid var(--border)" : "none" }}>
+              <div key={inv.id} style={{ borderBottom: i < invites.length - 1 ? "1px solid var(--border)" : "none" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 24px" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 13, color: "var(--text-2)" }}>{inv.email}</p>
                   <p style={{ fontSize: 11, color: "var(--text-6)", marginTop: 3 }}>
                     {inv.brands?.name ?? "—"} · {new Date(inv.created_at).toLocaleDateString()}
                   </p>
                 </div>
+                {inv.status !== "claimed" && (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => void inviteAction(inv.id, "link")} disabled={rowBusy !== ""} title="Copy a sign-in link" style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 10px", borderRadius: 8, background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-3)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                      {rowBusy === inv.id + "link" ? <Loader2 className="animate-spin" style={{ width: 11, height: 11 }} /> : <Link2 style={{ width: 11, height: 11 }} />}
+                      Copy link
+                    </button>
+                    <button onClick={() => void inviteAction(inv.id, "resend")} disabled={rowBusy !== ""} title="Send the invite email again" style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 10px", borderRadius: 8, background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-3)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                      {rowBusy === inv.id + "resend" ? <Loader2 className="animate-spin" style={{ width: 11, height: 11 }} /> : <RefreshCw style={{ width: 11, height: 11 }} />}
+                      Resend
+                    </button>
+                  </div>
+                )}
                 <span style={{
                   fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
                   padding: "4px 10px", borderRadius: 20,
@@ -145,6 +184,10 @@ export default function OnboardPage() {
                 }}>
                   {inv.status === "claimed" ? "Joined" : "Pending"}
                 </span>
+              </div>
+              {rowMsg?.id === inv.id && (
+                <p style={{ padding: "0 24px 12px", fontSize: 11.5, color: "var(--cyan)", wordBreak: "break-all" }}>{rowMsg.text}</p>
+              )}
               </div>
             ))
           )}
