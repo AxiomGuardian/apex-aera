@@ -12,14 +12,40 @@ export default function WelcomePage() {
   const [password,  setPassword]  = useState("");
   const [saving,    setSaving]    = useState(false);
   const [error,     setError]     = useState("");
+  const [who,       setWho]       = useState("");
 
   useEffect(() => {
     const supabase = createClient();
-    // The browser client exchanges the invite link code automatically on load.
-    const t = setTimeout(() => {
-      supabase.auth.getUser().then(({ data }) => setReady(data.user ? "ok" : "no-session"));
-    }, 600);
-    return () => clearTimeout(t);
+    (async () => {
+      // The invite link carries its own tokens. Always use THOSE, never a session
+      // that happens to already exist in this browser (e.g. an admin who is signed in).
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const accessToken = hash.get("access_token");
+      const refreshToken = hash.get("refresh_token");
+      const code = new URLSearchParams(window.location.search).get("code");
+
+      try {
+        if (accessToken && refreshToken) {
+          const { data, error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          if (error || !data.user) throw error ?? new Error("no user");
+          window.history.replaceState(null, "", window.location.pathname);
+          setWho(data.user.email ?? "");
+          setReady("ok");
+          return;
+        }
+        if (code) {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error || !data.user) throw error ?? new Error("no user");
+          window.history.replaceState(null, "", window.location.pathname);
+          setWho(data.user.email ?? "");
+          setReady("ok");
+          return;
+        }
+        setReady("no-session");
+      } catch {
+        setReady("no-session");
+      }
+    })();
   }, []);
 
   async function submit(e: React.FormEvent) {
@@ -38,10 +64,13 @@ export default function WelcomePage() {
       return;
     }
     const { data: u } = await supabase.auth.getUser();
+    let dest = "/content";
     if (u.user) {
       await supabase.from("profiles").update({ full_name: fullName }).eq("id", u.user.id);
+      const { data: prof } = await supabase.from("profiles").select("role").eq("id", u.user.id).maybeSingle();
+      if (prof?.role === "agency_admin") dest = "/dashboard";
     }
-    router.push("/content");
+    router.push(dest);
     router.refresh();
   }
 
@@ -80,6 +109,11 @@ export default function WelcomePage() {
           )}
           {ready === "ok" && (
             <form onSubmit={submit} className="flex flex-col gap-3">
+              {who && (
+                <p className="text-xs text-center mb-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  Setting up <span style={{ color: "rgba(45,212,255,0.85)" }}>{who}</span>
+                </p>
+              )}
               <div className="flex gap-3">
                 <input placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} required style={inputStyle} />
                 <input placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} required style={inputStyle} />
