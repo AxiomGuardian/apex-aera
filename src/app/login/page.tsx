@@ -37,9 +37,7 @@ export default function LoginPage() {
       setError("That email and password did not match.");
       return;
     }
-    const { data: prof } = await supabase.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
-    void fetch("/api/auth/touch", { method: "POST" }).catch(() => null);
-    router.push(prof?.role === "agency_admin" || prof?.role === "enterprise_admin" ? "/dashboard" : "/content");
+    router.push("/welcome-back");
     router.refresh();
   }
 

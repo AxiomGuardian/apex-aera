@@ -70,7 +70,12 @@ export function useSession() {
   return useContext(SessionContext);
 }
 
-export async function signOut(opts?: { callbackUrl?: string }) {
+export async function signOut(opts?: { callbackUrl?: string; immediate?: boolean }) {
+  // The curtain (SignOutCurtain) handles the fade and the real sign-out.
+  if (!opts?.immediate && typeof window !== "undefined") {
+    window.dispatchEvent(new Event("apex:signout"));
+    return;
+  }
   const supabase = createClient();
   await supabase.auth.signOut();
   window.location.href = opts?.callbackUrl ?? "/login";

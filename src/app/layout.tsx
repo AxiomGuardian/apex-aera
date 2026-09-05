@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
 import { SessionProvider } from "@/components/layout/SessionProvider";
+import { SignOutCurtain } from "@/components/layout/SignOutCurtain";
 import "./globals.css";
 
 // ── Inter — display + body. Heavy weights for headings, clean for body ──
@@ -26,6 +27,7 @@ export default function RootLayout({
       <body>
         <SessionProvider>
           <ThemeProvider>{children}</ThemeProvider>
+          <SignOutCurtain />
         </SessionProvider>
       </body>
     </html>
