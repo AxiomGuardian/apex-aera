@@ -11,9 +11,10 @@ import {
 } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
+import type { Role } from "@/lib/roles";
 
 type SessionData = {
-  user: { id: string; name: string; email: string; image?: string | null };
+  user: { id: string; name: string; email: string; image?: string | null; role: Role | null };
 } | null;
 
 const SessionContext = createContext<{
@@ -29,17 +30,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const supabase = createClient();
 
-    const sync = (user: User | null) => {
+    const sync = async (user: User | null) => {
       if (user) {
         const name =
           (user.user_metadata?.full_name as string) ||
           (user.email ? user.email.split("@")[0] : "User");
+        const { data: prof } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
         setData({
           user: {
             id: user.id,
             name,
             email: user.email ?? "",
             image: (user.user_metadata?.avatar_url as string | undefined) ?? null,
+            role: (prof?.role as Role | undefined) ?? null,
           },
         });
         setStatus("authenticated");
@@ -49,10 +52,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    supabase.auth.getUser().then(({ data: d }) => sync(d.user ?? null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) =>
-      sync(session?.user ?? null)
-    );
+    supabase.auth.getUser().then(({ data: d }) => void sync(d.user ?? null));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      void sync(session?.user ?? null);
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
 

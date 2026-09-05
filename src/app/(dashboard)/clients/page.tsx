@@ -45,6 +45,7 @@ export default function ClientsPage() {
           </div>
           <button
             onClick={() => router.push("/onboard")}
+            className="mkt-btn dash-btn"
             style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 18px", borderRadius: 10, background: "rgba(45,212,255,0.12)", border: "1px solid rgba(45,212,255,0.28)", color: "var(--cyan)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
           >
             <Plus style={{ width: 13, height: 13 }} strokeWidth={2} />
@@ -62,19 +63,15 @@ export default function ClientsPage() {
               <div
                 key={b.id}
                 onClick={() => router.push(`/clients/${b.id}`)}
-                className="opacity-0 animate-fade-in-up"
+                className="mkt-card mkt-line-cyan opacity-0 animate-fade-in-up"
                 style={{
                   animationDelay: `${0.05 + i * 0.06}s`, animationFillMode: "forwards",
-                  padding: "24px 24px 20px", borderRadius: 18, cursor: "pointer",
-                  background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-card)",
-                  transition: "border-color 0.2s",
+                  padding: "24px 24px 20px", cursor: "pointer",
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(45,212,255,0.25)")}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                  <div style={{ width: 42, height: 42, borderRadius: 12, background: "var(--surface-2)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Building2 style={{ width: 17, height: 17, color: "var(--text-4)" }} strokeWidth={1.5} />
+                  <div className="dash-chip">
+                    <Building2 style={{ width: 17, height: 17, color: "var(--cyan)" }} strokeWidth={1.5} />
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <p style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.name}</p>

@@ -5,10 +5,7 @@
  */
 export function PagePad({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className="flex-1 overflow-y-auto overflow-x-hidden min-h-0"
-      style={{ background: "var(--bg)" }}
-    >
+    <div className="dash-bg flex-1 overflow-y-auto overflow-x-hidden min-h-0">
       <div className="px-4 py-5 sm:px-6 sm:py-8 md:px-10 md:py-10 max-w-[1180px] mx-auto pb-24 md:pb-10">
         {children}
       </div>

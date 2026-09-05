@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PagePad } from "@/components/layout/PagePad";
-import { CheckCircle2, Loader2, AlertCircle, Mail, Link2, RefreshCw } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, Mail, Link2, RefreshCw, User, Building2 } from "lucide-react";
 
 type InviteRow = {
   id: string;
@@ -16,6 +16,7 @@ type InviteRow = {
 export default function OnboardPage() {
   const [brandName, setBrandName] = useState("");
   const [email,     setEmail]     = useState("");
+  const [tier,      setTier]      = useState<"client" | "enterprise">("client");
   const [sending,   setSending]   = useState(false);
   const [done,      setDone]      = useState<string | null>(null);
   const [error,     setError]     = useState<string | null>(null);
@@ -44,7 +45,7 @@ export default function OnboardPage() {
       const res = await fetch("/api/agency/onboard", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brandName, email }),
+        body: JSON.stringify({ brandName, email, tier }),
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) throw new Error(j.error ?? "Something went wrong");
@@ -98,11 +99,44 @@ export default function OnboardPage() {
             Onboard
           </h2>
           <p style={{ fontSize: 14, color: "var(--text-5)", marginTop: 12, lineHeight: 1.6, maxWidth: 480 }}>
-            Create a client workspace and send the invite. They get an email link, set their name and password, and land inside their own portal — already connected to their brand.
+            Create a client workspace and send the invite. They get an email link, set their name and password, and land inside their own portal, already connected to their brand.
           </p>
         </div>
 
-        <form onSubmit={submit} style={{ maxWidth: 520, display: "flex", flexDirection: "column", gap: 16, padding: "26px 28px", borderRadius: 18, background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-card)" }}>
+        <form onSubmit={submit} className="mkt-card mkt-quiet" style={{ maxWidth: 520, display: "flex", flexDirection: "column", gap: 16, padding: "26px 28px", borderRadius: 18 }}>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-5)", letterSpacing: "0.06em", textTransform: "uppercase", display: "block", marginBottom: 8 }}>
+              Account type
+            </label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {([
+                { key: "client", icon: User, title: "Single client", body: "One brand, one workspace. Content, Queue, AERA." },
+                { key: "enterprise", icon: Building2, title: "Enterprise", body: "An organization that runs several brands under one roof." },
+              ] as const).map((opt) => {
+                const on = tier === opt.key;
+                return (
+                  <button
+                    type="button"
+                    key={opt.key}
+                    onClick={() => setTier(opt.key)}
+                    style={{
+                      textAlign: "left", padding: "14px 14px 13px", borderRadius: 12, cursor: "pointer",
+                      background: on ? "rgba(45,212,255,0.08)" : "var(--surface-2)",
+                      border: "1px solid " + (on ? "rgba(45,212,255,0.45)" : "var(--border)"),
+                      boxShadow: on ? "0 0 0 3px rgba(45,212,255,0.08), 0 10px 30px rgba(0,0,0,0.25)" : "none",
+                      transition: "all 0.25s ease",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <opt.icon style={{ width: 14, height: 14, color: on ? "var(--cyan)" : "var(--text-5)" }} />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: on ? "var(--text)" : "var(--text-3)" }}>{opt.title}</span>
+                    </div>
+                    <p style={{ fontSize: 11, lineHeight: 1.5, color: "var(--text-5)" }}>{opt.body}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <div>
             <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-5)", letterSpacing: "0.06em", textTransform: "uppercase", display: "block", marginBottom: 7 }}>
               Brand / Business name
@@ -132,6 +166,7 @@ export default function OnboardPage() {
           <button
             type="submit"
             disabled={sending}
+            className="mkt-btn dash-btn"
             style={{
               display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
               padding: "13px 20px", borderRadius: 11,
@@ -147,7 +182,7 @@ export default function OnboardPage() {
         </form>
 
         {/* Invite history */}
-        <div className="rounded-[18px] overflow-hidden" style={{ border: "1px solid var(--border)", background: "var(--surface)", maxWidth: 720 }}>
+        <div className="mkt-card mkt-quiet rounded-[18px] overflow-hidden" style={{ maxWidth: 720 }}>
           <div className="px-6 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
             <span className="section-label">Invites</span>
           </div>

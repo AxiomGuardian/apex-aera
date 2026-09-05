@@ -2,18 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Plus, Upload, Wand2 } from "lucide-react";
+import { LayoutDashboard, Users, Plus, Upload, Wand2, CheckCircle2 } from "lucide-react";
+import { useSession } from "@/components/layout/SessionProvider";
+import { navFor } from "@/lib/roles";
 
-const navItems = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Clients",   href: "/clients",   icon: Users           },
-  { label: "Onboard",   href: "/onboard",   icon: Plus            },
-  { label: "Content",   href: "/content",   icon: Upload          },
-  { label: "AERA",      href: "/chat",      icon: Wand2           },
-];
+const ICONS = { dashboard: LayoutDashboard, clients: Users, onboard: Plus, content: Upload, queue: CheckCircle2, aera: Wand2 } as const;
 
 export function MobileNav() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const navItems = navFor(session?.user?.role ?? null).map((n) => ({ ...n, icon: ICONS[n.key] }));
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-30 flex md:hidden border-t pb-safe"

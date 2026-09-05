@@ -181,7 +181,7 @@ export default function ClientDetailPage() {
 
         <div className="grid lg:grid-cols-2 gap-5">
           {/* Brand profile (AERA reads this on every analysis) */}
-          <div style={cardStyle}>
+          <div className="mkt-card mkt-quiet" style={cardStyle}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", borderRadius: 12, marginBottom: 18, background: autopilot ? "rgba(52,211,153,0.06)" : "rgba(251,191,36,0.06)", border: "1px solid " + (autopilot ? "rgba(52,211,153,0.22)" : "rgba(251,191,36,0.22)") }}>
               <div>
                 <p style={{ fontSize: 12.5, fontWeight: 700, color: autopilot ? "#34D399" : "#fbbf24" }}>
@@ -226,7 +226,7 @@ export default function ClientDetailPage() {
 
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {/* Team */}
-            <div style={cardStyle}>
+            <div className="mkt-card mkt-quiet" style={cardStyle}>
               <p className="section-label" style={{ display: "block", marginBottom: 14 }}>Team</p>
               {members.length === 0 ? (
                 <p style={{ fontSize: 12.5, color: "var(--text-6)" }}>No members yet — invite them from Onboard.</p>
@@ -244,7 +244,7 @@ export default function ClientDetailPage() {
             </div>
 
             {/* Connections */}
-            <div style={cardStyle}>
+            <div className="mkt-card mkt-quiet" style={cardStyle}>
               <p className="section-label" style={{ display: "block", marginBottom: 14 }}>Platform Connections</p>
               {conns.length === 0 ? (
                 <p style={{ fontSize: 12.5, color: "var(--text-6)", lineHeight: 1.6 }}>
@@ -288,7 +288,7 @@ export default function ClientDetailPage() {
           </div>
           <div className="grid lg:grid-cols-3 gap-5">
             {/* Trend brief */}
-            <div style={cardStyle}>
+            <div className="mkt-card mkt-quiet" style={cardStyle}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <Radar style={{ width: 14, height: 14, color: "var(--cyan)" }} />
                 <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-3)", letterSpacing: "0.05em", textTransform: "uppercase" }}>Trend Brief</p>
@@ -306,14 +306,14 @@ export default function ClientDetailPage() {
                   No trend research yet. AERA will scan the live web and X for what is moving in this brand&apos;s niche.
                 </p>
               )}
-              <button onClick={() => void runEngine("trends", "/api/aera/trends")} disabled={busy !== ""} style={{ ...engineBtn, opacity: busy && busy !== "trends" ? 0.5 : 1 }}>
+              <button onClick={() => void runEngine("trends", "/api/aera/trends")} disabled={busy !== ""} className="mkt-btn dash-btn" style={{ ...engineBtn, opacity: busy && busy !== "trends" ? 0.5 : 1 }}>
                 {busy === "trends" ? <Loader2 className="animate-spin" style={{ width: 12, height: 12 }} /> : <RefreshCw style={{ width: 12, height: 12 }} />}
                 {busy === "trends" ? "Researching…" : brief ? "Refresh brief" : "Research now"}
               </button>
             </div>
 
             {/* Weekly report */}
-            <div style={cardStyle}>
+            <div className="mkt-card mkt-quiet" style={cardStyle}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <FileText style={{ width: 14, height: 14, color: "var(--cyan)" }} />
                 <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-3)", letterSpacing: "0.05em", textTransform: "uppercase" }}>Weekly Report</p>
@@ -329,17 +329,17 @@ export default function ClientDetailPage() {
                 </>
               ) : (
                 <p style={{ fontSize: 12.5, color: "var(--text-6)", lineHeight: 1.6, marginBottom: 14 }}>
-                  No reports yet. AERA builds digests from real activity only — it never invents a number.
+                  No reports yet. AERA builds digests from real activity only. It never invents a number.
                 </p>
               )}
-              <button onClick={() => void runEngine("report", "/api/reports/generate")} disabled={busy !== ""} style={{ ...engineBtn, opacity: busy && busy !== "report" ? 0.5 : 1 }}>
+              <button onClick={() => void runEngine("report", "/api/reports/generate")} disabled={busy !== ""} className="mkt-btn dash-btn" style={{ ...engineBtn, opacity: busy && busy !== "report" ? 0.5 : 1 }}>
                 {busy === "report" ? <Loader2 className="animate-spin" style={{ width: 12, height: 12 }} /> : null}
                 {busy === "report" ? "Writing…" : "Generate report"}
               </button>
             </div>
 
             {/* Funnels */}
-            <div style={cardStyle}>
+            <div className="mkt-card mkt-quiet" style={cardStyle}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <Filter style={{ width: 14, height: 14, color: "var(--cyan)" }} />
                 <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-3)", letterSpacing: "0.05em", textTransform: "uppercase" }}>Funnels</p>
@@ -358,7 +358,7 @@ export default function ClientDetailPage() {
                   ))}
                 </div>
               )}
-              <button onClick={() => void runEngine("funnel", "/api/aera/funnel")} disabled={busy !== ""} style={{ ...engineBtn, opacity: busy && busy !== "funnel" ? 0.5 : 1 }}>
+              <button onClick={() => void runEngine("funnel", "/api/aera/funnel")} disabled={busy !== ""} className="mkt-btn dash-btn" style={{ ...engineBtn, opacity: busy && busy !== "funnel" ? 0.5 : 1 }}>
                 {busy === "funnel" ? <Loader2 className="animate-spin" style={{ width: 12, height: 12 }} /> : null}
                 {busy === "funnel" ? "Drafting…" : "Draft funnel"}
               </button>
@@ -367,7 +367,7 @@ export default function ClientDetailPage() {
         </div>
 
         {/* Recent content */}
-        <div className="rounded-[18px] overflow-hidden" style={{ border: "1px solid var(--border)", background: "var(--surface)" }}>
+        <div className="mkt-card mkt-quiet rounded-[18px] overflow-hidden">
           <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)" }}>
             <span className="section-label">Recent Content</span>
             <button onClick={() => router.push("/content")} style={{ background: "none", border: "none", color: "var(--cyan)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Open Content →</button>

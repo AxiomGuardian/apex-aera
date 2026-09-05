@@ -7,6 +7,7 @@ import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
 import { useAERA } from "@/context/AERAContext";
+import { navFor } from "@/lib/roles";
 import {
   LayoutDashboard,
   Wand2,
@@ -20,14 +21,21 @@ import {
   ChevronDown,
 } from "lucide-react";
 
-const navItems = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Clients",   href: "/clients",   icon: Users           },
-  { label: "Onboard",   href: "/onboard",   icon: Plus            },
-  { label: "Content",   href: "/content",   icon: Upload          },
-  { label: "Queue",     href: "/approvals", icon: CheckCircle2    },
-  { label: "AERA",      href: "/chat",      icon: Wand2           },
-];
+const ICONS = {
+  dashboard: LayoutDashboard,
+  clients: Users,
+  onboard: Plus,
+  content: Upload,
+  queue: CheckCircle2,
+  aera: Wand2,
+} as const;
+
+const TIER_LABEL: Record<string, string> = {
+  agency_admin: "APEX Command",
+  enterprise_admin: "Enterprise",
+  enterprise_member: "Enterprise seat",
+  client: "Client workspace",
+};
 
 export function TopNav() {
   const pathname = usePathname();
@@ -49,16 +57,22 @@ export function TopNav() {
 
   const userName = session?.user?.name ?? "Client";
   const userEmail = session?.user?.email ?? "";
+  const role = session?.user?.role ?? null;
+  const navItems = navFor(role).map((n) => ({ ...n, icon: ICONS[n.key] }));
+  const tierLabel = TIER_LABEL[role ?? "client"] ?? "Client workspace";
   const initials = userName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
   return (
     <header
       className="relative z-30 w-full border-b"
       style={{
-        background: "var(--nav-bg)",
+        background: "rgba(12,12,14,0.82)",
+        backdropFilter: "blur(18px)",
+        WebkitBackdropFilter: "blur(18px)",
         borderColor: "var(--nav-border)",
       }}
     >
+      <div style={{ height: 2, background: "linear-gradient(90deg, transparent 8%, rgba(45,212,255,0.45) 50%, transparent 92%)" }} />
       <div className="flex items-center h-[80px] px-8 relative">
 
         {/* Logo */}
@@ -76,7 +90,7 @@ export function TopNav() {
               APEX
             </span>
             <span className="text-[8.5px] tracking-[0.20em] uppercase mt-[3px]" style={{ color: "var(--text-5)" }}>
-              AERA Client
+              {tierLabel}
             </span>
           </div>
         </div>
@@ -140,12 +154,14 @@ export function TopNav() {
                 </span>
 
                 {/* Active indicator */}
-                {active && (
-                  <span
-                    className="absolute bottom-1.5 left-1/2 -translate-x-1/2 h-[2.5px] w-5 rounded-full bg-[#2DD4FF]"
-                    style={{ boxShadow: "0 0 8px rgba(45,212,255,0.65)" }}
-                  />
-                )}
+                <span
+                  className="absolute bottom-1.5 left-1/2 -translate-x-1/2 h-[2px] rounded-full transition-all duration-300"
+                  style={{
+                    width: active ? 28 : 0,
+                    background: "linear-gradient(90deg, #2DD4FF, #b7efff)",
+                    boxShadow: active ? "0 0 10px rgba(45,212,255,0.7)" : "none",
+                  }}
+                />
               </Link>
             );
           })}
@@ -224,7 +240,7 @@ export function TopNav() {
               </div>
               <div className="flex flex-col leading-none">
                 <span className="text-[12px] font-semibold" style={{ color: "var(--text)" }}>{userName}</span>
-                <span className="text-[9px] mt-0.5" style={{ color: "var(--text-5)" }}>APEX Premium</span>
+                <span className="text-[9px] mt-0.5" style={{ color: "var(--text-5)" }}>{tierLabel}</span>
               </div>
               <div className="h-2 w-2 rounded-full bg-[#2DD4FF]" style={{ boxShadow: "0 0 6px rgba(45,212,255,0.60)" }} />
               <ChevronDown className="h-3 w-3 ml-0.5 transition-transform duration-200" style={{ color: "var(--text-5)", transform: menuOpen ? "rotate(180deg)" : "rotate(0deg)" }} />

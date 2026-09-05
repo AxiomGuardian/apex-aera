@@ -4,6 +4,7 @@ import { MobileNav } from "@/components/layout/MobileNav";
 import { AERAProvider } from "@/context/AERAContext";
 import { ClientMemoryProvider } from "@/context/ClientMemory";
 import { ConditionalAERAPanel } from "@/components/chat/ConditionalAERAPanel";
+import { RouteGuard } from "@/components/layout/RouteGuard";
 
 export default function DashboardLayout({
   children,
@@ -17,6 +18,8 @@ export default function DashboardLayout({
         className="flex flex-col h-screen w-full overflow-hidden"
         style={{ background: "var(--bg)" }}
       >
+        <RouteGuard />
+
         {/* Desktop top nav */}
         <div className="hidden md:block shrink-0">
           <TopNav />

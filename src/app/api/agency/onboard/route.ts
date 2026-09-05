@@ -16,10 +16,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Agency access required" }, { status: 403 });
   }
 
-  const { brandName, email } = (await request.json()) as { brandName?: string; email?: string };
+  const { brandName, email, tier } = (await request.json()) as { brandName?: string; email?: string; tier?: "client" | "enterprise" };
   if (!brandName?.trim() || !email?.trim()) {
     return NextResponse.json({ error: "Brand name and email are required" }, { status: 400 });
   }
+  const inviteRole = tier === "enterprise" ? "enterprise_admin" : "client";
 
   const slug =
     brandName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") +
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
     email: email.trim().toLowerCase(),
     brand_id: brand.id,
     invited_by: userData.user.id,
+    role: inviteRole,
   });
   if (invErr) return NextResponse.json({ error: invErr.message }, { status: 500 });
 
@@ -52,6 +54,10 @@ export async function POST(request: Request) {
       options: { redirectTo: `${origin}/welcome` },
     });
     const actionLink = linkData?.properties?.action_link;
+    // Apply the tier right away when the account was just created
+    if (!linkErr && linkData?.user?.id) {
+      await admin.from("profiles").update({ role: inviteRole }).eq("id", linkData.user.id).neq("role", "agency_admin");
+    }
     if (!linkErr && actionLink) {
       const mail = inviteEmail({ brandName: brand.name, link: actionLink });
       const sent = await sendEmail({ to: cleanEmail, ...mail });

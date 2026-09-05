@@ -35,8 +35,8 @@ export default function DashboardPage() {
       if (!u.user) return;
       const { data: prof } = await supabase.from("profiles").select("role").eq("id", u.user.id).single();
       setRole(prof?.role ?? "client");
-      if (prof?.role !== "agency_admin") {
-        router.replace("/content"); // client tier v1 — their workspace
+      if (prof?.role !== "agency_admin" && prof?.role !== "enterprise_admin") {
+        router.replace("/content"); // single clients live in their workspace
         return;
       }
       const [b, a, inv] = await Promise.all([
@@ -61,7 +61,7 @@ export default function DashboardPage() {
       const j = (await res.json()) as { summary?: string; error?: string };
       setHbMsg(res.ok ? `Heartbeat: ${j.summary ?? "done"}` : (j.error ?? "Heartbeat failed"));
     } catch {
-      setHbMsg("Heartbeat failed — is the dev server running?");
+      setHbMsg("Heartbeat failed. Is the dev server running?");
     }
     setHbBusy(false);
   }
@@ -76,7 +76,7 @@ export default function DashboardPage() {
     border: "1px solid var(--border)", boxShadow: "var(--shadow-card)",
   };
 
-  if (loading || role !== "agency_admin") {
+  if (loading || (role !== "agency_admin" && role !== "enterprise_admin")) {
     return (
       <PagePad>
         <div style={{ padding: 90, textAlign: "center" }}>
@@ -94,7 +94,7 @@ export default function DashboardPage() {
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-5">
           <div>
             <p className="text-[10px] font-semibold tracking-[0.2em] uppercase mb-4" style={{ color: "var(--cyan)" }}>
-              Agency Command
+              {role === "agency_admin" ? "Agency Command" : "Enterprise Command"}
             </p>
             <Greeting />
             <p className="text-[14px] mt-3" style={{ color: "var(--text-5)" }}>
@@ -108,7 +108,7 @@ export default function DashboardPage() {
               { label: "Ask AERA",       href: "/chat",    icon: Sparkles },
             ].map(({ label, href, icon: Icon }) => (
               <Link key={href} href={href}>
-                <span style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", borderRadius: 10, background: "rgba(45,212,255,0.08)", border: "1px solid rgba(45,212,255,0.2)", color: "var(--cyan)", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+                <span className="mkt-btn dash-btn" style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", borderRadius: 10, background: "rgba(45,212,255,0.08)", border: "1px solid rgba(45,212,255,0.2)", color: "var(--cyan)", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
                   <Icon style={{ width: 13, height: 13 }} strokeWidth={1.8} />
                   {label}
                 </span>
@@ -117,6 +117,7 @@ export default function DashboardPage() {
             <button
               onClick={() => void runHeartbeat()}
               disabled={hbBusy}
+              className="dash-btn"
               style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", borderRadius: 10, background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.22)", color: "#34D399", fontSize: 12.5, fontWeight: 700, cursor: hbBusy ? "default" : "pointer" }}
             >
               {hbBusy ? "Heartbeat running…" : "Run heartbeat"}
@@ -128,12 +129,12 @@ export default function DashboardPage() {
         )}
 
         {/* Pipeline */}
-        <div style={{ ...card, padding: "24px 28px" }}>
+        <div className="mkt-card mkt-line-cyan" style={{ ...card, padding: "24px 28px" }}>
           <p className="section-label" style={{ display: "block", marginBottom: 18 }}>Content Pipeline</p>
           <div className="grid grid-cols-5 gap-2">
             {PIPELINE_STEPS.map((step, i) => (
               <div key={step} style={{ textAlign: "center", position: "relative" }}>
-                <div style={{ fontSize: "clamp(22px,3vw,30px)", fontWeight: 800, letterSpacing: "-0.04em", color: (pipeline[step] ?? 0) > 0 ? "var(--text)" : "var(--text-6)" }}>
+                <div className={(pipeline[step] ?? 0) > 0 ? "dash-num" : ""} style={{ fontSize: "clamp(22px,3vw,30px)", fontWeight: 800, letterSpacing: "-0.04em", color: (pipeline[step] ?? 0) > 0 ? "var(--text)" : "var(--text-6)" }}>
                   {pipeline[step] ?? 0}
                 </div>
                 <div style={{ fontSize: 9.5, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-6)", marginTop: 6 }}>{step}</div>
@@ -147,15 +148,15 @@ export default function DashboardPage() {
 
         <div className="grid md:grid-cols-5 gap-5">
           {/* Clients */}
-          <div className="md:col-span-3" style={{ ...card, overflow: "hidden" }}>
+          <div className="md:col-span-3 mkt-card mkt-quiet" style={{ ...card, overflow: "hidden" }}>
             <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)" }}>
               <span className="section-label">Clients</span>
               <Link href="/clients"><span style={{ fontSize: 12, color: "var(--cyan)", fontWeight: 600, cursor: "pointer" }}>View all <ArrowUpRight style={{ width: 11, height: 11, display: "inline" }} /></span></Link>
             </div>
             {brands.length === 0 ? (
-              <p style={{ padding: 26, fontSize: 13, color: "var(--text-6)", textAlign: "center" }}>No clients yet — onboard your first.</p>
+              <p style={{ padding: 26, fontSize: 13, color: "var(--text-6)", textAlign: "center" }}>No clients yet. Onboard your first.</p>
             ) : brands.slice(0, 6).map((b, i) => (
-              <div key={b.id} onClick={() => router.push(`/clients/${b.id}`)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 24px", cursor: "pointer", borderBottom: i < Math.min(brands.length, 6) - 1 ? "1px solid var(--border)" : "none" }}>
+              <div key={b.id} className="dash-row" onClick={() => router.push(`/clients/${b.id}`)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 24px", cursor: "pointer", borderBottom: i < Math.min(brands.length, 6) - 1 ? "1px solid var(--border)" : "none" }}>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: b.status === "active" ? "#34D399" : "var(--text-6)" }} />
                 <p style={{ flex: 1, fontSize: 13.5, color: "var(--text-2)" }}>{b.name}</p>
                 <span style={{ fontSize: 11, color: "var(--text-6)" }}>{new Date(b.created_at).toLocaleDateString()}</span>
@@ -164,7 +165,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Needs attention */}
-          <div className="md:col-span-2" style={{ ...card, overflow: "hidden" }}>
+          <div className="md:col-span-2 mkt-card mkt-quiet" style={{ ...card, overflow: "hidden" }}>
             <div className="px-6 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
               <span className="section-label">Needs Attention</span>
             </div>

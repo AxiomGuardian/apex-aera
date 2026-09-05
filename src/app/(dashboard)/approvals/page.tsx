@@ -81,7 +81,7 @@ export default function ApprovalsPage() {
         </div>
 
         {/* Proposed posts */}
-        <div className="rounded-[18px] overflow-hidden" style={{ border: "1px solid var(--border)", background: "var(--surface)" }}>
+        <div className="mkt-card mkt-quiet rounded-[18px] overflow-hidden">
           <div className="px-6 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
             <span className="section-label">Queued to publish</span>
           </div>
@@ -114,9 +114,9 @@ export default function ApprovalsPage() {
         </div>
 
         {/* Analyzed, ready to schedule */}
-        <div className="rounded-[18px] overflow-hidden" style={{ border: "1px solid var(--border)", background: "var(--surface)" }}>
+        <div className="mkt-card mkt-quiet rounded-[18px] overflow-hidden">
           <div className="px-6 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
-            <span className="section-label">Analyzed — ready for scheduling</span>
+            <span className="section-label">Analyzed, ready for scheduling</span>
           </div>
           {ready.length === 0 ? (
             <p style={{ padding: 26, fontSize: 13, color: "var(--text-6)", textAlign: "center" }}>

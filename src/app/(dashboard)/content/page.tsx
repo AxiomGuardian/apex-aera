@@ -402,6 +402,7 @@ export default function ContentPage() {
           onDrop={onDrop}
           onDragOver={(e) => e.preventDefault()}
           onClick={() => fileRef.current?.click()}
+          className="dash-drop"
           style={{
             borderRadius: 18,
             border: `2px dashed ${uploading ? "rgba(45,212,255,0.4)" : "var(--border)"}`,
@@ -452,7 +453,7 @@ export default function ContentPage() {
         )}
 
         {/* Asset library */}
-        <div className="rounded-[18px] overflow-hidden" style={{ border: "1px solid var(--border)", background: "var(--surface)", boxShadow: "var(--shadow-card)" }}>
+        <div className="mkt-card mkt-quiet rounded-[18px] overflow-hidden">
           <div className="px-5 sm:px-7 py-4 sm:py-5 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)" }}>
             <span className="section-label">Library</span>
             <span style={{ fontSize: 11, color: "var(--text-6)" }}>{assets.length} asset{assets.length === 1 ? "" : "s"}</span>
