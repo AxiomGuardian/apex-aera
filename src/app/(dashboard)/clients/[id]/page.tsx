@@ -46,6 +46,8 @@ export default function ClientDetailPage() {
   const [funnels, setFunnels] = useState<Funnel[]>([]);
   const [busy,    setBusy]    = useState<"" | "trends" | "report" | "funnel">("");
   const [engineErr, setEngineErr] = useState("");
+  const [delStep, setDelStep] = useState<0 | 1 | 2>(0);
+  const [delErr, setDelErr] = useState("");
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -116,6 +118,25 @@ export default function ClientDetailPage() {
       setEngineErr(err instanceof Error ? err.message : "Engine failed");
     } finally {
       setBusy("");
+    }
+  }
+
+  async function deleteClient() {
+    setDelStep(2);
+    setDelErr("");
+    try {
+      const res = await fetch("/api/agency/clients/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandId: id }),
+      });
+      const j = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !j.ok) throw new Error(j.error ?? "Delete failed");
+      router.push("/clients");
+      router.refresh();
+    } catch (err) {
+      setDelErr(err instanceof Error ? err.message : "Delete failed");
+      setDelStep(0);
     }
   }
 
@@ -360,6 +381,34 @@ export default function ClientDetailPage() {
               <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 20, color: "var(--cyan)", background: "rgba(45,212,255,0.07)", border: "1px solid rgba(45,212,255,0.16)" }}>{a.status}</span>
             </div>
           ))}
+        </div>
+
+        {/* Danger zone */}
+        <div style={{ padding: "20px 24px", borderRadius: 18, border: "1px solid rgba(251,113,133,0.18)", background: "rgba(251,113,133,0.03)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+            <div>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "#fb7185", letterSpacing: "0.06em", textTransform: "uppercase" }}>Delete this client</p>
+              <p style={{ fontSize: 12, color: "var(--text-5)", marginTop: 4, lineHeight: 1.6, maxWidth: 520 }}>
+                Removes the workspace, all uploaded content, captions, scheduled posts, reports, chats, and the client accounts attached only to this brand. This cannot be undone.
+              </p>
+              {delErr && <p style={{ fontSize: 11.5, color: "#fb7185", marginTop: 6 }}>{delErr}</p>}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {delStep === 1 && (
+                <button onClick={() => setDelStep(0)} style={{ padding: "9px 14px", borderRadius: 10, background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-3)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                  Cancel
+                </button>
+              )}
+              <button
+                onClick={() => (delStep === 0 ? setDelStep(1) : delStep === 1 ? void deleteClient() : null)}
+                disabled={delStep === 2}
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 10, background: delStep === 1 ? "rgba(251,113,133,0.9)" : "rgba(251,113,133,0.10)", border: "1px solid rgba(251,113,133,0.35)", color: delStep === 1 ? "#1a0509" : "#fb7185", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+              >
+                {delStep === 2 ? <Loader2 className="animate-spin" style={{ width: 12, height: 12 }} /> : null}
+                {delStep === 0 ? "Delete client" : delStep === 1 ? "Yes, delete " + brand.name : "Deleting"}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </PagePad>

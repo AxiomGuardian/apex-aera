@@ -33,24 +33,40 @@ export async function sendEmail(opts: {
   }
 }
 
-/** Shared dark, cyan-accented shell for every APEX email. */
+/** Shared dark, cyan-accented shell for every APEX email. Table based for email clients. */
 function shell(title: string, bodyHtml: string, cta?: { label: string; url: string }): string {
   const button = cta
-    ? '<table role="presentation" cellspacing="0" cellpadding="0" style="margin:28px 0 8px"><tr><td style="border-radius:999px;background:#2DD4FF"><a href="' + cta.url + '" style="display:inline-block;padding:13px 28px;font-family:Inter,Helvetica,Arial,sans-serif;font-size:14px;font-weight:700;color:#04131a;text-decoration:none;border-radius:999px">' + cta.label + '</a></td></tr></table>'
+    ? '<table role="presentation" cellspacing="0" cellpadding="0" style="margin:30px 0 6px"><tr>' +
+      '<td style="border-radius:999px;background:#2DD4FF;background-image:linear-gradient(180deg,#5fe0ff,#18a0c8);box-shadow:0 10px 30px rgba(45,212,255,0.25)">' +
+      '<a href="' + cta.url + '" style="display:inline-block;padding:14px 30px;font-family:Inter,Helvetica,Arial,sans-serif;font-size:14px;font-weight:700;color:#04131a;text-decoration:none;border-radius:999px;letter-spacing:0.01em">' + cta.label + ' &rarr;</a>' +
+      '</td></tr></table>' +
+      '<p style="margin:14px 0 0;font-family:Inter,Helvetica,Arial,sans-serif;font-size:11.5px;line-height:1.6;color:#5d6068">If the button does not work, copy this link into your browser:<br><a href="' + cta.url + '" style="color:#7fd9f7;word-break:break-all;text-decoration:none">' + cta.url + '</a></p>'
     : "";
   return (
-    '<!doctype html><html><body style="margin:0;padding:0;background:#0c0c0c">' +
-    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0c0c0c;padding:40px 16px"><tr><td align="center">' +
-    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#141414;border:1px solid rgba(255,255,255,0.08);border-radius:20px">' +
-    '<tr><td style="height:2px;background:linear-gradient(90deg,transparent,#2DD4FF,transparent);border-radius:20px 20px 0 0"></td></tr>' +
-    '<tr><td style="padding:36px 36px 12px;font-family:Inter,Helvetica,Arial,sans-serif">' +
-    '<div style="font-size:12px;letter-spacing:0.18em;color:#7fd9f7;font-weight:700;margin-bottom:22px">APEX AERA</div>' +
-    '<h1 style="margin:0 0 14px;font-size:22px;line-height:1.25;color:#ececec;font-weight:800">' + title + '</h1>' +
-    '<div style="font-size:14.5px;line-height:1.65;color:#a8a8a8">' + bodyHtml + '</div>' +
+    '<!doctype html><html><body style="margin:0;padding:0;background:#0a0b0e">' +
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0a0b0e;background-image:radial-gradient(ellipse 70% 40% at 50% 0%,rgba(45,212,255,0.10),transparent 60%);padding:44px 16px"><tr><td align="center">' +
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px">' +
+    // Wordmark
+    '<tr><td align="center" style="padding-bottom:22px;font-family:Inter,Helvetica,Arial,sans-serif">' +
+    '<table role="presentation" cellspacing="0" cellpadding="0"><tr>' +
+    '<td style="width:34px;height:34px;border-radius:50%;background:rgba(45,212,255,0.10);border:1px solid rgba(45,212,255,0.35);text-align:center;vertical-align:middle;color:#2DD4FF;font-size:16px;line-height:34px">&#9651;</td>' +
+    '<td style="padding-left:10px;font-size:12px;letter-spacing:0.28em;color:#e8e8e8;font-weight:700">APEX AERA</td>' +
+    '</tr></table></td></tr>' +
+    // Card
+    '<tr><td style="background:#121418;border:1px solid rgba(255,255,255,0.08);border-radius:22px;overflow:hidden">' +
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0">' +
+    '<tr><td style="height:2px;background:linear-gradient(90deg,transparent,#2DD4FF 50%,transparent)"></td></tr>' +
+    '<tr><td style="padding:38px 38px 14px;font-family:Inter,Helvetica,Arial,sans-serif">' +
+    '<h1 style="margin:0 0 14px;font-size:24px;line-height:1.2;color:#f0f0f0;font-weight:800;letter-spacing:-0.02em">' + title + '</h1>' +
+    '<div style="font-size:14.5px;line-height:1.7;color:#a9abb2">' + bodyHtml + '</div>' +
     button +
     '</td></tr>' +
-    '<tr><td style="padding:18px 36px 32px;font-family:Inter,Helvetica,Arial,sans-serif;font-size:11.5px;line-height:1.6;color:#5a5a5a">' +
+    '<tr><td style="padding:18px 38px 30px;font-family:Inter,Helvetica,Arial,sans-serif;font-size:11px;line-height:1.6;color:#55585f;border-top:1px solid rgba(255,255,255,0.06)">' +
     'You are receiving this because someone at APEX invited you or you have an APEX AERA workspace. If this was not expected, you can ignore this email.' +
+    '</td></tr></table></td></tr>' +
+    // Footer
+    '<tr><td align="center" style="padding-top:22px;font-family:Inter,Helvetica,Arial,sans-serif;font-size:11px;color:#45484f">' +
+    '&copy; ' + new Date().getFullYear() + ' APEX AERA &nbsp;&middot;&nbsp; <a href="https://www.apexaera.com/privacy" style="color:#6a6d75;text-decoration:none">Privacy</a> &nbsp;&middot;&nbsp; <a href="https://www.apexaera.com/terms" style="color:#6a6d75;text-decoration:none">Terms</a>' +
     '</td></tr></table></td></tr></table></body></html>'
   );
 }
@@ -59,8 +75,9 @@ export function inviteEmail(opts: { brandName: string; link: string }) {
   const subject = "You are invited to APEX AERA for " + opts.brandName;
   const html = shell(
     "Your workspace for " + opts.brandName + " is ready.",
-    "<p style=\"margin:0 0 12px\">APEX has set up a private AERA workspace for <strong style=\"color:#e0e0e0\">" + opts.brandName + "</strong>. AERA is your brand companion: it studies your content, researches your market, writes and schedules your posts, and reports back, around the clock.</p>" +
-    "<p style=\"margin:0\">Tap the button to set your name and password. The link is personal to you and expires after a short while.</p>",
+    "<p style=\"margin:0 0 14px\">APEX has set up a private AERA workspace for <strong style=\"color:#e6e6e6\">" + opts.brandName + "</strong>.</p>" +
+    "<p style=\"margin:0 0 14px\">AERA is your brand companion. It studies your content, researches your market, writes and schedules your posts, publishes them, and reports back. Around the clock, in your voice.</p>" +
+    "<p style=\"margin:0\">Tap the button to choose your name and password. The link is personal to you and expires after a short while.</p>",
     { label: "Set up my account", url: opts.link }
   );
   const text =

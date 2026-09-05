@@ -1,201 +1,127 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff, Loader2, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+
+function ApexMark() {
+  return (
+    <svg viewBox="0 0 28 28" fill="none" width="30" height="30" aria-hidden>
+      <path d="M14 3L26 24H2L14 3Z" stroke="rgba(45,212,255,0.95)" strokeWidth="1.4" strokeLinejoin="round" fill="none" />
+      <path d="M8.5 18H19.5" stroke="rgba(45,212,255,0.95)" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M14 10L18.5 18" stroke="rgba(45,212,255,0.5)" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M14 10L9.5 18" stroke="rgba(45,212,255,0.5)" strokeWidth="1.2" strokeLinecap="round" />
+      <circle cx="14" cy="3" r="1.4" fill="#2DD4FF" />
+    </svg>
+  );
+}
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email,    setEmail]    = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState("");
+  const [show, setShow] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleCredentials(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
     const supabase = createClient();
-    const { error: err } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (!err) {
-      router.push("/dashboard");
-      router.refresh();
-    } else {
-      setError("Invalid email or password.");
+    const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
+    if (err || !data.user) {
+      setLoading(false);
+      setError("That email and password did not match.");
+      return;
     }
-  }
-
-  function handleGoogle() {
-    const supabase = createClient();
-    supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
+    const { data: prof } = await supabase.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
+    router.push(prof?.role === "agency_admin" ? "/dashboard" : "/content");
+    router.refresh();
   }
 
   return (
-    <main className="min-h-screen bg-black flex items-center justify-center px-4">
-      {/* Ambient glow */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(ellipse 60% 40% at 50% 50%, rgba(45,212,255,0.06) 0%, transparent 70%)",
-        }}
-      />
+    <main className="auth-bg mkt-grid min-h-screen flex items-center justify-center px-4 py-12 relative overflow-hidden">
+      <div className="auth-orb" />
 
-      <div className="relative w-full max-w-md">
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-10">
-          <div
-            className="w-16 h-16 rounded-full mb-4 flex items-center justify-center"
-            style={{
-              background: "radial-gradient(circle, rgba(45,212,255,0.15) 0%, rgba(0,0,0,0.8) 100%)",
-              border: "1px solid rgba(45,212,255,0.3)",
-              boxShadow: "0 0 32px rgba(45,212,255,0.15)",
-            }}
-          >
-            <svg viewBox="0 0 28 28" fill="none" width="30" height="30">
-              <path d="M14 3L26 24H2L14 3Z" stroke="rgba(45,212,255,0.9)" strokeWidth="1.4" strokeLinejoin="round" fill="none" />
-              <path d="M8.5 18H19.5" stroke="rgba(45,212,255,0.9)" strokeWidth="1.4" strokeLinecap="round" />
-              <path d="M14 10L18.5 18" stroke="rgba(45,212,255,0.5)" strokeWidth="1.2" strokeLinecap="round" />
-              <path d="M14 10L9.5 18" stroke="rgba(45,212,255,0.5)" strokeWidth="1.2" strokeLinecap="round" />
-              <circle cx="14" cy="3" r="1.4" fill="#2DD4FF" />
-            </svg>
+      <div className="relative w-full max-w-[420px]">
+        {/* Mark */}
+        <div className="mkt-reveal flex flex-col items-center mb-8">
+          <div className="auth-mark">
+            <ApexMark />
           </div>
-          <h1
-            className="text-2xl font-semibold tracking-widest uppercase"
-            style={{ color: "rgba(45,212,255,0.9)" }}
-          >
+          <h1 className="text-lg font-semibold tracking-[0.32em] uppercase mt-5" style={{ color: "#ececec" }}>
             APEX
           </h1>
-          <p className="text-xs tracking-[0.3em] uppercase mt-1" style={{ color: "rgba(255,255,255,0.35)" }}>
+          <p className="text-[10.5px] tracking-[0.3em] uppercase mt-1.5" style={{ color: "rgba(255,255,255,0.32)" }}>
             AERA Intelligence Platform
           </p>
         </div>
 
         {/* Card */}
-        <div
-          className="rounded-2xl p-8"
-          style={{
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            backdropFilter: "blur(20px)",
-          }}
-        >
-          <h2
-            className="text-xl font-semibold mb-1 text-center"
-            style={{ color: "rgba(255,255,255,0.9)" }}
-          >
+        <div className="mkt-card mkt-line-cyan auth-card mkt-reveal p-8 sm:p-9" style={{ animationDelay: "0.1s" }}>
+          <h2 className="text-[22px] font-extrabold tracking-tight text-center mkt-gradient-text">
             Welcome back
           </h2>
-          <p className="text-sm text-center mb-7" style={{ color: "rgba(255,255,255,0.4)" }}>
-            Sign in to access your private dashboard
+          <p className="text-sm text-center mt-1.5 mb-7" style={{ color: "rgba(255,255,255,0.42)" }}>
+            Sign in to your private workspace.
           </p>
 
-          {/* Google */}
-          <button
-            onClick={handleGoogle}
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl transition-all duration-200"
-            style={{
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.12)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.10)";
-              e.currentTarget.style.borderColor = "rgba(45,212,255,0.4)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.06)";
-              e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
-              <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
-              <path d="M3.964 10.707A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
-              <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z" fill="#EA4335"/>
-            </svg>
-            <span className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>
-              Continue with Google
-            </span>
-          </button>
-
-          {/* Divider */}
-          <div className="flex items-center gap-3 my-5">
-            <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.07)" }} />
-            <span className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>or</span>
-            <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.07)" }} />
-          </div>
-
-          {/* Email / Password form */}
           <form onSubmit={handleCredentials} className="flex flex-col gap-3">
             <input
               type="email"
               placeholder="Email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
               required
-              className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all duration-200"
-              style={{
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.10)",
-                color: "rgba(255,255,255,0.85)",
-              }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(45,212,255,0.4)")}
-              onBlur={(e)  => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)")}
+              className="auth-input"
             />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all duration-200"
-              style={{
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.10)",
-                color: "rgba(255,255,255,0.85)",
-              }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(45,212,255,0.4)")}
-              onBlur={(e)  => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)")}
-            />
+            <div className="relative">
+              <input
+                type={show ? "text" : "password"}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                required
+                className="auth-input"
+                style={{ paddingRight: 46 }}
+              />
+              <button
+                type="button"
+                onClick={() => setShow((s) => !s)}
+                aria-label={show ? "Hide password" : "Show password"}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors"
+                style={{ color: "rgba(255,255,255,0.4)", background: "transparent" }}
+              >
+                {show ? <EyeOff style={{ width: 16, height: 16 }} /> : <Eye style={{ width: 16, height: 16 }} />}
+              </button>
+            </div>
 
             {error && (
-              <p className="text-xs text-center" style={{ color: "rgba(255,100,100,0.85)" }}>
+              <p className="text-xs text-center rounded-lg px-3 py-2" style={{ color: "#fda4af", background: "rgba(251,113,133,0.08)", border: "1px solid rgba(251,113,133,0.2)" }}>
                 {error}
               </p>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 rounded-xl text-sm font-semibold transition-all duration-200 mt-1"
-              style={{
-                background: loading ? "rgba(45,212,255,0.12)" : "rgba(45,212,255,0.16)",
-                border: "1px solid rgba(45,212,255,0.30)",
-                color: loading ? "rgba(45,212,255,0.5)" : "rgba(45,212,255,0.95)",
-                cursor: loading ? "not-allowed" : "pointer",
-              }}
-              onMouseEnter={(e) => {
-                if (!loading) e.currentTarget.style.background = "rgba(45,212,255,0.22)";
-              }}
-              onMouseLeave={(e) => {
-                if (!loading) e.currentTarget.style.background = "rgba(45,212,255,0.16)";
-              }}
-            >
-              {loading ? "Signing in…" : "Sign in"}
+            <button type="submit" disabled={loading} className="mkt-btn auth-primary mt-2 flex items-center justify-center gap-2">
+              {loading ? <Loader2 className="animate-spin" style={{ width: 15, height: 15 }} /> : null}
+              {loading ? "Signing in" : "Enter the portal"}
+              {!loading && <ArrowRight style={{ width: 15, height: 15 }} />}
             </button>
           </form>
 
-          <p className="text-xs text-center mt-6" style={{ color: "rgba(255,255,255,0.2)" }}>
-            Access is restricted to authorized APEX clients only.
-          </p>
+          <div className="flex items-center justify-between mt-7">
+            <Link href="/request-access" className="auth-ghost">Not a client yet? Request access</Link>
+            <Link href="/" className="auth-ghost">apexaera.com</Link>
+          </div>
         </div>
 
-        <p className="text-center text-xs mt-6" style={{ color: "rgba(255,255,255,0.15)" }}>
-          © {new Date().getFullYear()} APEX. All rights reserved.
+        <p className="mkt-reveal text-center text-[11px] mt-7" style={{ color: "rgba(255,255,255,0.18)", animationDelay: "0.2s" }}>
+          © {new Date().getFullYear()} APEX AERA · <Link href="/privacy" className="auth-ghost">Privacy</Link> · <Link href="/terms" className="auth-ghost">Terms</Link>
         </p>
       </div>
     </main>
