@@ -103,11 +103,11 @@ export default function HomePage() {
               Enter the portal
             </Link>
             <Link
-              href="/how-it-works"
+              href="/request-access"
               className="mkt-btn w-full max-w-xs sm:w-auto text-center text-sm font-medium px-7 py-3 rounded-full"
               style={{ border: "1px solid rgba(255,255,255,0.14)", color: "var(--text-3, #bebebe)" }}
             >
-              See how it works
+              Request access
             </Link>
           </div>
           <p className="mkt-reveal mt-8 text-xs tracking-wide" style={{ color: "var(--text-5, #6e6e6e)", animationDelay: "0.32s" }}>

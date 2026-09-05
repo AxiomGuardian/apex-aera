@@ -46,6 +46,14 @@ export function MarketingNav() {
             </Link>
           ))}
         </nav>
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <Link
+          href="/request-access"
+          className="hidden sm:inline-block text-xs sm:text-sm font-medium px-4 py-2 rounded-full transition-colors hover:text-white"
+          style={{ border: "1px solid rgba(255,255,255,0.14)", color: "var(--text-3, #bebebe)" }}
+        >
+          Request access
+        </Link>
         <Link
           href="/login"
           className="mkt-btn text-xs sm:text-sm font-semibold px-4 sm:px-5 py-2 rounded-full shrink-0"
@@ -57,6 +65,7 @@ export function MarketingNav() {
         >
           Sign in
         </Link>
+        </div>
       </div>
       <nav className="md:hidden mkt-noscroll flex items-center gap-5 px-4 pb-2.5 overflow-x-auto">
         {TABS.map((t) => (
@@ -161,6 +170,9 @@ export function MarketingFooter() {
           </Link>
           <Link href="/terms" className="text-xs transition-colors hover:text-white" style={{ color: "var(--text-5, #6e6e6e)" }}>
             Terms
+          </Link>
+          <Link href="/request-access" className="text-xs transition-colors hover:text-white" style={{ color: "var(--text-5, #6e6e6e)" }}>
+            Request access
           </Link>
           <Link href="/login" className="text-xs font-semibold" style={{ color: "#7fd9f7" }}>
             Sign in

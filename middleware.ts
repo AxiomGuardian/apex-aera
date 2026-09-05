@@ -58,6 +58,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/platform") ||
     pathname.startsWith("/privacy") ||
     pathname.startsWith("/terms") ||
+    pathname.startsWith("/request-access") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/welcome") ||
