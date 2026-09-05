@@ -4,7 +4,7 @@ import { adminClient } from "@/lib/engines/core";
 import { purgeBrand } from "@/lib/brands/lifecycle";
 
 /**
- * Permanently purge a client. Only allowed on brands that are already archived.
+ * Permanently purge a client. Works on active or archived brands.
  * POST { brandId }. Agency admins only.
  */
 export async function POST(request: Request) {
@@ -20,7 +20,6 @@ export async function POST(request: Request) {
   const admin = adminClient();
   const { data: brand } = await admin.from("brands").select("id,name,status").eq("id", brandId).maybeSingle();
   if (!brand) return NextResponse.json({ error: "Client not found" }, { status: 404 });
-  if (brand.status !== "archived") return NextResponse.json({ error: "Archive the client first. Purge is only allowed on archived clients." }, { status: 400 });
 
   try {
     const result = await purgeBrand(admin, brandId);

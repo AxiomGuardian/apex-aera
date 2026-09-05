@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# K.I.T. waitlist (local / ephemeral)
+data/kit-waitlist.json
+
+# K.I.T. lives in its own project. Never part of the APEX build.
+src/app/kit/
+src/components/kit/
+src/lib/kit/
+data/

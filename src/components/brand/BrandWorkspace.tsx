@@ -487,13 +487,13 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
             </div>
           </div>
         )}
-        {canDelete && brand.status === "archived" && (
+        {canDelete && (
           <div style={{ padding: "22px 26px", borderRadius: 20, border: "1px solid rgba(251,113,133,0.18)", background: "rgba(251,113,133,0.03)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
               <div>
-                <p style={{ fontSize: 13, fontWeight: 800, color: "#fb7185", letterSpacing: "0.08em", textTransform: "uppercase" }}>Delete permanently now</p>
+                <p style={{ fontSize: 13, fontWeight: 800, color: "#fb7185", letterSpacing: "0.08em", textTransform: "uppercase" }}>Delete permanently</p>
                 <p style={{ fontSize: 13, color: "var(--text-5)", marginTop: 5, lineHeight: 1.6, maxWidth: 560 }}>
-                  Skips the 30-day window. Removes the workspace, all content, posts, reports, chats, and any client accounts attached only to this brand. Cannot be undone.
+                  No 30-day window. Removes the workspace, all content, posts, reports, chats, and any client accounts attached only to this brand. Cannot be undone.
                 </p>
                 {delErr && <p style={{ fontSize: 12, color: "#fb7185", marginTop: 6 }}>{delErr}</p>}
               </div>
