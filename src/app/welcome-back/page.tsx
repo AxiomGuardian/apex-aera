@@ -63,7 +63,7 @@ export default function WelcomeBackPage() {
   // Auto-advance a few seconds after the recap is on screen
   useEffect(() => {
     if (!recap) return;
-    const t = setTimeout(enter, 4200);
+    const t = setTimeout(enter, 5600);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recap]);

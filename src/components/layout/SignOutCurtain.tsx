@@ -11,15 +11,18 @@ import { useSession } from "@/components/layout/SessionProvider";
 export function SignOutCurtain() {
   const { data } = useSession();
   const [show, setShow] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const first = (data?.user?.name ?? "").split(" ")[0] || "";
 
   useEffect(() => {
     const handler = () => {
       setShow(true);
+      // Hold the farewell on screen, then fade the whole curtain out before leaving.
+      setTimeout(() => setLeaving(true), 3400);
       setTimeout(async () => {
         try { await createClient().auth.signOut(); } catch { /* ignore */ }
         window.location.href = "/login";
-      }, 2100);
+      }, 4200);
     };
     window.addEventListener("apex:signout", handler);
     return () => window.removeEventListener("apex:signout", handler);
@@ -28,8 +31,8 @@ export function SignOutCurtain() {
   if (!show) return null;
   return (
     <div
-      className="auth-bg fixed inset-0 flex items-center justify-center"
-      style={{ zIndex: 9999, animation: "intro-fade 0.6s ease both" }}
+      className={"auth-bg fixed inset-0 flex items-center justify-center " + (leaving ? "intro-out" : "")}
+      style={{ zIndex: 9999, animation: leaving ? undefined : "intro-fade 0.6s ease both" }}
     >
       <div className="auth-orb" />
       <div className="relative text-center px-6">
