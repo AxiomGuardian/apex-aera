@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { completeText } from "@/lib/ai/llm";
+import { voiceBlock } from "./voice";
 import { parseJson, PLATFORMS } from "./core";
 import { getFreshBrief } from "./trends";
 
@@ -29,7 +30,7 @@ export async function generateCaptions(sb: SupabaseClient, assetId: string) {
   if (!asset) throw new Error("Asset not found");
 
   const [{ data: brand }, { data: analysis }, trendBrief, { data: prevCaps }] = await Promise.all([
-    sb.from("brands").select("name,tone_of_voice,target_audience").eq("id", asset.brand_id).single(),
+    sb.from("brands").select("name,tone_of_voice,target_audience,voice_profile,voice_confirmed_at").eq("id", asset.brand_id).single(),
     sb.from("analyses").select("platform_recommendations,summary").eq("asset_id", assetId)
       .order("created_at", { ascending: false }).limit(1).maybeSingle(),
     getFreshBrief(sb, asset.brand_id),
@@ -52,6 +53,7 @@ export async function generateCaptions(sb: SupabaseClient, assetId: string) {
     `BRAND: ${brand?.name ?? "Unknown"}`,
     `Tone of voice: ${brand?.tone_of_voice ?? "not specified"}`,
     `Target audience: ${brand?.target_audience ?? "not specified"}`,
+    brand?.voice_confirmed_at ? voiceBlock(brand.voice_profile) : "",
     ``,
     `ASSET: ${asset.title ?? "Untitled"} (${asset.type}${asset.duration_seconds ? `, ${asset.duration_seconds}s` : ""})`,
     asset.description ? `WHAT'S IN IT (from the creator): ${asset.description}` : ``,

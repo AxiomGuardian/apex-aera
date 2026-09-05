@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { completeText } from "@/lib/ai/llm";
+import { voiceBlock } from "./voice";
 import { parseJson } from "./core";
 
 const SYSTEM = `You are AERA's funnel engine. Design a simple, high-converting landing funnel for a brand — the structure only, ready for review before anything goes live.
@@ -23,7 +24,7 @@ Respond with STRICT JSON only:
 export async function draftFunnel(sb: SupabaseClient, brandId: string, brief?: string) {
   const { data: brand } = await sb
     .from("brands")
-    .select("name,tone_of_voice,target_audience,website_url")
+    .select("name,tone_of_voice,target_audience,website_url,voice_profile,voice_confirmed_at")
     .eq("id", brandId)
     .single();
   if (!brand) throw new Error("Brand not found");
@@ -32,6 +33,7 @@ export async function draftFunnel(sb: SupabaseClient, brandId: string, brief?: s
     `Brand: ${brand.name}`,
     `Tone of voice: ${brand.tone_of_voice ?? "not specified"}`,
     `Target audience: ${brand.target_audience ?? "not specified"}`,
+    brand.voice_confirmed_at ? voiceBlock(brand.voice_profile) : "",
     brief ? `Campaign brief: ${brief}` : `No specific campaign brief — design a general lead-capture funnel for this brand.`,
   ].join("\n");
 

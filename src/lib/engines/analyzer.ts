@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { completeText, activeModel } from "@/lib/ai/llm";
+import { voiceBlock } from "./voice";
 import { parseJson } from "./core";
 
 /** Transcribe a video's audio via Deepgram (URL-based, uses existing key). */
@@ -57,7 +58,7 @@ export async function analyzeAsset(sb: SupabaseClient, assetId: string) {
 
   const { data: brand } = await sb
     .from("brands")
-    .select("name,tone_of_voice,target_audience,website_url")
+    .select("name,tone_of_voice,target_audience,website_url,voice_profile,voice_confirmed_at")
     .eq("id", asset.brand_id)
     .single();
 
@@ -79,6 +80,7 @@ export async function analyzeAsset(sb: SupabaseClient, assetId: string) {
       `Name: ${brand?.name ?? "Unknown"}`,
       `Tone of voice: ${brand?.tone_of_voice ?? "not specified"}`,
       `Target audience: ${brand?.target_audience ?? "not specified"}`,
+      brand?.voice_confirmed_at ? voiceBlock(brand.voice_profile) : "",
       ``,
       `ASSET`,
       `Title: ${asset.title ?? "Untitled"}`,

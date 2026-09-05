@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { completeText } from "@/lib/ai/llm";
+import { voiceBlock } from "./voice";
 import { parseJson } from "./core";
 
 /**
@@ -34,7 +35,7 @@ Respond with STRICT JSON only:
 export async function generateTrendBrief(sb: SupabaseClient, brandId: string) {
   const { data: brand } = await sb
     .from("brands")
-    .select("name,tone_of_voice,target_audience,website_url")
+    .select("name,tone_of_voice,target_audience,website_url,voice_profile,voice_confirmed_at")
     .eq("id", brandId)
     .single();
   if (!brand) throw new Error("Brand not found");
@@ -43,6 +44,7 @@ export async function generateTrendBrief(sb: SupabaseClient, brandId: string) {
     `Brand: ${brand.name}`,
     `Tone of voice: ${brand.tone_of_voice ?? "not specified"}`,
     `Target audience: ${brand.target_audience ?? "not specified"}`,
+    brand.voice_confirmed_at ? voiceBlock(brand.voice_profile) : "",
     brand.website_url ? `Website: ${brand.website_url}` : ``,
     ``,
     `Research current social media trends for this brand's niche this week.`,

@@ -15,7 +15,9 @@ type Brand = {
   tone_of_voice: string | null; target_audience: string | null; website_url: string | null;
   autopilot: boolean; created_at: string; archived_at: string | null;
   billing_status: string; billing_past_due_since: string | null; last_activity_at: string | null;
+  voice_profile: VoiceProfile | null; voice_read_at: string | null; voice_confirmed_at: string | null;
 };
+type VoiceProfile = { summary: string; signature: string[]; audience: string; avoid: string[]; confidence: "high" | "medium" | "low" };
 type LifeEvent = { id: string; event: string; reason: string | null; actor: string; created_at: string };
 type Member = { user_id: string; profiles: { email: string; full_name: string | null } | null };
 type Asset  = { id: string; title: string | null; type: string; status: string; created_at: string };
@@ -98,6 +100,10 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
   const [report, setReport] = useState<Report | null>(null);
   const [funnels, setFunnels] = useState<Funnel[]>([]);
   const [events, setEvents] = useState<LifeEvent[]>([]);
+  const [voice, setVoice] = useState<VoiceProfile | null>(null);
+  const [voiceConfirmed, setVoiceConfirmed] = useState(false);
+  const [voiceBusy, setVoiceBusy] = useState<"" | "read" | "confirm">("");
+  const [voiceErr, setVoiceErr] = useState("");
   const [busy, setBusy] = useState<"" | "trends" | "report" | "funnel">("");
   const [engineErr, setEngineErr] = useState("");
   const [delStep, setDelStep] = useState<0 | 1 | 2>(0);
@@ -130,6 +136,8 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
       setAudience(br.target_audience ?? "");
       setWebsite(br.website_url ?? "");
       setAutopilot(br.autopilot !== false);
+      setVoice(br.voice_profile ?? null);
+      setVoiceConfirmed(!!br.voice_confirmed_at);
     }
     setMembers((m.data ?? []) as unknown as Member[]);
     setAssets((a.data ?? []) as Asset[]);
@@ -144,12 +152,34 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
 
   useEffect(() => { void load(); }, [load]);
 
+  async function readVoice() {
+    setVoiceBusy("read"); setVoiceErr("");
+    try {
+      const res = await fetch("/api/aera/voice", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brandId: id, action: "read" }) });
+      const j = (await res.json()) as { ok?: boolean; profile?: VoiceProfile; error?: string };
+      if (!res.ok || !j.ok || !j.profile) throw new Error(j.error ?? "AERA could not read the voice");
+      setVoice(j.profile);
+      setVoiceConfirmed(false);
+    } catch (err) {
+      setVoiceErr(err instanceof Error ? err.message : "AERA could not read the voice");
+    } finally { setVoiceBusy(""); }
+  }
+
+  async function confirmVoice() {
+    setVoiceBusy("confirm");
+    try {
+      const res = await fetch("/api/aera/voice", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brandId: id, action: "confirm" }) });
+      if (res.ok) setVoiceConfirmed(true);
+    } finally { setVoiceBusy(""); }
+  }
+
   async function saveProfile() {
     setSaving(true); setSaved(false);
     const supabase = createClient();
     await supabase.from("brands").update({ tone_of_voice: tone || null, target_audience: audience || null, website_url: website || null }).eq("id", id);
     setSaving(false); setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+    if (tone.trim() || audience.trim()) void readVoice();
   }
 
   async function toggleAutopilot() {
@@ -321,6 +351,50 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
                   {saving ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} /> : saved ? <CheckCircle2 style={{ width: 14, height: 14 }} /> : null}
                   {saved ? "Saved" : saving ? "Saving" : "Save voice"}
                 </button>
+
+                {/* AERA's read-back */}
+                {(voice || voiceBusy === "read" || voiceErr) && (
+                  <div className={"mkt-card " + (voiceConfirmed ? "mkt-line-green" : "mkt-line-cyan")} style={{ padding: "20px 22px", marginTop: 4, background: "linear-gradient(135deg, rgba(45,212,255,0.06), rgba(20,22,26,0.6))" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <Sparkles style={{ width: 14, height: 14, color: "var(--cyan)" }} />
+                        <p style={{ fontSize: 12.5, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-3)" }}>How AERA understood it</p>
+                      </div>
+                      {voiceConfirmed && <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", padding: "4px 10px", borderRadius: 20, color: "#34D399", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.22)" }}>Confirmed</span>}
+                    </div>
+                    {voiceBusy === "read" ? (
+                      <p style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: "var(--text-4)" }}><Loader2 className="animate-spin" style={{ width: 13, height: 13 }} /> Reading your words</p>
+                    ) : voiceErr ? (
+                      <p style={{ fontSize: 13, color: "#fb7185" }}>{voiceErr}</p>
+                    ) : voice ? (
+                      <>
+                        <p style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", lineHeight: 1.5 }}>{voice.summary}</p>
+                        {voice.signature.length > 0 && (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 }}>
+                            {voice.signature.map((w) => (
+                              <span key={w} style={{ fontSize: 12, fontWeight: 700, padding: "5px 11px", borderRadius: 999, color: "#9be7ff", background: "rgba(45,212,255,0.08)", border: "1px solid rgba(45,212,255,0.25)" }}>{w}</span>
+                            ))}
+                          </div>
+                        )}
+                        {voice.audience && <p style={{ fontSize: 13, color: "var(--text-4)", marginTop: 12, lineHeight: 1.6 }}><span style={{ color: "var(--text-6)", fontWeight: 700 }}>Talking to: </span>{voice.audience}</p>}
+                        {voice.avoid.length > 0 && <p style={{ fontSize: 13, color: "var(--text-4)", marginTop: 6, lineHeight: 1.6 }}><span style={{ color: "var(--text-6)", fontWeight: 700 }}>Never: </span>{voice.avoid.join(" · ")}</p>}
+                        {!voiceConfirmed && (
+                          <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
+                            <button onClick={() => void confirmVoice()} disabled={voiceBusy !== ""} className="mkt-btn dash-btn" style={{ ...btn, background: "rgba(52,211,153,0.10)", border: "1px solid rgba(52,211,153,0.3)", color: "#34D399" }}>
+                              {voiceBusy === "confirm" ? <Loader2 className="animate-spin" style={{ width: 13, height: 13 }} /> : <CheckCircle2 style={{ width: 13, height: 13 }} />} That is right
+                            </button>
+                            <button onClick={() => { setVoice(null); document.querySelector<HTMLInputElement>("input[placeholder^='Bold']")?.focus(); }} className="dash-btn" style={{ ...btn, background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-3)" }}>
+                              Not quite, let me adjust
+                            </button>
+                          </div>
+                        )}
+                        {voice.confidence === "low" && !voiceConfirmed && (
+                          <p style={{ fontSize: 12, color: "#fbbf24", marginTop: 10 }}>AERA is guessing here. A few more words above will sharpen it.</p>
+                        )}
+                      </>
+                    ) : null}
+                  </div>
+                )}
               </div>
             </div>
           </div>
