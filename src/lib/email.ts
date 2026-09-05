@@ -86,3 +86,60 @@ export function inviteEmail(opts: { brandName: string; link: string }) {
     "AERA studies your content, researches your market, writes and schedules your posts, and reports back, around the clock.\n";
   return { subject, html, text };
 }
+
+/* ---------- Lifecycle emails (sent by the heartbeat, once each) ---------- */
+
+const PORTAL = "https://www.apexaera.com";
+
+export function pastDueEmail(opts: { brandName: string; graceDays: number }) {
+  const subject = "Payment issue on your APEX AERA workspace for " + opts.brandName;
+  const html = shell(
+    "We could not process your payment.",
+    "<p style=\"margin:0 0 14px\">The latest payment for <strong style=\"color:#e6e6e6\">" + opts.brandName + "</strong> did not go through. Nothing has changed yet: AERA is still working and your content is safe.</p>" +
+    "<p style=\"margin:0\">If it is not resolved within " + opts.graceDays + " days, the workspace will be paused and moved to the archive, where it stays intact for 30 more days. Update your payment method and everything continues without a gap.</p>",
+    { label: "Open my workspace", url: PORTAL + "/login" }
+  );
+  const text = "The latest payment for " + opts.brandName + " did not go through. AERA is still working. If it is not resolved within " + opts.graceDays + " days the workspace will be paused and archived (kept intact for 30 more days). Sign in: " + PORTAL + "/login\n";
+  return { subject, html, text };
+}
+
+export function archivedEmail(opts: { brandName: string; reason: "unpaid" | "inactive" | "canceled" | "manual"; windowDays: number }) {
+  const why =
+    opts.reason === "unpaid" ? "the payment issue was not resolved in time" :
+    opts.reason === "inactive" ? "there has been no activity for a long while" :
+    opts.reason === "canceled" ? "the subscription was canceled" :
+    "your APEX contact archived it";
+  const subject = "Your APEX AERA workspace for " + opts.brandName + " has been paused";
+  const html = shell(
+    "Your workspace is paused.",
+    "<p style=\"margin:0 0 14px\">The workspace for <strong style=\"color:#e6e6e6\">" + opts.brandName + "</strong> has been archived because " + why + ". AERA has stopped scheduling and publishing.</p>" +
+    "<p style=\"margin:0\">Everything is kept exactly as it was for <strong style=\"color:#e6e6e6\">" + opts.windowDays + " days</strong>. Restoring it brings back all content, captions, reports, and connections with nothing lost. After that window it is deleted for good.</p>",
+    { label: "Talk to APEX", url: PORTAL + "/request-access" }
+  );
+  const text = "The workspace for " + opts.brandName + " has been archived because " + why + ". Everything is kept for " + opts.windowDays + " days and can be restored in full. After that it is deleted. Reach us at " + PORTAL + "\n";
+  return { subject, html, text };
+}
+
+export function purgeWarningEmail(opts: { brandName: string; daysLeft: number }) {
+  const subject = opts.daysLeft + " days until your APEX AERA workspace is deleted";
+  const html = shell(
+    opts.daysLeft + " days left.",
+    "<p style=\"margin:0 0 14px\">The archived workspace for <strong style=\"color:#e6e6e6\">" + opts.brandName + "</strong> will be permanently deleted in <strong style=\"color:#e6e6e6\">" + opts.daysLeft + " days</strong>: all content, captions, scheduled posts, reports, and chat history.</p>" +
+    "<p style=\"margin:0\">If you want to keep it, reply to this email or reach out to your APEX contact and it can be restored in one click.</p>",
+    { label: "Keep my workspace", url: PORTAL + "/request-access" }
+  );
+  const text = "The archived workspace for " + opts.brandName + " will be permanently deleted in " + opts.daysLeft + " days. To keep it, contact APEX: " + PORTAL + "\n";
+  return { subject, html, text };
+}
+
+export function inactivityEmail(opts: { brandName: string; quietDays: number; archiveInDays: number }) {
+  const subject = "Still with us? Your APEX AERA workspace for " + opts.brandName;
+  const html = shell(
+    "It has been quiet.",
+    "<p style=\"margin:0 0 14px\">Nothing new has come into the workspace for <strong style=\"color:#e6e6e6\">" + opts.brandName + "</strong> in about " + opts.quietDays + " days. AERA can only work with what you give it.</p>" +
+    "<p style=\"margin:0\">Drop in one video and everything picks right back up. If nothing arrives in the next " + opts.archiveInDays + " days, the workspace will be paused and archived, still fully restorable.</p>",
+    { label: "Upload something", url: PORTAL + "/login" }
+  );
+  const text = "Nothing new has come into the workspace for " + opts.brandName + " in about " + opts.quietDays + " days. Upload one video and AERA picks right back up. If nothing arrives in " + opts.archiveInDays + " days the workspace will be archived. Sign in: " + PORTAL + "/login\n";
+  return { subject, html, text };
+}

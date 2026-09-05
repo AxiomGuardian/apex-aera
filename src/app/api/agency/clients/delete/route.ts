@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   if (!brand) return NextResponse.json({ error: "Client not found" }, { status: 404 });
 
   try {
-    const result = await purgeBrand(admin, brandId);
+    const result = await purgeBrand(admin, brandId, u.user.email ?? "agency");
     return NextResponse.json({ ok: true, name: brand.name, ...result });
   } catch (e) {
     console.error("[Purge client]", e);

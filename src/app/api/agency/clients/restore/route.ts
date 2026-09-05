@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   const { brandId } = (await request.json()) as { brandId?: string };
   if (!brandId) return NextResponse.json({ error: "brandId required" }, { status: 400 });
   try {
-    await restoreBrand(adminClient(), brandId);
+    await restoreBrand(adminClient(), brandId, u.user.email ?? "agency");
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Restore failed" }, { status: 500 });

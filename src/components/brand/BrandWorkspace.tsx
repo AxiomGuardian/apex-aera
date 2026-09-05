@@ -13,7 +13,9 @@ type Brand = {
   id: string; name: string; slug: string; status: string;
   tone_of_voice: string | null; target_audience: string | null; website_url: string | null;
   autopilot: boolean; created_at: string; archived_at: string | null;
+  billing_status: string; billing_past_due_since: string | null; last_activity_at: string | null;
 };
+type LifeEvent = { id: string; event: string; reason: string | null; actor: string; created_at: string };
 type Member = { user_id: string; profiles: { email: string; full_name: string | null } | null };
 type Asset  = { id: string; title: string | null; type: string; status: string; created_at: string };
 type Conn   = { platform: string; status: string; account_name: string | null };
@@ -90,6 +92,7 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
   const [brief, setBrief] = useState<Brief | null>(null);
   const [report, setReport] = useState<Report | null>(null);
   const [funnels, setFunnels] = useState<Funnel[]>([]);
+  const [events, setEvents] = useState<LifeEvent[]>([]);
   const [busy, setBusy] = useState<"" | "trends" | "report" | "funnel">("");
   const [engineErr, setEngineErr] = useState("");
   const [delStep, setDelStep] = useState<0 | 1 | 2>(0);
@@ -101,7 +104,7 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
 
   const load = useCallback(async () => {
     const supabase = createClient();
-    const [b, m, a, c, t, r, f, ac, sc] = await Promise.all([
+    const [b, m, a, c, t, r, f, ac, sc, ev] = await Promise.all([
       supabase.from("brands").select("*").eq("id", id).single(),
       supabase.from("brand_members").select("user_id,profiles(email,full_name)").eq("brand_id", id),
       supabase.from("content_assets").select("id,title,type,status,created_at").eq("brand_id", id).order("created_at", { ascending: false }).limit(8),
@@ -111,6 +114,7 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
       supabase.from("funnels").select("id,name,status,created_at").eq("brand_id", id).order("created_at", { ascending: false }).limit(5),
       supabase.from("content_assets").select("id", { count: "exact", head: true }).eq("brand_id", id),
       supabase.from("scheduled_posts").select("id", { count: "exact", head: true }).eq("brand_id", id).in("status", ["approved", "locked", "proposed"]),
+      supabase.from("lifecycle_events").select("id,event,reason,actor,created_at").eq("brand_id", id).order("created_at", { ascending: false }).limit(8),
     ]);
     if (b.data) {
       const br = b.data as Brand;
@@ -128,6 +132,7 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
     setFunnels((f.data ?? []) as Funnel[]);
     setAssetCount(ac.count ?? 0);
     setScheduledCount(sc.count ?? 0);
+    setEvents((ev.data ?? []) as LifeEvent[]);
   }, [id]);
 
   useEffect(() => { void load(); }, [load]);
@@ -239,6 +244,11 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {agency && brand.billing_status !== "active" && (
+                <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", padding: "6px 14px", borderRadius: 20, color: brand.billing_status === "past_due" ? "#fb7185" : "var(--text-4)", background: brand.billing_status === "past_due" ? "rgba(251,113,133,0.08)" : "var(--surface-2)", border: "1px solid " + (brand.billing_status === "past_due" ? "rgba(251,113,133,0.25)" : "var(--border)") }}>
+                  {brand.billing_status.replace("_", " ")}
+                </span>
+              )}
               <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", padding: "6px 14px", borderRadius: 20, color: brand.status === "archived" ? "#fbbf24" : "#34D399", background: brand.status === "archived" ? "rgba(251,191,36,0.08)" : "rgba(52,211,153,0.08)", border: "1px solid " + (brand.status === "archived" ? "rgba(251,191,36,0.25)" : "rgba(52,211,153,0.22)") }}>
                 {brand.status}
               </span>
@@ -462,6 +472,23 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
             </div>
           ))}
         </div>
+
+        {/* ── History ── */}
+        {agency && events.length > 0 && (
+          <div className="mkt-card mkt-quiet" style={card}>
+            <SectionTitle hint="Every lifecycle change, and who or what caused it.">History</SectionTitle>
+            {events.map((e, i) => (
+              <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 0", borderBottom: i < events.length - 1 ? "1px solid var(--border)" : "none" }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: e.event.includes("archived") || e.event.includes("past_due") ? "#fbbf24" : e.event === "purged" ? "#fb7185" : "#34D399" }} />
+                <p style={{ flex: 1, fontSize: 13.5, color: "var(--text-2)" }}>
+                  {e.event.replace(/_/g, " ")}{e.reason ? " · " + e.reason : ""}
+                </p>
+                <span style={{ fontSize: 12, color: "var(--text-6)" }}>{e.actor}</span>
+                <span style={{ fontSize: 12, color: "var(--text-6)" }}>{fmtMST(e.created_at)}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* ── Danger zone ── */}
         {canDelete && brand.status !== "archived" && (

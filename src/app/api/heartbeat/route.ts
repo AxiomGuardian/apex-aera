@@ -7,7 +7,7 @@ import { scheduleAsset } from "@/lib/engines/scheduler";
 import { publishDue } from "@/lib/engines/publisher";
 import { generateTrendBrief, getFreshBrief } from "@/lib/engines/trends";
 import { checkConnections } from "@/lib/engines/health";
-import { purgeExpiredArchives } from "@/lib/brands/lifecycle";
+import { runLifecycle } from "@/lib/brands/lifecycle";
 
 /**
  * The Heartbeat — APEX AERA's 24/7 autonomy loop.
@@ -89,11 +89,11 @@ export async function POST(request: Request) {
   // 4) Publish anything due
   const pub = await publishDue(sb);
 
-  // 5) Purge archives past the 30-day window
-  const purged = await purgeExpiredArchives(sb);
+  // 5) Lifecycle sweep: billing grace, inactivity, archive warnings, purges
+  const life = await runLifecycle(sb);
 
-  const summary = `trends ${trends}, analyzed ${analyzed}, captioned ${captioned}, scheduled ${scheduled}, due ${pub.due} (published ${pub.published}, awaiting platform connections ${pub.blocked}), connections checked ${health.checked} (expired ${health.expired}), archives purged ${purged}`;
-  return NextResponse.json({ ok: true, summary, trends, analyzed, captioned, scheduled, health, publish: pub, purged, errors });
+  const summary = `trends ${trends}, analyzed ${analyzed}, captioned ${captioned}, scheduled ${scheduled}, due ${pub.due} (published ${pub.published}, awaiting platform connections ${pub.blocked}), connections checked ${health.checked} (expired ${health.expired}), lifecycle (archived ${life.pastDueArchived + life.inactiveArchived}, warned ${life.purgeWarned + life.inactiveNoticed}, purged ${life.purged})`;
+  return NextResponse.json({ ok: true, summary, trends, analyzed, captioned, scheduled, health, publish: pub, lifecycle: life, errors });
 }
 
 export async function GET(request: Request) {

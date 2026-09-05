@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   const { brandId, reason } = (await request.json()) as { brandId?: string; reason?: string };
   if (!brandId) return NextResponse.json({ error: "brandId required" }, { status: 400 });
   try {
-    await archiveBrand(adminClient(), brandId, reason ?? "archived by " + (u.user.email ?? "agency"));
+    await archiveBrand(adminClient(), brandId, reason ?? "manual", u.user.email ?? "agency");
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Archive failed" }, { status: 500 });

@@ -38,7 +38,8 @@ export default function LoginPage() {
       return;
     }
     const { data: prof } = await supabase.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
-    router.push(prof?.role === "agency_admin" ? "/dashboard" : "/content");
+    void fetch("/api/auth/touch", { method: "POST" }).catch(() => null);
+    router.push(prof?.role === "agency_admin" || prof?.role === "enterprise_admin" ? "/dashboard" : "/content");
     router.refresh();
   }
 
