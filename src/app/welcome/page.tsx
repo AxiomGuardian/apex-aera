@@ -98,13 +98,10 @@ export default function WelcomePage() {
       return;
     }
     const { data: u } = await supabase.auth.getUser();
-    let dest = "/content";
     if (u.user) {
       await supabase.from("profiles").update({ full_name: fullName }).eq("id", u.user.id);
-      const { data: prof } = await supabase.from("profiles").select("role").eq("id", u.user.id).maybeSingle();
-      if (prof?.role === "agency_admin") dest = "/dashboard";
     }
-    router.push(dest);
+    router.push("/intro");
     router.refresh();
   }
 

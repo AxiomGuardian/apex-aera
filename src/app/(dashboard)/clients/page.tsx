@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PagePad } from "@/components/layout/PagePad";
 import { Loader2, Plus, Building2 } from "lucide-react";
+import { useSession } from "@/components/layout/SessionProvider";
 
 type BrandRow = {
   id: string;
@@ -20,6 +21,31 @@ export default function ClientsPage() {
   const router = useRouter();
   const [brands,  setBrands]  = useState<BrandRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const { data: session } = useSession();
+  const role = session?.user?.role ?? null;
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [addBusy, setAddBusy] = useState(false);
+  const [addErr, setAddErr] = useState("");
+
+  async function addBrand(e: React.FormEvent) {
+    e.preventDefault();
+    setAddBusy(true);
+    setAddErr("");
+    try {
+      const res = await fetch("/api/enterprise/brands", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName }),
+      });
+      const j = (await res.json()) as { ok?: boolean; brand?: { id: string }; error?: string };
+      if (!res.ok || !j.ok || !j.brand) throw new Error(j.error ?? "Could not add brand");
+      router.push("/clients/" + j.brand.id);
+    } catch (err) {
+      setAddErr(err instanceof Error ? err.message : "Could not add brand");
+      setAddBusy(false);
+    }
+  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -38,20 +64,41 @@ export default function ClientsPage() {
       <div className="flex flex-col gap-8 sm:gap-10 opacity-0 animate-fade-in-up" style={{ animationFillMode: "forwards" }}>
         <div className="flex items-end justify-between">
           <div>
-            <p className="label-eyebrow mb-2.5">Book of Business</p>
+            <p className="label-eyebrow mb-2.5">{role === "enterprise_admin" ? "Your Organization" : "Book of Business"}</p>
             <h2 style={{ fontSize: "clamp(26px,4vw,32px)", fontWeight: 800, letterSpacing: "-0.045em", color: "var(--text)", lineHeight: 1 }}>
-              Clients
+              {role === "enterprise_admin" ? "Brands" : "Clients"}
             </h2>
           </div>
-          <button
-            onClick={() => router.push("/onboard")}
-            className="mkt-btn dash-btn"
-            style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 18px", borderRadius: 10, background: "rgba(45,212,255,0.12)", border: "1px solid rgba(45,212,255,0.28)", color: "var(--cyan)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
-          >
-            <Plus style={{ width: 13, height: 13 }} strokeWidth={2} />
-            Onboard client
-          </button>
+          {role === "enterprise_admin" ? (
+            <button
+              onClick={() => setAdding((a) => !a)}
+              className="mkt-btn dash-btn"
+              style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 18px", borderRadius: 10, background: "rgba(45,212,255,0.12)", border: "1px solid rgba(45,212,255,0.28)", color: "var(--cyan)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+            >
+              <Plus style={{ width: 13, height: 13 }} strokeWidth={2} />
+              Add brand
+            </button>
+          ) : role === "agency_admin" ? (
+            <button
+              onClick={() => router.push("/onboard")}
+              className="mkt-btn dash-btn"
+              style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 18px", borderRadius: 10, background: "rgba(45,212,255,0.12)", border: "1px solid rgba(45,212,255,0.28)", color: "var(--cyan)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+            >
+              <Plus style={{ width: 13, height: 13 }} strokeWidth={2} />
+              Onboard client
+            </button>
+          ) : null}
         </div>
+
+        {adding && role === "enterprise_admin" && (
+          <form onSubmit={addBrand} className="mkt-card mkt-quiet" style={{ display: "flex", gap: 10, alignItems: "center", padding: "16px 18px", maxWidth: 560 }}>
+            <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="New brand name" required className="auth-input" style={{ padding: "11px 13px", fontSize: 13 }} />
+            <button type="submit" disabled={addBusy} className="mkt-btn dash-btn" style={{ padding: "11px 16px", borderRadius: 10, background: "rgba(45,212,255,0.12)", border: "1px solid rgba(45,212,255,0.28)", color: "var(--cyan)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+              {addBusy ? "Creating" : "Create"}
+            </button>
+            {addErr && <span style={{ fontSize: 11.5, color: "#fb7185" }}>{addErr}</span>}
+          </form>
+        )}
 
         {loading ? (
           <div style={{ padding: 60, textAlign: "center" }}>

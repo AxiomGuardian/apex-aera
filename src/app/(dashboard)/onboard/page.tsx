@@ -17,6 +17,7 @@ export default function OnboardPage() {
   const [brandName, setBrandName] = useState("");
   const [email,     setEmail]     = useState("");
   const [tier,      setTier]      = useState<"client" | "enterprise">("client");
+  const [orgName,   setOrgName]   = useState("");
   const [sending,   setSending]   = useState(false);
   const [done,      setDone]      = useState<string | null>(null);
   const [error,     setError]     = useState<string | null>(null);
@@ -45,13 +46,14 @@ export default function OnboardPage() {
       const res = await fetch("/api/agency/onboard", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brandName, email, tier }),
+        body: JSON.stringify({ brandName, email, tier, orgName }),
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) throw new Error(j.error ?? "Something went wrong");
       setDone(`Invite sent to ${email}. Workspace "${brandName}" is ready. If the email does not land, use Copy link below.`);
       setBrandName("");
       setEmail("");
+      setOrgName("");
       void loadInvites();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -137,9 +139,17 @@ export default function OnboardPage() {
               })}
             </div>
           </div>
+          {tier === "enterprise" && (
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-5)", letterSpacing: "0.06em", textTransform: "uppercase", display: "block", marginBottom: 7 }}>
+                Organization name
+              </label>
+              <input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="e.g. Chamber of Commerce" required style={inputStyle} />
+            </div>
+          )}
           <div>
             <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-5)", letterSpacing: "0.06em", textTransform: "uppercase", display: "block", marginBottom: 7 }}>
-              Brand / Business name
+              {tier === "enterprise" ? "First brand under this organization" : "Brand / Business name"}
             </label>
             <input value={brandName} onChange={(e) => setBrandName(e.target.value)} placeholder="Brand or business name" required style={inputStyle} />
           </div>

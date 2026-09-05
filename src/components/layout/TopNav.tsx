@@ -19,6 +19,7 @@ import {
   LogOut,
   Settings,
   ChevronDown,
+  Fingerprint,
 } from "lucide-react";
 
 const ICONS = {
@@ -26,6 +27,7 @@ const ICONS = {
   clients: Users,
   onboard: Plus,
   content: Upload,
+  brand: Fingerprint,
   queue: CheckCircle2,
   aera: Wand2,
 } as const;

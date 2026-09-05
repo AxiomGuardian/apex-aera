@@ -1181,3 +1181,42 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .mkt-card, .mkt-btn, .dash-btn, .mkt-reveal, .auth-orb { animation: none !important; transition: none !important; }
 }
+
+/* ============================================
+   Cinematic intro
+============================================ */
+@keyframes intro-title {
+  0%   { opacity: 0; letter-spacing: 0.9em; filter: blur(14px); transform: translateY(6px); }
+  55%  { opacity: 1; letter-spacing: 0.34em; filter: blur(0); transform: translateY(0); }
+  100% { opacity: 1; letter-spacing: 0.32em; filter: blur(0); transform: translateY(0); }
+}
+@keyframes intro-line {
+  0%   { transform: scaleX(0); opacity: 0; }
+  100% { transform: scaleX(1); opacity: 1; }
+}
+@keyframes intro-fade {
+  0%   { opacity: 0; transform: translateY(14px); filter: blur(6px); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+@keyframes intro-out {
+  0%   { opacity: 1; filter: blur(0); }
+  100% { opacity: 0; filter: blur(10px); }
+}
+.intro-title {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.32em;
+  color: #f2f2f2;
+  text-shadow: 0 0 40px rgba(45, 212, 255, 0.35);
+  animation: intro-title 2.2s cubic-bezier(0.22, 0.8, 0.3, 1) forwards;
+}
+.intro-line {
+  height: 1px;
+  width: 220px;
+  margin: 26px auto 0;
+  background: linear-gradient(90deg, transparent, #2dd4ff, transparent);
+  transform-origin: center;
+  animation: intro-line 1.4s cubic-bezier(0.22, 0.8, 0.3, 1) 0.9s both;
+}
+.intro-fade { animation: intro-fade 0.9s cubic-bezier(0.22, 0.8, 0.3, 1) both; }
+.intro-out  { animation: intro-out 0.7s ease forwards; }

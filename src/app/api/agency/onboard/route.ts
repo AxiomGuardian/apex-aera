@@ -16,11 +16,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Agency access required" }, { status: 403 });
   }
 
-  const { brandName, email, tier } = (await request.json()) as { brandName?: string; email?: string; tier?: "client" | "enterprise" };
+  const { brandName, email, tier, orgName } = (await request.json()) as {
+    brandName?: string; email?: string; tier?: "client" | "enterprise"; orgName?: string;
+  };
   if (!brandName?.trim() || !email?.trim()) {
     return NextResponse.json({ error: "Brand name and email are required" }, { status: 400 });
   }
+  if (tier === "enterprise" && !orgName?.trim()) {
+    return NextResponse.json({ error: "Organization name is required for enterprise" }, { status: 400 });
+  }
   const inviteRole = tier === "enterprise" ? "enterprise_admin" : "client";
+
+  // Enterprise: create the organization first; the brand hangs under it.
+  let enterpriseId: string | null = null;
+  if (tier === "enterprise") {
+    const orgSlug =
+      orgName!.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") +
+      "-" + Math.random().toString(36).slice(2, 6);
+    const { data: org, error: orgErr } = await supabase
+      .from("enterprises")
+      .insert({ name: orgName!.trim(), slug: orgSlug })
+      .select("id")
+      .single();
+    if (orgErr) return NextResponse.json({ error: orgErr.message }, { status: 500 });
+    enterpriseId = org.id;
+  }
 
   const slug =
     brandName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") +
@@ -28,7 +48,7 @@ export async function POST(request: Request) {
 
   const { data: brand, error: brandErr } = await supabase
     .from("brands")
-    .insert({ name: brandName.trim(), slug, status: "active" })
+    .insert({ name: brandName.trim(), slug, status: "active", enterprise_id: enterpriseId })
     .select("id,name")
     .single();
   if (brandErr) return NextResponse.json({ error: brandErr.message }, { status: 500 });
@@ -38,6 +58,7 @@ export async function POST(request: Request) {
     brand_id: brand.id,
     invited_by: userData.user.id,
     role: inviteRole,
+    enterprise_id: enterpriseId,
   });
   if (invErr) return NextResponse.json({ error: invErr.message }, { status: 500 });
 

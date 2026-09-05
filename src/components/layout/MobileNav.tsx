@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Plus, Upload, Wand2, CheckCircle2 } from "lucide-react";
+import { LayoutDashboard, Users, Plus, Upload, Wand2, CheckCircle2, Fingerprint } from "lucide-react";
 import { useSession } from "@/components/layout/SessionProvider";
 import { navFor } from "@/lib/roles";
 
-const ICONS = { dashboard: LayoutDashboard, clients: Users, onboard: Plus, content: Upload, queue: CheckCircle2, aera: Wand2 } as const;
+const ICONS = { dashboard: LayoutDashboard, clients: Users, onboard: Plus, content: Upload, brand: Fingerprint, queue: CheckCircle2, aera: Wand2 } as const;
 
 export function MobileNav() {
   const pathname = usePathname();
