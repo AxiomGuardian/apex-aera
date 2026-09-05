@@ -40,7 +40,7 @@ export default function DashboardPage() {
         return;
       }
       const [b, a, inv] = await Promise.all([
-        supabase.from("brands").select("id,name,status,created_at").order("created_at", { ascending: false }),
+        supabase.from("brands").select("id,name,status,created_at").neq("status", "archived").order("created_at", { ascending: false }),
         supabase.from("content_assets").select("status"),
         supabase.from("invites").select("id", { count: "exact", head: true }).eq("status", "pending"),
       ]);

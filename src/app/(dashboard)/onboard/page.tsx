@@ -3,12 +3,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PagePad } from "@/components/layout/PagePad";
-import { CheckCircle2, Loader2, AlertCircle, Mail, Link2, RefreshCw, User, Building2 } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, Mail, Link2, RefreshCw, User, Building2, Trash2, Clock } from "lucide-react";
 
 type InviteRow = {
   id: string;
   email: string;
   status: string;
+  role: string;
+  accepted_at: string | null;
   created_at: string;
   brands: { name: string } | null;
 };
@@ -29,7 +31,7 @@ export default function OnboardPage() {
     const supabase = createClient();
     const { data } = await supabase
       .from("invites")
-      .select("id,email,status,created_at,brands(name)")
+      .select("id,email,status,role,accepted_at,created_at,brands(name)")
       .order("created_at", { ascending: false })
       .limit(20);
     setInvites((data ?? []) as unknown as InviteRow[]);
@@ -62,7 +64,7 @@ export default function OnboardPage() {
     }
   }
 
-  async function inviteAction(id: string, action: "link" | "resend") {
+  async function inviteAction(id: string, action: "link" | "resend" | "delete") {
     setRowBusy(id + action);
     setRowMsg(null);
     try {
@@ -73,6 +75,11 @@ export default function OnboardPage() {
       });
       const j = (await res.json()) as { ok?: boolean; link?: string; via?: string; error?: string };
       if (!res.ok || !j.ok) throw new Error(j.error ?? "Failed");
+      if (action === "delete") {
+        setRowMsg(null);
+        void loadInvites();
+        return;
+      }
       if (action === "link" && j.link) {
         try { await navigator.clipboard.writeText(j.link); setRowMsg({ id, text: "Link copied. Send it however you like." }); }
         catch { setRowMsg({ id, text: j.link }); }
@@ -205,10 +212,14 @@ export default function OnboardPage() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 13, color: "var(--text-2)" }}>{inv.email}</p>
                   <p style={{ fontSize: 11, color: "var(--text-6)", marginTop: 3 }}>
-                    {inv.brands?.name ?? "—"} · {new Date(inv.created_at).toLocaleDateString()}
+                    {inv.brands?.name ?? "No brand"} · invited {new Date(inv.created_at).toLocaleDateString()}
+                    {inv.accepted_at ? " · joined " + new Date(inv.accepted_at).toLocaleDateString() : ""}
                   </p>
                 </div>
-                {inv.status !== "claimed" && (
+                <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", padding: "3px 8px", borderRadius: 20, color: "var(--text-5)", background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                  {inv.role === "enterprise_admin" ? "Enterprise" : inv.role === "enterprise_member" ? "Seat" : "Client"}
+                </span>
+                {!inv.accepted_at && (
                   <div style={{ display: "flex", gap: 6 }}>
                     <button onClick={() => void inviteAction(inv.id, "link")} disabled={rowBusy !== ""} title="Copy a sign-in link" style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 10px", borderRadius: 8, background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-3)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
                       {rowBusy === inv.id + "link" ? <Loader2 className="animate-spin" style={{ width: 11, height: 11 }} /> : <Link2 style={{ width: 11, height: 11 }} />}
@@ -218,16 +229,21 @@ export default function OnboardPage() {
                       {rowBusy === inv.id + "resend" ? <Loader2 className="animate-spin" style={{ width: 11, height: 11 }} /> : <RefreshCw style={{ width: 11, height: 11 }} />}
                       Resend
                     </button>
+                    <button onClick={() => { if (confirm("Delete this invite? If they never finished setup, their placeholder account is removed too.")) void inviteAction(inv.id, "delete"); }} disabled={rowBusy !== ""} title="Delete invite" style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 9px", borderRadius: 8, background: "rgba(251,113,133,0.06)", border: "1px solid rgba(251,113,133,0.22)", color: "#fb7185", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                      {rowBusy === inv.id + "delete" ? <Loader2 className="animate-spin" style={{ width: 11, height: 11 }} /> : <Trash2 style={{ width: 11, height: 11 }} />}
+                    </button>
                   </div>
                 )}
                 <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
                   fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
                   padding: "4px 10px", borderRadius: 20,
-                  color: inv.status === "claimed" ? "#34D399" : "#F59E0B",
-                  background: inv.status === "claimed" ? "rgba(52,211,153,0.08)" : "rgba(245,158,11,0.08)",
-                  border: `1px solid ${inv.status === "claimed" ? "rgba(52,211,153,0.2)" : "rgba(245,158,11,0.2)"}`,
+                  color: inv.accepted_at ? "#34D399" : "#F59E0B",
+                  background: inv.accepted_at ? "rgba(52,211,153,0.08)" : "rgba(245,158,11,0.08)",
+                  border: `1px solid ${inv.accepted_at ? "rgba(52,211,153,0.2)" : "rgba(245,158,11,0.2)"}`,
                 }}>
-                  {inv.status === "claimed" ? "Joined" : "Pending"}
+                  {inv.accepted_at ? <CheckCircle2 style={{ width: 10, height: 10 }} /> : <Clock style={{ width: 10, height: 10 }} />}
+                  {inv.accepted_at ? "Joined" : "Pending"}
                 </span>
               </div>
               {rowMsg?.id === inv.id && (

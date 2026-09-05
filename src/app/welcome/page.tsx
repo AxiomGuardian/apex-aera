@@ -100,6 +100,7 @@ export default function WelcomePage() {
     const { data: u } = await supabase.auth.getUser();
     if (u.user) {
       await supabase.from("profiles").update({ full_name: fullName }).eq("id", u.user.id);
+      await fetch("/api/auth/setup-complete", { method: "POST" }).catch(() => null);
     }
     router.push("/intro");
     router.refresh();

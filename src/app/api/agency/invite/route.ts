@@ -6,9 +6,10 @@ import { emailEnabled, sendEmail, inviteEmail } from "@/lib/email";
 
 /**
  * Invite actions for agency admins.
- * POST { inviteId, action: "link" | "resend" }
+ * POST { inviteId, action: "link" | "resend" | "delete" }
  *   link   -> returns a fresh sign-in link you can copy and send yourself
  *   resend -> sends the invite email again (Resend if configured, else Supabase mailer)
+ *   delete -> removes the invite; if the person never finished setup, removes their empty account too
  * Note: each new link replaces the previous one for that person.
  */
 
@@ -31,12 +32,12 @@ export async function POST(request: Request) {
   const { data: me } = await supabase.from("profiles").select("role").eq("id", u.user.id).single();
   if (me?.role !== "agency_admin") return NextResponse.json({ error: "Agency access required" }, { status: 403 });
 
-  const { inviteId, action } = (await request.json()) as { inviteId?: string; action?: "link" | "resend" };
+  const { inviteId, action } = (await request.json()) as { inviteId?: string; action?: "link" | "resend" | "delete" };
   if (!inviteId || !action) return NextResponse.json({ error: "inviteId and action required" }, { status: 400 });
 
   const { data: inv } = await supabase
     .from("invites")
-    .select("id,email,status,brand_id,brands(name)")
+    .select("id,email,status,brand_id,accepted_at,brands(name)")
     .eq("id", inviteId)
     .maybeSingle();
   if (!inv) return NextResponse.json({ error: "Invite not found" }, { status: 404 });
@@ -46,6 +47,22 @@ export async function POST(request: Request) {
   const brandName = ((inv as { brands?: { name?: string } | null }).brands?.name) ?? "your brand";
 
   try {
+    if (action === "delete") {
+      const admin = adminClient();
+      if (!inv.accepted_at) {
+        // Never finished setup: remove the placeholder account so the email can be reused cleanly
+        const { data: prof } = await admin.from("profiles").select("id,role").ilike("email", inv.email).maybeSingle();
+        if (prof?.id && prof.role !== "agency_admin") {
+          const { count } = await admin.from("brand_members").select("brand_id", { count: "exact", head: true }).eq("user_id", prof.id).neq("brand_id", inv.brand_id);
+          if ((count ?? 0) === 0) await admin.auth.admin.deleteUser(prof.id);
+          else await admin.from("brand_members").delete().eq("user_id", prof.id).eq("brand_id", inv.brand_id);
+        }
+      }
+      const { error } = await admin.from("invites").delete().eq("id", inv.id);
+      if (error) throw new Error(error.message);
+      return NextResponse.json({ ok: true });
+    }
+
     if (action === "link") {
       const link = await freshLink(inv.email, redirectTo);
       return NextResponse.json({ ok: true, link });

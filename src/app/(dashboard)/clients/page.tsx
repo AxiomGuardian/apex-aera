@@ -106,7 +106,7 @@ export default function ClientsPage() {
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {brands.map((b, i) => (
+            {brands.filter((b) => b.status !== "archived").map((b, i) => (
               <div
                 key={b.id}
                 onClick={() => router.push(`/clients/${b.id}`)}
@@ -138,6 +138,20 @@ export default function ClientsPage() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {brands.some((b) => b.status === "archived") && (
+          <div>
+            <p className="label-eyebrow mb-3">Archived</p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {brands.filter((b) => b.status === "archived").map((b) => (
+                <div key={b.id} onClick={() => router.push(`/clients/${b.id}`)} className="mkt-card mkt-quiet" style={{ padding: "18px 20px", cursor: "pointer", opacity: 0.75 }}>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text-3)" }}>{b.name}</p>
+                  <p style={{ fontSize: 11.5, color: "#fbbf24", marginTop: 4 }}>Archived. Open to restore.</p>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
