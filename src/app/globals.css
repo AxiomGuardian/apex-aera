@@ -1067,8 +1067,9 @@ body {
   height: 520px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(45, 212, 255, 0.16) 0%, rgba(45, 212, 255, 0.04) 40%, transparent 70%);
-  filter: blur(30px);
+  filter: blur(24px);
   pointer-events: none;
+  will-change: transform;
   animation: auth-float 9s ease-in-out infinite;
 }
 .auth-card {
@@ -1195,12 +1196,16 @@ body {
   100% { transform: scaleX(1); opacity: 1; }
 }
 @keyframes intro-fade {
-  0%   { opacity: 0; transform: translateY(14px); filter: blur(6px); }
-  100% { opacity: 1; transform: none; filter: blur(0); }
+  0%   { opacity: 0; transform: translate3d(0, 10px, 0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 @keyframes intro-out {
-  0%   { opacity: 1; filter: blur(0); }
-  100% { opacity: 0; filter: blur(10px); }
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes intro-veil {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
 }
 .intro-title {
   font-weight: 800;
@@ -1218,5 +1223,6 @@ body {
   transform-origin: center;
   animation: intro-line 1.4s cubic-bezier(0.22, 0.8, 0.3, 1) 0.9s both;
 }
-.intro-fade { animation: intro-fade 0.9s cubic-bezier(0.22, 0.8, 0.3, 1) both; }
+.intro-fade { animation: intro-fade 0.9s cubic-bezier(0.22, 0.8, 0.3, 1) both; will-change: opacity, transform; }
 .intro-out  { animation: intro-out 0.7s ease forwards; }
+.intro-veil { animation: intro-veil 0.5s ease both; }

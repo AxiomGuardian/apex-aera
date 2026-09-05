@@ -79,12 +79,12 @@ export default function WelcomeBackPage() {
 
   return (
     <main
-      className={"auth-bg min-h-screen flex items-center justify-center px-5 relative overflow-hidden " + (leaving ? "intro-out" : "")}
+      className="auth-bg min-h-screen flex items-center justify-center px-5 relative overflow-hidden"
       onClick={enter}
       style={{ cursor: "pointer" }}
     >
       <div className="auth-orb" />
-      <div className="relative text-center max-w-2xl">
+      <div className={"relative text-center max-w-2xl " + (leaving ? "intro-out" : "")} style={{ minHeight: 320 }}>
         <p className="intro-fade text-[11px] tracking-[0.35em] uppercase mb-5" style={{ color: "#7fd9f7" }}>
           {recap?.sinceLabel ? "Gone " + recap.sinceLabel : "APEX AERA"}
         </p>
@@ -92,8 +92,9 @@ export default function WelcomeBackPage() {
           Welcome back{first ? ", " + first : ""}.
         </h1>
 
+        <div className="mt-8" style={{ minHeight: 120 }}>
         {recap && (
-          <div className="intro-fade mt-8" style={{ animationDelay: "0.5s" }}>
+          <div className="intro-fade" style={{ animationDelay: "0.2s" }}>
             {lines.length > 0 ? (
               <>
                 <p className="text-[11px] tracking-[0.3em] uppercase mb-4" style={{ color: "rgba(255,255,255,0.35)" }}>Since you were here</p>
@@ -108,8 +109,9 @@ export default function WelcomeBackPage() {
             )}
           </div>
         )}
+        </div>
 
-        <div className="intro-fade mt-10" style={{ animationDelay: "1.2s" }}>
+        <div className="intro-fade mt-6" style={{ animationDelay: "1.0s" }}>
           <button onClick={(e) => { e.stopPropagation(); enter(); }} className="mkt-btn auth-primary inline-flex items-center justify-center gap-2" style={{ width: "auto", padding: "13px 28px", borderRadius: 999 }}>
             Continue <ArrowRight style={{ width: 15, height: 15 }} />
           </button>
