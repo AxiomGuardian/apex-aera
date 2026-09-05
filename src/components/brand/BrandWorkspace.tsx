@@ -8,6 +8,7 @@ import {
   ArrowLeft, Loader2, CheckCircle2, Radar, FileText, Filter, RefreshCw,
   Camera, Share2, Users, Upload, CalendarClock, Link2, Mail, Sparkles, Archive, RotateCcw,
 } from "lucide-react";
+import { DictateButton } from "@/components/voice/DictateButton";
 
 type Brand = {
   id: string; name: string; slug: string; status: string;
@@ -40,10 +41,14 @@ function SectionTitle({ children, hint }: { children: React.ReactNode; hint?: st
   );
 }
 
-function Field({ label, hint, value, onChange, placeholder, textarea }: { label: string; hint: string; value: string; onChange: (v: string) => void; placeholder: string; textarea?: boolean }) {
+function Field({ label, hint, value, onChange, placeholder, textarea, dictate }: { label: string; hint: string; value: string; onChange: (v: string) => void; placeholder: string; textarea?: boolean; dictate?: boolean }) {
+  const append = (t: string) => onChange((value.trim() ? value.trim() + " " : "") + t);
   return (
     <div>
-      <label style={{ fontSize: 13, fontWeight: 700, color: "var(--text-3)", display: "block", marginBottom: 4 }}>{label}</label>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 4 }}>
+        <label style={{ fontSize: 13, fontWeight: 700, color: "var(--text-3)", display: "block" }}>{label}</label>
+        {dictate && <DictateButton onText={append} size={30} title="Speak it instead" />}
+      </div>
       <p style={{ fontSize: 12, color: "var(--text-6)", marginBottom: 8, lineHeight: 1.5 }}>{hint}</p>
       {textarea ? (
         <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={3} className="auth-input" style={{ fontSize: 14, resize: "vertical" }} />
@@ -96,6 +101,8 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
   const [busy, setBusy] = useState<"" | "trends" | "report" | "funnel">("");
   const [engineErr, setEngineErr] = useState("");
   const [delStep, setDelStep] = useState<0 | 1 | 2>(0);
+  const [archStep, setArchStep] = useState<0 | 1>(0);
+  const [lifeBusy, setLifeBusy] = useState<"" | "archive" | "restore" | "delete">("");
   const [delErr, setDelErr] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -182,17 +189,17 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
   }
 
   async function lifecycle(action: "archive" | "restore" | "delete") {
-    setDelStep(2); setDelErr("");
+    setDelStep(2); setLifeBusy(action); setDelErr("");
     try {
       const res = await fetch("/api/agency/clients/" + action, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brandId: id }) });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) throw new Error(j.error ?? "Failed");
       if (action === "delete") { router.push("/clients"); router.refresh(); return; }
-      setDelStep(0);
+      setDelStep(0); setArchStep(0); setLifeBusy("");
       await load();
     } catch (err) {
       setDelErr(err instanceof Error ? err.message : "Failed");
-      setDelStep(0);
+      setDelStep(0); setArchStep(0); setLifeBusy("");
     }
   }
 
@@ -307,8 +314,8 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
                 Brand voice
               </SectionTitle>
               <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-                <Field label="Tone of voice" hint="How you talk. Three to five words is plenty." value={tone} onChange={setTone} placeholder="Bold, direct, a little playful. Never corporate." />
-                <Field label="Who you are talking to" hint="The person AERA should picture on the other side of the screen." value={audience} onChange={setAudience} placeholder="Gun owners 25 to 45 who take training seriously and want to get sharper." textarea />
+                <Field label="Tone of voice" hint="How you talk. Three to five words is plenty. Or tap the mic and just say it." value={tone} onChange={setTone} placeholder="Bold, direct, a little playful. Never corporate." dictate />
+                <Field label="Who you are talking to" hint="The person AERA should picture on the other side of the screen." value={audience} onChange={setAudience} placeholder="Gun owners 25 to 45 who take training seriously and want to get sharper." textarea dictate />
                 <Field label="Website" hint="AERA links here when it makes sense, and reads it for context." value={website} onChange={setWebsite} placeholder="https://" />
                 <button onClick={() => void saveProfile()} disabled={saving} className="mkt-btn dash-btn" style={{ ...btn, justifyContent: "center", padding: "13px 20px", fontSize: 14 }}>
                   {saving ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} /> : saved ? <CheckCircle2 style={{ width: 14, height: 14 }} /> : null}
@@ -502,13 +509,13 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
                 {delErr && <p style={{ fontSize: 12, color: "#fb7185", marginTop: 6 }}>{delErr}</p>}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                {delStep === 1 && (
-                  <button onClick={() => setDelStep(0)} style={{ padding: "10px 16px", borderRadius: 11, background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-3)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
+                {archStep === 1 && (
+                  <button onClick={() => setArchStep(0)} style={{ padding: "10px 16px", borderRadius: 11, background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-3)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
                 )}
-                <button onClick={() => (delStep === 0 ? setDelStep(1) : delStep === 1 ? void lifecycle("archive") : null)} disabled={delStep === 2}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px", borderRadius: 11, background: delStep === 1 ? "rgba(251,191,36,0.9)" : "rgba(251,191,36,0.10)", border: "1px solid rgba(251,191,36,0.35)", color: delStep === 1 ? "#1a1204" : "#fbbf24", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                  {delStep === 2 ? <Loader2 className="animate-spin" style={{ width: 12, height: 12 }} /> : <Archive style={{ width: 13, height: 13 }} />}
-                  {delStep === 0 ? "Archive client" : delStep === 1 ? "Yes, archive " + brand.name : "Archiving"}
+                <button onClick={() => (archStep === 0 ? setArchStep(1) : void lifecycle("archive"))} disabled={lifeBusy !== ""}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px", borderRadius: 11, background: archStep === 1 ? "rgba(251,191,36,0.9)" : "rgba(251,191,36,0.10)", border: "1px solid rgba(251,191,36,0.35)", color: archStep === 1 ? "#1a1204" : "#fbbf24", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                  {lifeBusy === "archive" ? <Loader2 className="animate-spin" style={{ width: 12, height: 12 }} /> : <Archive style={{ width: 13, height: 13 }} />}
+                  {lifeBusy === "archive" ? "Archiving" : archStep === 1 ? "Yes, archive " + brand.name : "Archive client"}
                 </button>
               </div>
             </div>
@@ -528,10 +535,10 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
                 {delStep === 1 && (
                   <button onClick={() => setDelStep(0)} style={{ padding: "10px 16px", borderRadius: 11, background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-3)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
                 )}
-                <button onClick={() => (delStep === 0 ? setDelStep(1) : delStep === 1 ? void lifecycle("delete") : null)} disabled={delStep === 2}
+                <button onClick={() => (delStep === 0 ? setDelStep(1) : delStep === 1 ? void lifecycle("delete") : null)} disabled={lifeBusy !== ""}
                   style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px", borderRadius: 11, background: delStep === 1 ? "rgba(251,113,133,0.9)" : "rgba(251,113,133,0.10)", border: "1px solid rgba(251,113,133,0.35)", color: delStep === 1 ? "#1a0509" : "#fb7185", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                  {delStep === 2 ? <Loader2 className="animate-spin" style={{ width: 12, height: 12 }} /> : null}
-                  {delStep === 0 ? "Delete permanently" : delStep === 1 ? "Yes, delete " + brand.name + " forever" : "Deleting"}
+                  {lifeBusy === "delete" ? <Loader2 className="animate-spin" style={{ width: 12, height: 12 }} /> : null}
+                  {lifeBusy === "delete" ? "Deleting" : delStep === 1 ? "Yes, delete " + brand.name + " forever" : "Delete permanently"}
                 </button>
               </div>
             </div>

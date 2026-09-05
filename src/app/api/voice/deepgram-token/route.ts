@@ -1,82 +1,52 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+
 /**
- * /api/voice/deepgram-token
- *
- * Issues a short-lived Deepgram temporary API key so DEEPGRAM_API_KEY
- * never touches the browser. The browser uses the temporary key to open
- * a WebSocket directly to Deepgram's streaming STT endpoint.
- *
- * Deepgram key-creation response shape:
- *   { api_key_id: string, key: string, comment: string, ... }
- * NOTE: "key" is a plain string — NOT an object.
+ * Speech engine: short-lived Deepgram credential for the browser.
+ * The real DEEPGRAM_API_KEY never leaves the server.
+ *   Strategy 1: 120s temporary project key (needs an admin-scoped key)
+ *   Strategy 2: 60s grant token (works with any key)
+ * Requires an APEX session so strangers cannot mint against the account.
+ * Returns { mode: "token" | "bearer", access_token } and, for the older chat hook, { key }.
  */
-
 export async function GET() {
+  const supabase = await createClient();
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+
   const apiKey = process.env.DEEPGRAM_API_KEY;
-  if (!apiKey) {
-    console.error("[Deepgram token] DEEPGRAM_API_KEY not configured");
-    return new Response("DEEPGRAM_API_KEY not configured", { status: 500 });
-  }
+  if (!apiKey) return NextResponse.json({ error: "Speech engine not configured" }, { status: 503 });
 
+  // Strategy 1: temporary project key
   try {
-    // Step 1 — get the project ID for this API key
-    const projectsRes = await fetch("https://api.deepgram.com/v1/projects", {
-      headers: { Authorization: `Token ${apiKey}` },
-    });
-
-    if (!projectsRes.ok) {
-      const text = await projectsRes.text();
-      console.error("[Deepgram token] projects fetch failed:", projectsRes.status, text);
-      // Fall back to master key — still secure (never leaves Next.js route)
-      return Response.json({ key: apiKey });
-    }
-
-    const projectsData = await projectsRes.json() as { projects?: Array<{ project_id: string }> };
-    const projectId = projectsData.projects?.[0]?.project_id;
-
-    if (!projectId) {
-      console.warn("[Deepgram token] no project found — using master key");
-      return Response.json({ key: apiKey });
-    }
-
-    // Step 2 — create a temporary key scoped to this project
-    // TTL of 60 s gives plenty of time to establish the WebSocket handshake.
-    const keyRes = await fetch(
-      `https://api.deepgram.com/v1/projects/${projectId}/keys`,
-      {
+    const pr = await fetch("https://api.deepgram.com/v1/projects", { headers: { Authorization: "Token " + apiKey } });
+    const pj = (await pr.json().catch(() => ({}))) as { projects?: { project_id: string }[] };
+    const projectId = pj.projects?.[0]?.project_id;
+    if (projectId) {
+      const kr = await fetch("https://api.deepgram.com/v1/projects/" + projectId + "/keys", {
         method: "POST",
-        headers: {
-          Authorization: `Token ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          comment: "AERA voice session",
-          scopes: ["usage:write"], // covers streaming STT
-          time_to_live_in_seconds: 60,
-        }),
-      },
-    );
-
-    if (!keyRes.ok) {
-      const text = await keyRes.text();
-      console.warn("[Deepgram token] temp key creation failed:", keyRes.status, text, "— using master key");
-      return Response.json({ key: apiKey });
+        headers: { Authorization: "Token " + apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ comment: "apex-dictation", scopes: ["usage:write"], time_to_live_in_seconds: 120 }),
+      });
+      const kd = (await kr.json().catch(() => ({}))) as { key?: string };
+      if (kr.ok && typeof kd.key === "string") {
+        return NextResponse.json({ mode: "token", access_token: kd.key, key: kd.key });
+      }
     }
+  } catch { /* fall through */ }
 
-    // BUG FIX: Deepgram returns { key: "string", api_key_id: "...", ... }
-    // "key" is a PLAIN STRING — NOT an object with .api_key property.
-    const keyData = await keyRes.json() as { key: string; api_key_id: string };
-    const tempKey = keyData.key;
-
-    if (!tempKey || typeof tempKey !== "string") {
-      console.warn("[Deepgram token] unexpected key format:", keyData, "— using master key");
-      return Response.json({ key: apiKey });
+  // Strategy 2: grant token
+  try {
+    const g = await fetch("https://api.deepgram.com/v1/auth/grant", {
+      method: "POST",
+      headers: { Authorization: "Token " + apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ ttl_seconds: 60 }),
+    });
+    const gd = (await g.json().catch(() => ({}))) as { access_token?: string; expires_in?: number };
+    if (g.ok && gd.access_token) {
+      return NextResponse.json({ mode: "bearer", access_token: gd.access_token, key: gd.access_token, expires_in: gd.expires_in });
     }
+  } catch { /* fall through */ }
 
-    console.log("[Deepgram token] issued temp key, expires in 60s");
-    return Response.json({ key: tempKey });
-
-  } catch (err) {
-    console.error("[Deepgram token] unexpected error:", err, "— using master key");
-    return Response.json({ key: apiKey });
-  }
+  return NextResponse.json({ error: "Could not mint a speech credential" }, { status: 500 });
 }

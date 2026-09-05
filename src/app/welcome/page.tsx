@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2, ArrowRight } from "lucide-react";
@@ -40,6 +40,7 @@ export default function WelcomePage() {
   const [error, setError] = useState("");
 
   const strength = scorePassword(password);
+  const tokensRef = useRef<{ access_token: string; refresh_token: string } | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -53,10 +54,13 @@ export default function WelcomePage() {
 
       try {
         if (accessToken && refreshToken) {
+          tokensRef.current = { access_token: accessToken, refresh_token: refreshToken };
+          // Strip the hash first so no other client on the page tries to interpret it
+          window.history.replaceState(null, "", window.location.pathname);
+          await new Promise((r) => setTimeout(r, 350));
           await supabase.auth.signOut({ scope: "local" });
           const { data, error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
           if (error || !data.user) throw error ?? new Error("no user");
-          window.history.replaceState(null, "", window.location.pathname);
           setWho(data.user.email ?? "");
           setReady("ok");
           return;
@@ -90,6 +94,22 @@ export default function WelcomePage() {
     setSaving(true);
     setError("");
     const supabase = createClient();
+    // Re-establish the invite session right before writing, in case anything on the page cleared it
+    if (tokensRef.current) {
+      const { error: sessErr } = await supabase.auth.setSession(tokensRef.current);
+      if (sessErr) {
+        setError("This link has expired. Ask your APEX contact to resend the invite.");
+        setSaving(false);
+        return;
+      }
+    } else {
+      const { data: check } = await supabase.auth.getUser();
+      if (!check.user) {
+        setError("This link has expired. Ask your APEX contact to resend the invite.");
+        setSaving(false);
+        return;
+      }
+    }
     const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
     const { error: err } = await supabase.auth.updateUser({ password, data: { full_name: fullName } });
     if (err) {

@@ -12,6 +12,7 @@ import { PagePad } from "@/components/layout/PagePad";
 import {
   Upload, FileText, CheckCircle2, Loader2, AlertCircle, Video, Image as ImageIcon, Trash2,
 } from "lucide-react";
+import { DictateButton } from "@/components/voice/DictateButton";
 
 type Brand = { id: string; name: string };
 
@@ -437,13 +438,17 @@ export default function ContentPage() {
           />
         </div>
 
-        {/* What's in it — feeds AERA's analysis + captions */}
-        <input
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Optional: describe what's in the content — e.g. 'precision drills at the range, slow-mo finish' (makes AERA's captions dramatically better, especially for video)"
-          style={{ width: "100%", padding: "13px 16px", borderRadius: 12, background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)", fontSize: 13, outline: "none", boxSizing: "border-box", marginTop: -14 }}
-        />
+        {/* What's in it. Feeds AERA's analysis + captions. Type it or say it. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: -14 }}>
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Optional: describe what is in the content, e.g. 'precision drills at the range, slow-mo finish'. Makes AERA's captions sharper, especially for video."
+            className="auth-input"
+            style={{ fontSize: 13.5 }}
+          />
+          <DictateButton onText={(t) => setNote((v) => (v.trim() ? v.trim() + " " : "") + t)} size={42} title="Describe it out loud" />
+        </div>
 
         {error && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 10, background: "rgba(251,113,133,0.07)", border: "1px solid rgba(251,113,133,0.18)" }}>
