@@ -149,7 +149,7 @@ export function TopNav() {
 
                 {/* Label */}
                 <span
-                  className="relative z-10 text-[11px] font-semibold tracking-[0.025em] transition-all duration-300 whitespace-nowrap"
+                  className="relative z-10 text-[12.5px] font-semibold tracking-[0.02em] transition-all duration-300 whitespace-nowrap"
                   style={{ color: active ? "var(--text)" : "var(--text-4)" }}
                 >
                   {item.label}
@@ -241,8 +241,8 @@ export function TopNav() {
                 <span className="text-[9px] font-bold" style={{ color: "var(--text-4)" }}>{initials}</span>
               </div>
               <div className="flex flex-col leading-none">
-                <span className="text-[12px] font-semibold" style={{ color: "var(--text)" }}>{userName}</span>
-                <span className="text-[9px] mt-0.5" style={{ color: "var(--text-5)" }}>{tierLabel}</span>
+                <span className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>{userName}</span>
+                <span className="text-[10px] mt-0.5" style={{ color: "var(--text-5)" }}>{tierLabel}</span>
               </div>
               <div className="h-2 w-2 rounded-full bg-[#2DD4FF]" style={{ boxShadow: "0 0 6px rgba(45,212,255,0.60)" }} />
               <ChevronDown className="h-3 w-3 ml-0.5 transition-transform duration-200" style={{ color: "var(--text-5)", transform: menuOpen ? "rotate(180deg)" : "rotate(0deg)" }} />

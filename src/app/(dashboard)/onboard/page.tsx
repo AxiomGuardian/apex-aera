@@ -107,7 +107,7 @@ export default function OnboardPage() {
           <h2 style={{ fontSize: "clamp(26px,4vw,32px)", fontWeight: 800, letterSpacing: "-0.045em", color: "var(--text)", lineHeight: 1 }}>
             Onboard
           </h2>
-          <p style={{ fontSize: 14, color: "var(--text-5)", marginTop: 12, lineHeight: 1.6, maxWidth: 480 }}>
+          <p style={{ fontSize: 15, color: "var(--text-4)", marginTop: 12, lineHeight: 1.6, maxWidth: 480 }}>
             Create a client workspace and send the invite. They get an email link, set their name and password, and land inside their own portal, already connected to their brand.
           </p>
         </div>

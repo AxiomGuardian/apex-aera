@@ -75,27 +75,28 @@
   --surface-3:   #e2e2e6;
   --surface-4:   #d6d6db;
 
-  /* Soft charcoal — high legibility without harsh near-black */
-  --text:        #1e1e24;
-  --text-2:      #2e2e38;
-  --text-3:      #48485a;
-  --text-4:      #6a6a7c;
-  --text-5:      #8e8e9e;
-  --text-6:      #aeaebb;
+  /* Ink on paper. The scale stays dark all the way down so
+     secondary text reads as quiet, never as disabled. */
+  --text:        #0e0f13;
+  --text-2:      #17181d;
+  --text-3:      #262830;
+  --text-4:      #3b3e49;
+  --text-5:      #555968;
+  --text-6:      #7c8090;
 
-  --silver:      #707082;
-  --silver-2:    #9898a8;
-  --silver-dim:  rgba(112,112,130,0.45);
+  --silver:      #4a4d5a;
+  --silver-2:    #6e7282;
+  --silver-dim:  rgba(74,77,90,0.5);
 
-  --border:      rgba(0, 0, 0, 0.07);
-  --border-mid:  rgba(0, 0, 0, 0.12);
-  --border-high: rgba(0, 0, 0, 0.20);
+  --border:      rgba(14, 15, 19, 0.10);
+  --border-mid:  rgba(14, 15, 19, 0.17);
+  --border-high: rgba(14, 15, 19, 0.28);
 
   --nav-bg:      #f6f6f8;
   --nav-border:  rgba(0, 0, 0, 0.065);
 
-  --icon-rest:   #9898a8;
-  --icon-hover:  #1e1e24;
+  --icon-rest:   #555968;
+  --icon-hover:  #0e0f13;
 
   --hover-fill:      rgba(0, 0, 0, 0.035);
   --hover-fill-cyan: rgba(45, 212, 255, 0.05);
@@ -426,8 +427,8 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--text-5);
@@ -1225,8 +1226,10 @@ body {
   --card-shadow-hover: 0 18px 44px rgba(20, 24, 36, 0.11), 0 0 40px rgba(11, 143, 184, 0.06);
   --card-shadow-quiet: 0 10px 28px rgba(20, 24, 36, 0.08);
   --grid-line:         rgba(20, 24, 36, 0.045);
-  --num-gradient:      linear-gradient(180deg, #1e1e24 0%, #0b8fb8 100%);
+  --num-gradient:      linear-gradient(180deg, #0e0f13 0%, #0b8fb8 100%);
 }
+.light .section-label { color: var(--text-4); }
+.light ::placeholder { color: var(--text-5); }
 .light .dash-bg {
   background-image:
     radial-gradient(ellipse 60% 38% at 50% -6%, rgba(11, 143, 184, 0.07), transparent 62%),

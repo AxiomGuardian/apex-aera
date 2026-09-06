@@ -134,7 +134,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-5 gap-2">
             {PIPELINE_STEPS.map((step, i) => (
               <div key={step} style={{ textAlign: "center", position: "relative" }}>
-                <div className={(pipeline[step] ?? 0) > 0 ? "dash-num" : ""} style={{ fontSize: "clamp(22px,3vw,30px)", fontWeight: 800, letterSpacing: "-0.04em", color: (pipeline[step] ?? 0) > 0 ? "var(--text)" : "var(--text-6)" }}>
+                <div className={(pipeline[step] ?? 0) > 0 ? "dash-num" : ""} style={{ fontSize: "clamp(22px,3vw,30px)", fontWeight: 800, letterSpacing: "-0.04em", color: (pipeline[step] ?? 0) > 0 ? "var(--text)" : "var(--text-5)" }}>
                   {pipeline[step] ?? 0}
                 </div>
                 <div style={{ fontSize: 9.5, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-6)", marginTop: 6 }}>{step}</div>

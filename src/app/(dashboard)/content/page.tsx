@@ -371,7 +371,7 @@ export default function ContentPage() {
             <h2 style={{ fontSize: "clamp(26px,4vw,32px)", fontWeight: 800, letterSpacing: "-0.045em", color: "var(--text)", lineHeight: 1 }}>
               Content
             </h2>
-            <p style={{ fontSize: 14, color: "var(--text-5)", marginTop: 12, lineHeight: 1.6, maxWidth: 460 }}>
+            <p style={{ fontSize: 15, color: "var(--text-4)", marginTop: 12, lineHeight: 1.6, maxWidth: 460 }}>
               Upload finished videos and images. AERA analyzes each piece and recommends where and when to publish it.
             </p>
           </div>

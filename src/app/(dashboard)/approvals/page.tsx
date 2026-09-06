@@ -75,7 +75,7 @@ export default function ApprovalsPage() {
           <h2 style={{ fontSize: "clamp(26px,4vw,32px)", fontWeight: 800, letterSpacing: "-0.045em", color: "var(--text)", lineHeight: 1 }}>
             Queue
           </h2>
-          <p style={{ fontSize: 14, color: "var(--text-5)", marginTop: 12, lineHeight: 1.6, maxWidth: 480 }}>
+          <p style={{ fontSize: 15, color: "var(--text-4)", marginTop: 12, lineHeight: 1.6, maxWidth: 480 }}>
             Everything queued to go out, in one place. Autopilot schedules and publishes on its own — this is where you watch it happen and step in if you ever want to pause, pull, or reprioritize something before it fires.
           </p>
         </div>
