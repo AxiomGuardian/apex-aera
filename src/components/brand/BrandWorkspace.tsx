@@ -152,6 +152,40 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
 
   useEffect(() => { void load(); }, [load]);
 
+  // Result of an OAuth round trip (?instagram=connected&account=@x, ?meta=failed&reason=...)
+  const [notice, setNotice] = useState<{ tone: "ok" | "bad"; text: string } | null>(null);
+  const [dropBusy, setDropBusy] = useState("");
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const which = q.has("instagram") ? "instagram" : q.has("meta") ? "meta" : null;
+    if (!which) return;
+    const r = q.get(which) ?? "";
+    const account = q.get("account");
+    const reason = q.get("reason");
+    const label = which === "instagram" ? "Instagram" : "Facebook";
+    const text =
+      r === "connected" ? label + " connected" + (account ? " as " + account : "") + ". AERA can publish here now." :
+      r === "connected_fb_only" ? "Facebook Page connected" + (account ? " (" + account + ")" : "") + ". No Instagram business account is linked to that Page." :
+      r === "denied" ? "You cancelled the " + label + " connection. Nothing changed." :
+      r === "state_mismatch" ? "That " + label + " sign-in link expired. Try Connect again." :
+      r === "no_access" ? "You do not have access to that workspace." :
+      r === "not_configured" ? label + " is not configured on the server yet." :
+      label + " connection failed" + (reason ? ": " + reason : ".") ;
+    setNotice({ tone: r.startsWith("connected") ? "ok" : "bad", text });
+    window.history.replaceState({}, "", window.location.pathname);
+    const t = setTimeout(() => setNotice(null), 9000);
+    return () => clearTimeout(t);
+  }, []);
+
+  async function disconnect(platform: string) {
+    if (!confirm("Disconnect " + platform + "? AERA will stop publishing there until it is reconnected.")) return;
+    setDropBusy(platform);
+    const res = await fetch("/api/aera/connect/disconnect", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brandId: id, platform }) });
+    setDropBusy("");
+    if (res.ok) { setNotice({ tone: "ok", text: platform[0].toUpperCase() + platform.slice(1) + " disconnected." }); void load(); }
+    else setNotice({ tone: "bad", text: "Could not disconnect. Try again." });
+  }
+
   async function readVoice() {
     setVoiceBusy("read"); setVoiceErr("");
     try {
@@ -258,6 +292,14 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
   return (
     <PagePad>
       <div className="flex flex-col gap-8 opacity-0 animate-fade-in-up" style={{ animationFillMode: "forwards" }}>
+
+        {notice && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, fontSize: 13.5, fontWeight: 600, color: notice.tone === "ok" ? "var(--green)" : "var(--rose)", background: notice.tone === "ok" ? "rgba(52,211,153,0.08)" : "rgba(251,113,133,0.08)", border: "1px solid " + (notice.tone === "ok" ? "rgba(52,211,153,0.28)" : "rgba(251,113,133,0.28)") }}>
+            {notice.tone === "ok" ? <CheckCircle2 style={{ width: 15, height: 15, flexShrink: 0 }} /> : <Link2 style={{ width: 15, height: 15, flexShrink: 0 }} />}
+            <span style={{ flex: 1 }}>{notice.text}</span>
+            <button onClick={() => setNotice(null)} style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: 12, opacity: 0.7 }}>Dismiss</button>
+          </div>
+        )}
 
         {/* ── Header ── */}
         <div>
@@ -418,9 +460,14 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text-2)" }}>{p.label}</p>
                         <p style={{ fontSize: 12, color: ok ? "var(--green)" : expired ? "var(--amber)" : "var(--text-6)", marginTop: 2 }}>
-                          {ok ? "Connected " + (p.conn?.account_name ?? "") : expired ? "Expired. Reconnect." : "Not connected"}
+                          {ok ? "Connected as " + (p.conn?.account_name ?? "unknown account") : expired ? "Token expired. Reconnect." : "Not connected"}
                         </p>
                       </div>
+                      {ok && (
+                        <button onClick={() => void disconnect(p.key)} disabled={dropBusy === p.key} title="Disconnect" style={{ background: "none", border: "none", color: "var(--text-5)", fontSize: 12, cursor: "pointer", padding: "6px 4px" }}>
+                          {dropBusy === p.key ? "…" : "Disconnect"}
+                        </button>
+                      )}
                       <a href={p.href} className="mkt-btn dash-btn" style={{ ...btn, padding: "8px 13px", fontSize: 12, textDecoration: "none" }}>
                         {ok ? "Reconnect" : "Connect"}
                       </a>

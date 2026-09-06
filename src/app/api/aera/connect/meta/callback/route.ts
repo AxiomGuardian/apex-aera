@@ -1,6 +1,5 @@
-import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
+import { connectContext } from "@/lib/connect/finish";
 
 /**
  * Meta connect — step 2. Exchanges the code, finds the user's Facebook Page
@@ -18,20 +17,17 @@ export async function GET(request: Request) {
   const denied = url.searchParams.get("error");
 
   const [nonce, brandId] = state.split(":");
-  const back = (q: string) =>
-    NextResponse.redirect(origin + "/clients/" + (brandId ?? "") + "?meta=" + q);
+  const ctx = await connectContext(origin, brandId || undefined, "meta");
+  if ("redirect" in ctx && ctx.redirect) return ctx.redirect;
+  const { admin, back, user } = ctx as Required<typeof ctx>;
 
   if (denied) return back("denied");
-  if (!code || !nonce || !brandId) return back("invalid");
+  if (!code || !nonce) return back("invalid");
 
   const jar = await cookies();
   const saved = jar.get("apex_meta_state")?.value;
   jar.set("apex_meta_state", "", { maxAge: 0, path: "/" });
   if (!saved || saved !== nonce) return back("state_mismatch");
-
-  const supabase = await createClient();
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return NextResponse.redirect(origin + "/login");
 
   const appId = process.env.META_APP_ID!;
   const appSecret = process.env.META_APP_SECRET!;
@@ -79,11 +75,11 @@ export async function GET(request: Request) {
       page_name: page.name,
       ig_user_id: ig?.id ?? null,
       ig_username: ig?.username ?? null,
-      connected_by: u.user.id,
+      connected_by: user.id,
     };
 
     // Upsert Facebook connection
-    await supabase.from("platform_connections").upsert(
+    const { error: fbErr } = await admin.from("platform_connections").upsert(
       {
         brand_id: brandId,
         platform: "facebook",
@@ -95,10 +91,11 @@ export async function GET(request: Request) {
       },
       { onConflict: "brand_id,platform" }
     );
+    if (fbErr) throw new Error("save: " + fbErr.message);
 
     // Upsert Instagram connection when a business account is linked
     if (ig) {
-      await supabase.from("platform_connections").upsert(
+      const { error: igErr } = await admin.from("platform_connections").upsert(
         {
           brand_id: brandId,
           platform: "instagram",
@@ -110,11 +107,13 @@ export async function GET(request: Request) {
         },
         { onConflict: "brand_id,platform" }
       );
+      if (igErr) throw new Error("save: " + igErr.message);
     }
 
-    return back(ig ? "connected" : "connected_fb_only");
+    return back(ig ? "connected" : "connected_fb_only", { account: page.name + (ig ? " + @" + ig.username : "") });
   } catch (e) {
-    console.error("[Meta Connect]", e);
-    return back("failed");
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[Meta Connect]", msg);
+    return back("failed", { reason: msg.slice(0, 160) });
   }
 }

@@ -1,6 +1,5 @@
-import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
+import { connectContext } from "@/lib/connect/finish";
 
 /**
  * Instagram connect — step 2. Exchanges the code for a long-lived token,
@@ -18,23 +17,21 @@ export async function GET(request: Request) {
   const denied = url.searchParams.get("error");
 
   const [nonce, brandId] = state.split(":");
-  const back = (q: string) =>
-    NextResponse.redirect(origin + "/clients/" + (brandId ?? "") + "?instagram=" + q);
+  const ctx = await connectContext(origin, brandId || undefined, "instagram");
+  if ("redirect" in ctx && ctx.redirect) return ctx.redirect;
+  const { admin, back, user } = ctx as Required<typeof ctx>;
 
   if (denied) return back("denied");
-  if (!code || !nonce || !brandId) return back("invalid");
+  if (!code || !nonce) return back("invalid");
 
   const jar = await cookies();
   const saved = jar.get("apex_ig_state")?.value;
   jar.set("apex_ig_state", "", { maxAge: 0, path: "/" });
   if (!saved || saved !== nonce) return back("state_mismatch");
 
-  const supabase = await createClient();
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return NextResponse.redirect(origin + "/login");
-
-  const appId = process.env.INSTAGRAM_APP_ID!;
-  const appSecret = process.env.INSTAGRAM_APP_SECRET!;
+  const appId = process.env.INSTAGRAM_APP_ID;
+  const appSecret = process.env.INSTAGRAM_APP_SECRET;
+  if (!appId || !appSecret) return back("not_configured");
   const redirectUri = origin + "/api/aera/connect/instagram/callback";
 
   try {
@@ -47,8 +44,8 @@ export async function GET(request: Request) {
       code: code.replace(/#_$/, ""),
     });
     const t1 = await fetch("https://api.instagram.com/oauth/access_token", { method: "POST", body: form });
-    const j1 = (await t1.json()) as { access_token?: string; user_id?: string; error_message?: string };
-    if (!j1.access_token) throw new Error(j1.error_message ?? "Token exchange failed");
+    const j1 = (await t1.json()) as { access_token?: string; user_id?: string; error_message?: string; error?: { message?: string } };
+    if (!j1.access_token) throw new Error("token: " + (j1.error_message ?? j1.error?.message ?? "exchange failed"));
 
     // Short-lived -> long-lived (~60 days, refreshable)
     const t2 = await fetch(
@@ -63,16 +60,17 @@ export async function GET(request: Request) {
     const me = await fetch(
       IG_GRAPH + "/v21.0/me?fields=id,user_id,username,account_type&access_token=" + encodeURIComponent(token)
     );
-    const mj = (await me.json()) as { id?: string; user_id?: string; username?: string; account_type?: string };
+    const mj = (await me.json()) as { id?: string; user_id?: string; username?: string; account_type?: string; error?: { message?: string } };
     const igUserId = mj.user_id ?? mj.id;
-    if (!igUserId) throw new Error("Could not read the Instagram account");
+    if (!igUserId) throw new Error("profile: " + (mj.error?.message ?? "could not read the Instagram account"));
 
-    await supabase.from("platform_connections").upsert(
+    const account = "@" + (mj.username ?? igUserId);
+    const { error } = await admin.from("platform_connections").upsert(
       {
         brand_id: brandId,
         platform: "instagram",
         status: "connected",
-        account_name: "@" + (mj.username ?? igUserId),
+        account_name: account,
         credentials: {
           kind: "instagram_login",
           ig_user_id: igUserId,
@@ -80,17 +78,19 @@ export async function GET(request: Request) {
           account_type: mj.account_type ?? null,
           access_token: token,
           expires_at: expiresAt,
-          connected_by: u.user.id,
+          connected_by: user.id,
         },
         connected_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
       { onConflict: "brand_id,platform" }
     );
+    if (error) throw new Error("save: " + error.message);
 
-    return back("connected");
+    return back("connected", { account });
   } catch (e) {
-    console.error("[Instagram Connect]", e);
-    return back("failed");
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[Instagram Connect]", msg);
+    return back("failed", { reason: msg.slice(0, 160) });
   }
 }
