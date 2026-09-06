@@ -67,13 +67,13 @@
   color-scheme: light;
 
   /* Warm paper tone — not stark white, not grey cement */
-  --bg:          #f3f3f5;
-  --bg-deep:     #eaeaed;
-  --bg-raised:   #f8f8fa;
-  --surface:     #f9f9fb;
-  --surface-2:   #ededf0;
-  --surface-3:   #e2e2e6;
-  --surface-4:   #d6d6db;
+  --bg:          #eef0f3;
+  --bg-deep:     #e6e8ec;
+  --bg-raised:   #f7f8fa;
+  --surface:     #ffffff;
+  --surface-2:   #f1f2f5;
+  --surface-3:   #e3e5ea;
+  --surface-4:   #d3d6dd;
 
   /* Ink on paper. The scale stays dark all the way down so
      secondary text reads as quiet, never as disabled. */
@@ -92,7 +92,7 @@
   --border-mid:  rgba(14, 15, 19, 0.17);
   --border-high: rgba(14, 15, 19, 0.28);
 
-  --nav-bg:      #f6f6f8;
+  --nav-bg:      #f9fafb;
   --nav-border:  rgba(0, 0, 0, 0.065);
 
   --icon-rest:   #555968;
@@ -1220,12 +1220,12 @@ body {
 }
 /* Light mode: cards become paper on paper, not slate on paper */
 .light {
-  --card-bg:           rgba(255, 255, 255, 0.78);
-  --card-bg-hover:     rgba(255, 255, 255, 0.96);
-  --card-shadow:       0 1px 2px rgba(20, 24, 36, 0.05), 0 6px 22px rgba(20, 24, 36, 0.05);
-  --card-shadow-hover: 0 18px 44px rgba(20, 24, 36, 0.11), 0 0 40px rgba(11, 143, 184, 0.06);
-  --card-shadow-quiet: 0 10px 28px rgba(20, 24, 36, 0.08);
-  --grid-line:         rgba(20, 24, 36, 0.045);
+  --card-bg:           #ffffff;
+  --card-bg-hover:     #ffffff;
+  --card-shadow:       0 1px 2px rgba(20, 24, 36, 0.06), 0 8px 28px rgba(20, 24, 36, 0.07);
+  --card-shadow-hover: 0 20px 48px rgba(20, 24, 36, 0.13), 0 0 40px rgba(11, 143, 184, 0.06);
+  --card-shadow-quiet: 0 12px 32px rgba(20, 24, 36, 0.10);
+  --grid-line:         transparent;
   --num-gradient:      linear-gradient(180deg, #0e0f13 0%, #0b8fb8 100%);
 }
 .light .section-label { color: var(--text-4); }
@@ -1237,7 +1237,22 @@ body {
     linear-gradient(var(--grid-line) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
 }
+.light .mkt-card { border-color: rgba(14, 15, 19, 0.08); }
 .light .mkt-card::before { opacity: 0.6; }
+/* Buttons: tint from their own text color so cyan and green both firm up */
+.light .dash-btn:not(:disabled) {
+  background: color-mix(in srgb, currentColor 11%, #ffffff) !important;
+  border-color: color-mix(in srgb, currentColor 42%, transparent) !important;
+}
+.light .dash-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, currentColor 16%, #ffffff) !important;
+}
+.light .auth-mark {
+  background: radial-gradient(circle, rgba(11, 143, 184, 0.14) 0%, #ffffff 100%);
+  border-color: rgba(11, 143, 184, 0.45);
+  box-shadow: 0 0 28px rgba(11, 143, 184, 0.14);
+}
+.light .dash-chip { background: rgba(11, 143, 184, 0.10); }
 .light .mkt-card::after {
   background: conic-gradient(from var(--mkt-angle),
     transparent 0deg, transparent 300deg,
