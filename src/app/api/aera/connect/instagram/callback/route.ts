@@ -60,9 +60,14 @@ export async function GET(request: Request) {
     const me = await fetch(
       IG_GRAPH + "/v21.0/me?fields=id,user_id,username,account_type&access_token=" + encodeURIComponent(token)
     );
-    const mj = (await me.json()) as { id?: string; user_id?: string; username?: string; account_type?: string; error?: { message?: string } };
+    type MetaErr = { message?: string; type?: string; code?: number; error_subcode?: number; error_user_title?: string; error_user_msg?: string; fbtrace_id?: string };
+    const mj = (await me.json()) as { id?: string; user_id?: string; username?: string; account_type?: string; error?: MetaErr };
     const igUserId = mj.user_id ?? mj.id;
-    if (!igUserId) throw new Error("profile: " + (mj.error?.message ?? "could not read the Instagram account"));
+    if (!igUserId) {
+      const e = mj.error ?? {};
+      const detail = [e.message, e.code != null ? "code " + e.code : null, e.error_subcode != null ? "sub " + e.error_subcode : null, e.error_user_msg, e.fbtrace_id ? "trace " + e.fbtrace_id : null].filter(Boolean).join(" | ");
+      throw new Error("profile: " + (detail || "could not read the Instagram account"));
+    }
 
     const account = "@" + (mj.username ?? igUserId);
     const { error } = await admin.from("platform_connections").upsert(
@@ -91,6 +96,6 @@ export async function GET(request: Request) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[Instagram Connect]", msg);
-    return back("failed", { reason: msg.slice(0, 160) });
+    return back("failed", { reason: msg.slice(0, 300) });
   }
 }
