@@ -118,7 +118,7 @@ export default function DashboardPage() {
               onClick={() => void runHeartbeat()}
               disabled={hbBusy}
               className="dash-btn"
-              style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", borderRadius: 10, background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.22)", color: "#34D399", fontSize: 12.5, fontWeight: 700, cursor: hbBusy ? "default" : "pointer" }}
+              style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", borderRadius: 10, background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.22)", color: "var(--green)", fontSize: 12.5, fontWeight: 700, cursor: hbBusy ? "default" : "pointer" }}
             >
               {hbBusy ? "Heartbeat running…" : "Run heartbeat"}
             </button>
@@ -157,7 +157,7 @@ export default function DashboardPage() {
               <p style={{ padding: 26, fontSize: 13, color: "var(--text-6)", textAlign: "center" }}>No clients yet. Onboard your first.</p>
             ) : brands.slice(0, 6).map((b, i) => (
               <div key={b.id} className="dash-row" onClick={() => router.push(`/clients/${b.id}`)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 24px", cursor: "pointer", borderBottom: i < Math.min(brands.length, 6) - 1 ? "1px solid var(--border)" : "none" }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: b.status === "active" ? "#34D399" : "var(--text-6)" }} />
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: b.status === "active" ? "var(--green)" : "var(--text-6)" }} />
                 <p style={{ flex: 1, fontSize: 13.5, color: "var(--text-2)" }}>{b.name}</p>
                 <span style={{ fontSize: 11, color: "var(--text-6)" }}>{new Date(b.created_at).toLocaleDateString()}</span>
               </div>
@@ -173,7 +173,7 @@ export default function DashboardPage() {
               <p style={{ padding: 26, fontSize: 13, color: "var(--text-6)", textAlign: "center" }}>All clear. Nothing waiting on you.</p>
             ) : needsAttention.map((n, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 22px", borderBottom: i < needsAttention.length - 1 ? "1px solid var(--border)" : "none" }}>
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#F59E0B", flexShrink: 0 }} />
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--amber)", flexShrink: 0 }} />
                 <p style={{ fontSize: 12.5, color: "var(--text-3)", lineHeight: 1.5 }}>{n}</p>
               </div>
             ))}

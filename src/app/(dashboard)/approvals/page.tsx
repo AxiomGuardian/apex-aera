@@ -93,16 +93,16 @@ export default function ApprovalsPage() {
             </p>
           ) : posts.map((p, i) => (
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "15px 24px", borderBottom: i < posts.length - 1 ? "1px solid var(--border)" : "none" }}>
-              <Clock style={{ width: 14, height: 14, color: "#F59E0B", flexShrink: 0 }} strokeWidth={1.6} />
+              <Clock style={{ width: 14, height: 14, color: "var(--amber)", flexShrink: 0 }} strokeWidth={1.6} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontSize: 13, color: "var(--text-2)" }}>{p.content_assets?.title ?? "Untitled"} → <span style={{ textTransform: "capitalize" }}>{p.platform.replace("_", " ")}</span></p>
                 <p style={{ fontSize: 11, color: "var(--text-6)", marginTop: 3 }}>{p.brands?.name} · {fmtMST(p.scheduled_at)}</p>
               </div>
-              <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 20, color: p.status === "proposed" ? "#F59E0B" : "#34D399", background: p.status === "proposed" ? "rgba(245,158,11,0.08)" : "rgba(52,211,153,0.08)", border: `1px solid ${p.status === "proposed" ? "rgba(245,158,11,0.2)" : "rgba(52,211,153,0.2)"}` }}>
+              <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 20, color: p.status === "proposed" ? "var(--amber)" : "var(--green)", background: p.status === "proposed" ? "rgba(245,158,11,0.08)" : "rgba(52,211,153,0.08)", border: `1px solid ${p.status === "proposed" ? "rgba(245,158,11,0.2)" : "rgba(52,211,153,0.2)"}` }}>
                 {p.status === "proposed" ? "Needs yes" : "Autopilot"}
               </span>
               {p.status === "proposed" && (
-                <button onClick={() => void act(p.id, "approved")} disabled={acting === p.id} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: 9, background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.25)", color: "#34D399", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>
+                <button onClick={() => void act(p.id, "approved")} disabled={acting === p.id} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: 9, background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.25)", color: "var(--green)", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>
                   <CheckCircle2 style={{ width: 12, height: 12 }} /> Approve
                 </button>
               )}

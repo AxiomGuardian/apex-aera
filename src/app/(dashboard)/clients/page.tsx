@@ -96,7 +96,7 @@ export default function ClientsPage() {
             <button type="submit" disabled={addBusy} className="mkt-btn dash-btn" style={{ padding: "11px 16px", borderRadius: 10, background: "rgba(45,212,255,0.12)", border: "1px solid rgba(45,212,255,0.28)", color: "var(--cyan)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
               {addBusy ? "Creating" : "Create"}
             </button>
-            {addErr && <span style={{ fontSize: 11.5, color: "#fb7185" }}>{addErr}</span>}
+            {addErr && <span style={{ fontSize: 11.5, color: "var(--rose)" }}>{addErr}</span>}
           </form>
         )}
 
@@ -132,7 +132,7 @@ export default function ClientsPage() {
                   <span style={{ fontSize: 11.5, color: "var(--text-5)" }}>
                     <span style={{ color: "var(--text-2)", fontWeight: 700 }}>{b.brand_members?.[0]?.count ?? 0}</span> members
                   </span>
-                  <span style={{ marginLeft: "auto", fontSize: 9.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 20, color: b.status === "active" ? "#34D399" : "var(--text-5)", background: b.status === "active" ? "rgba(52,211,153,0.08)" : "var(--surface-2)", border: `1px solid ${b.status === "active" ? "rgba(52,211,153,0.2)" : "var(--border)"}` }}>
+                  <span style={{ marginLeft: "auto", fontSize: 9.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 20, color: b.status === "active" ? "var(--green)" : "var(--text-5)", background: b.status === "active" ? "rgba(52,211,153,0.08)" : "var(--surface-2)", border: `1px solid ${b.status === "active" ? "rgba(52,211,153,0.2)" : "var(--border)"}` }}>
                     {b.status}
                   </span>
                 </div>
@@ -148,7 +148,7 @@ export default function ClientsPage() {
               {brands.filter((b) => b.status === "archived").map((b) => (
                 <div key={b.id} onClick={() => router.push(`/clients/${b.id}`)} className="mkt-card mkt-quiet" style={{ padding: "18px 20px", cursor: "pointer", opacity: 0.75 }}>
                   <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text-3)" }}>{b.name}</p>
-                  <p style={{ fontSize: 11.5, color: "#fbbf24", marginTop: 4 }}>Archived. Open to restore.</p>
+                  <p style={{ fontSize: 11.5, color: "var(--amber)", marginTop: 4 }}>Archived. Open to restore.</p>
                 </div>
               ))}
             </div>

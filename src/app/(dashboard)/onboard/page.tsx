@@ -132,7 +132,7 @@ export default function OnboardPage() {
                       textAlign: "left", padding: "14px 14px 13px", borderRadius: 12, cursor: "pointer",
                       background: on ? "rgba(45,212,255,0.08)" : "var(--surface-2)",
                       border: "1px solid " + (on ? "rgba(45,212,255,0.45)" : "var(--border)"),
-                      boxShadow: on ? "0 0 0 3px rgba(45,212,255,0.08), 0 10px 30px rgba(0,0,0,0.25)" : "none",
+                      boxShadow: on ? "var(--shadow-cyan)" : "none",
                       transition: "all 0.25s ease",
                     }}
                   >
@@ -169,14 +169,14 @@ export default function OnboardPage() {
 
           {error && (
             <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "10px 12px", borderRadius: 9, background: "rgba(251,113,133,0.07)", border: "1px solid rgba(251,113,133,0.18)" }}>
-              <AlertCircle style={{ width: 14, height: 14, color: "#fb7185", flexShrink: 0 }} />
-              <p style={{ fontSize: 12, color: "#fb7185" }}>{error}</p>
+              <AlertCircle style={{ width: 14, height: 14, color: "var(--rose)", flexShrink: 0 }} />
+              <p style={{ fontSize: 12, color: "var(--rose)" }}>{error}</p>
             </div>
           )}
           {done && (
             <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "10px 12px", borderRadius: 9, background: "rgba(52,211,153,0.07)", border: "1px solid rgba(52,211,153,0.2)" }}>
-              <CheckCircle2 style={{ width: 14, height: 14, color: "#34D399", flexShrink: 0 }} />
-              <p style={{ fontSize: 12, color: "#34D399" }}>{done}</p>
+              <CheckCircle2 style={{ width: 14, height: 14, color: "var(--green)", flexShrink: 0 }} />
+              <p style={{ fontSize: 12, color: "var(--green)" }}>{done}</p>
             </div>
           )}
 
@@ -229,7 +229,7 @@ export default function OnboardPage() {
                       {rowBusy === inv.id + "resend" ? <Loader2 className="animate-spin" style={{ width: 11, height: 11 }} /> : <RefreshCw style={{ width: 11, height: 11 }} />}
                       Resend
                     </button>
-                    <button onClick={() => { if (confirm("Delete this invite? If they never finished setup, their placeholder account is removed too.")) void inviteAction(inv.id, "delete"); }} disabled={rowBusy !== ""} title="Delete invite" style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 9px", borderRadius: 8, background: "rgba(251,113,133,0.06)", border: "1px solid rgba(251,113,133,0.22)", color: "#fb7185", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                    <button onClick={() => { if (confirm("Delete this invite? If they never finished setup, their placeholder account is removed too.")) void inviteAction(inv.id, "delete"); }} disabled={rowBusy !== ""} title="Delete invite" style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 9px", borderRadius: 8, background: "rgba(251,113,133,0.06)", border: "1px solid rgba(251,113,133,0.22)", color: "var(--rose)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
                       {rowBusy === inv.id + "delete" ? <Loader2 className="animate-spin" style={{ width: 11, height: 11 }} /> : <Trash2 style={{ width: 11, height: 11 }} />}
                     </button>
                   </div>
@@ -238,7 +238,7 @@ export default function OnboardPage() {
                   display: "inline-flex", alignItems: "center", gap: 5,
                   fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
                   padding: "4px 10px", borderRadius: 20,
-                  color: inv.accepted_at ? "#34D399" : "#F59E0B",
+                  color: inv.accepted_at ? "var(--green)" : "var(--amber)",
                   background: inv.accepted_at ? "rgba(52,211,153,0.08)" : "rgba(245,158,11,0.08)",
                   border: `1px solid ${inv.accepted_at ? "rgba(52,211,153,0.2)" : "rgba(245,158,11,0.2)"}`,
                 }}>

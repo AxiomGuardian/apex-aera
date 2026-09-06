@@ -183,8 +183,8 @@ export function DictateButton({ onText, size = 36, title = "Dictate" }: { onText
       style={{
         display: "inline-flex", alignItems: "center", gap: 8, height: size, padding: active ? "0 12px 0 10px" : 0,
         width: active ? "auto" : size, borderRadius: 999, cursor: "pointer", flexShrink: 0,
-        background: active ? "rgba(45,212,255,0.14)" : "rgba(255,255,255,0.04)",
-        border: "1px solid " + (active ? "rgba(45,212,255,0.55)" : "rgba(255,255,255,0.12)"),
+        background: active ? "rgba(45,212,255,0.14)" : "var(--hover-fill)",
+        border: "1px solid " + (active ? "rgba(45,212,255,0.55)" : "var(--border-mid)"),
         color: active ? "var(--cyan)" : "var(--text-4)",
         boxShadow: active ? "0 0 0 4px rgba(45,212,255,0.10), 0 0 24px rgba(45,212,255,0.18)" : "none",
         transition: "all 0.25s ease", justifyContent: "center",

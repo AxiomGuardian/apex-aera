@@ -48,11 +48,11 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 const STATUS_STYLE: Record<string, { color: string; bg: string }> = {
-  uploaded:  { color: "#2DD4FF", bg: "rgba(45,212,255,0.08)" },
-  analyzing: { color: "#F59E0B", bg: "rgba(245,158,11,0.08)" },
-  analyzed:  { color: "#34D399", bg: "rgba(52,211,153,0.08)" },
-  scheduled: { color: "#A78BFA", bg: "rgba(167,139,250,0.08)" },
-  published: { color: "#34D399", bg: "rgba(52,211,153,0.08)" },
+  uploaded:  { color: "var(--cyan)", bg: "rgba(45,212,255,0.08)" },
+  analyzing: { color: "var(--amber)", bg: "rgba(245,158,11,0.08)" },
+  analyzed:  { color: "var(--green)", bg: "rgba(52,211,153,0.08)" },
+  scheduled: { color: "var(--violet)", bg: "rgba(167,139,250,0.08)" },
+  published: { color: "var(--green)", bg: "rgba(52,211,153,0.08)" },
   archived:  { color: "#737373", bg: "rgba(115,115,115,0.08)" },
 };
 
@@ -335,7 +335,7 @@ export default function ContentPage() {
     }
   }, [brandId, refreshAssets]);
 
-  const FIT_COLOR: Record<string, string> = { strong: "#34D399", moderate: "#F59E0B", low: "var(--text-6)" };
+  const FIT_COLOR: Record<string, string> = { strong: "var(--green)", moderate: "var(--amber)", low: "var(--text-6)" };
 
   const runEngine = useCallback(async (url: string, assetId: string, setBusy: (v: string | null) => void) => {
     setBusy(assetId);
@@ -452,8 +452,8 @@ export default function ContentPage() {
 
         {error && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 10, background: "rgba(251,113,133,0.07)", border: "1px solid rgba(251,113,133,0.18)" }}>
-            <AlertCircle style={{ width: 15, height: 15, color: "#fb7185", flexShrink: 0 }} strokeWidth={1.6} />
-            <p style={{ fontSize: 13, color: "#fb7185" }}>{error}</p>
+            <AlertCircle style={{ width: 15, height: 15, color: "var(--rose)", flexShrink: 0 }} strokeWidth={1.6} />
+            <p style={{ fontSize: 13, color: "var(--rose)" }}>{error}</p>
           </div>
         )}
 
@@ -497,7 +497,7 @@ export default function ContentPage() {
                       {a.duration_seconds ? ` · ${a.duration_seconds}s` : ""}
                       {a.metadata?.size ? ` · ${fmtSize(a.metadata.size)}` : ""}
                       {" · "}{new Date(a.created_at).toLocaleDateString()}
-                      {sched[a.id]?.length ? <span style={{ color: "#34D399" }}>{" · next: "}{fmtMST(sched[a.id][0].scheduled_at)}</span> : null}
+                      {sched[a.id]?.length ? <span style={{ color: "var(--green)" }}>{" · next: "}{fmtMST(sched[a.id][0].scheduled_at)}</span> : null}
                     </p>
                   </div>
                   <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", padding: "4px 10px", borderRadius: 20, color: ss.color, background: ss.bg, border: `1px solid ${ss.color}30`, flexShrink: 0 }}>
@@ -517,7 +517,7 @@ export default function ContentPage() {
                     <button
                       onClick={() => void deleteAsset(a)}
                       disabled={deleting === a.id}
-                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 9, background: "rgba(251,113,133,0.12)", border: "1px solid rgba(251,113,133,0.35)", color: "#fb7185", fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 9, background: "rgba(251,113,133,0.12)", border: "1px solid rgba(251,113,133,0.35)", color: "var(--rose)", fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
                     >
                       {deleting === a.id ? <Loader2 className="animate-spin" style={{ width: 11, height: 11 }} /> : <Trash2 style={{ width: 11, height: 11 }} />}
                       {deleting === a.id ? "Deleting…" : "Confirm delete"}
@@ -534,7 +534,7 @@ export default function ContentPage() {
                   {a.status === "analyzed" && analyses[a.id] && (
                     <button
                       onClick={() => setExpanded(expanded === a.id ? null : a.id)}
-                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 9, background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.22)", color: "#34D399", fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
+                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 9, background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.22)", color: "var(--green)", fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
                     >
                       <CheckCircle2 style={{ width: 11, height: 11 }} strokeWidth={1.8} />
                       {expanded === a.id ? "Hide analysis" : "View analysis"}
@@ -593,7 +593,7 @@ export default function ContentPage() {
                           <p style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--text-6)", marginBottom: 8 }}>Scheduled</p>
                           {sched[a.id].map((sp, si) => (
                             <p key={si} style={{ fontSize: 12, color: "var(--text-3)", lineHeight: 1.9 }}>
-                              <span style={{ color: "#34D399", fontWeight: 700, textTransform: "capitalize" }}>{sp.platform.replace("_", " ")}</span>
+                              <span style={{ color: "var(--green)", fontWeight: 700, textTransform: "capitalize" }}>{sp.platform.replace("_", " ")}</span>
                               {" — "}<span style={{ color: "var(--text-2)", fontWeight: 600 }}>{fmtMST(sp.scheduled_at)}</span>
                               <span style={{ color: "var(--text-6)" }}> · {sp.status}</span>
                             </p>
@@ -612,7 +612,7 @@ export default function ContentPage() {
                         <button
                           onClick={() => void runEngine("/api/aera/schedule", a.id, setSchedBusy)}
                           disabled={capBusy !== null || schedBusy !== null}
-                          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 15px", borderRadius: 9, background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.22)", color: "#34D399", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}
+                          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 15px", borderRadius: 9, background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.22)", color: "var(--green)", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}
                         >
                           {schedBusy === a.id ? <Loader2 className="animate-spin" style={{ width: 11, height: 11 }} /> : null}
                           {schedBusy === a.id ? "Scheduling…" : "Schedule"}

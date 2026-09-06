@@ -68,7 +68,7 @@ export function TopNav() {
     <header
       className="relative z-30 w-full border-b"
       style={{
-        background: "rgba(12,12,14,0.82)",
+        background: "color-mix(in srgb, var(--nav-bg) 84%, transparent)",
         backdropFilter: "blur(18px)",
         WebkitBackdropFilter: "blur(18px)",
         borderColor: "var(--nav-border)",
@@ -253,16 +253,16 @@ export function TopNav() {
               <div
                 className="absolute right-0 mt-2 w-64 rounded-[14px] overflow-hidden z-50"
                 style={{
-                  background: "rgba(10,10,10,0.95)",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "color-mix(in srgb, var(--surface) 96%, transparent)",
+                  border: "1px solid var(--border-mid)",
                   backdropFilter: "blur(20px)",
-                  boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
+                  boxShadow: "var(--shadow-lg)",
                 }}
               >
                 {/* User info header */}
-                <div className="px-4 py-3.5 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                  <p className="text-[13px] font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>{userName}</p>
-                  <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>{userEmail}</p>
+                <div className="px-4 py-3.5 border-b" style={{ borderColor: "var(--border)" }}>
+                  <p className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>{userName}</p>
+                  <p className="text-[11px] mt-0.5" style={{ color: "var(--text-5)" }}>{userEmail}</p>
                 </div>
 
                 {/* Menu items */}
@@ -271,20 +271,20 @@ export function TopNav() {
                     href="/account"
                     onClick={() => setMenuOpen(false)}
                     className="flex items-center gap-3 px-3 py-2.5 rounded-[9px] transition-all duration-150 group"
-                    style={{ color: "rgba(255,255,255,0.7)" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                    style={{ color: "var(--text-3)" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--hover-fill)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                   >
                     <Settings className="h-4 w-4" strokeWidth={1.6} />
                     <span className="text-[13px]">Account Settings</span>
                   </Link>
 
-                  <div className="my-1.5 mx-2 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+                  <div className="my-1.5 mx-2 h-px" style={{ background: "var(--border)" }} />
 
                   <button
                     onClick={() => { setMenuOpen(false); signOut({ callbackUrl: "/login" }); }}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[9px] transition-all duration-150"
-                    style={{ color: "rgba(255,100,100,0.8)" }}
+                    style={{ color: "var(--red)" }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,60,60,0.07)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                   >

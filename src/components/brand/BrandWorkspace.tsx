@@ -62,7 +62,7 @@ function Field({ label, hint, value, onChange, placeholder, textarea, dictate }:
 }
 
 function Stat({ icon: Icon, label, value, tone }: { icon: typeof Users; label: string; value: string; tone?: "ok" | "warn" | "muted" }) {
-  const color = tone === "ok" ? "#34D399" : tone === "warn" ? "#fbbf24" : "var(--text-2)";
+  const color = tone === "ok" ? "var(--green)" : tone === "warn" ? "var(--amber)" : "var(--text-2)";
   return (
     <div className="mkt-card mkt-quiet" style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
       <div className="dash-chip" style={{ width: 36, height: 36, borderRadius: 10 }}>
@@ -282,11 +282,11 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               {agency && brand.billing_status !== "active" && (
-                <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", padding: "6px 14px", borderRadius: 20, color: brand.billing_status === "past_due" ? "#fb7185" : "var(--text-4)", background: brand.billing_status === "past_due" ? "rgba(251,113,133,0.08)" : "var(--surface-2)", border: "1px solid " + (brand.billing_status === "past_due" ? "rgba(251,113,133,0.25)" : "var(--border)") }}>
+                <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", padding: "6px 14px", borderRadius: 20, color: brand.billing_status === "past_due" ? "var(--rose)" : "var(--text-4)", background: brand.billing_status === "past_due" ? "rgba(251,113,133,0.08)" : "var(--surface-2)", border: "1px solid " + (brand.billing_status === "past_due" ? "rgba(251,113,133,0.25)" : "var(--border)") }}>
                   {brand.billing_status.replace("_", " ")}
                 </span>
               )}
-              <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", padding: "6px 14px", borderRadius: 20, color: brand.status === "archived" ? "#fbbf24" : "#34D399", background: brand.status === "archived" ? "rgba(251,191,36,0.08)" : "rgba(52,211,153,0.08)", border: "1px solid " + (brand.status === "archived" ? "rgba(251,191,36,0.25)" : "rgba(52,211,153,0.22)") }}>
+              <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", padding: "6px 14px", borderRadius: 20, color: brand.status === "archived" ? "var(--amber)" : "var(--green)", background: brand.status === "archived" ? "rgba(251,191,36,0.08)" : "rgba(52,211,153,0.08)", border: "1px solid " + (brand.status === "archived" ? "rgba(251,191,36,0.25)" : "rgba(52,211,153,0.22)") }}>
                 {brand.status}
               </span>
             </div>
@@ -296,13 +296,13 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
         {brand.status === "archived" && brand.archived_at && (
           <div className="mkt-card mkt-line-amber" style={{ padding: "18px 22px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
             <div>
-              <p style={{ fontSize: 14, fontWeight: 800, color: "#fbbf24" }}>Archived {new Date(brand.archived_at).toLocaleDateString()}</p>
+              <p style={{ fontSize: 14, fontWeight: 800, color: "var(--amber)" }}>Archived {new Date(brand.archived_at).toLocaleDateString()}</p>
               <p style={{ fontSize: 13, color: "var(--text-4)", marginTop: 4, lineHeight: 1.5 }}>
                 Everything is kept intact and AERA is paused. Permanent deletion happens automatically {Math.max(0, 30 - Math.floor((Date.now() - new Date(brand.archived_at).getTime()) / 86400000))} days from now unless restored.
               </p>
             </div>
             {canDelete && (
-              <button onClick={() => void lifecycle("restore")} disabled={delStep === 2} className="mkt-btn dash-btn" style={{ ...btn, background: "rgba(52,211,153,0.10)", border: "1px solid rgba(52,211,153,0.3)", color: "#34D399" }}>
+              <button onClick={() => void lifecycle("restore")} disabled={delStep === 2} className="mkt-btn dash-btn" style={{ ...btn, background: "rgba(52,211,153,0.10)", border: "1px solid rgba(52,211,153,0.3)", color: "var(--green)" }}>
                 <RotateCcw style={{ width: 13, height: 13 }} /> Restore client
               </button>
             )}
@@ -321,9 +321,9 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
           {/* ── Left: Autopilot + Voice ── */}
           <div className="lg:col-span-3 flex flex-col gap-6">
             {/* Autopilot */}
-            <div className="mkt-card mkt-line-cyan" style={{ ...card, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, background: autopilot ? "linear-gradient(135deg, rgba(52,211,153,0.07), rgba(20,22,26,0.7))" : "linear-gradient(135deg, rgba(251,191,36,0.07), rgba(20,22,26,0.7))" }}>
+            <div className="mkt-card mkt-line-cyan" style={{ ...card, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, background: autopilot ? "linear-gradient(135deg, rgba(52,211,153,0.07), var(--card-bg, rgba(20,22,26,0.7)))" : "linear-gradient(135deg, rgba(251,191,36,0.07), var(--card-bg, rgba(20,22,26,0.7)))" }}>
               <div>
-                <p style={{ fontSize: 16, fontWeight: 800, color: autopilot ? "#34D399" : "#fbbf24", letterSpacing: "-0.01em" }}>
+                <p style={{ fontSize: 16, fontWeight: 800, color: autopilot ? "var(--green)" : "var(--amber)", letterSpacing: "-0.01em" }}>
                   {autopilot ? "Autopilot is on" : "Manual approval"}
                 </p>
                 <p style={{ fontSize: 13, color: "var(--text-4)", marginTop: 5, lineHeight: 1.6, maxWidth: 460 }}>
@@ -333,7 +333,7 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
                 </p>
               </div>
               <button onClick={() => void toggleAutopilot()} disabled={flipping} aria-label="Toggle autopilot"
-                style={{ position: "relative", width: 56, height: 30, borderRadius: 999, flexShrink: 0, cursor: "pointer", border: "none", background: autopilot ? "rgba(52,211,153,0.6)" : "rgba(255,255,255,0.14)", transition: "background 0.25s", boxShadow: autopilot ? "0 0 20px rgba(52,211,153,0.3)" : "none" }}>
+                style={{ position: "relative", width: 56, height: 30, borderRadius: 999, flexShrink: 0, cursor: "pointer", border: "none", background: autopilot ? "rgba(52,211,153,0.6)" : "var(--surface-4)", transition: "background 0.25s", boxShadow: autopilot ? "0 0 20px rgba(52,211,153,0.3)" : "none" }}>
                 <span style={{ position: "absolute", top: 3, left: autopilot ? 29 : 3, width: 24, height: 24, borderRadius: "50%", background: "#fff", transition: "left 0.25s", boxShadow: "0 2px 6px rgba(0,0,0,0.4)" }} />
               </button>
             </div>
@@ -354,25 +354,25 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
 
                 {/* AERA's read-back */}
                 {(voice || voiceBusy === "read" || voiceErr) && (
-                  <div className={"mkt-card " + (voiceConfirmed ? "mkt-line-green" : "mkt-line-cyan")} style={{ padding: "20px 22px", marginTop: 4, background: "linear-gradient(135deg, rgba(45,212,255,0.06), rgba(20,22,26,0.6))" }}>
+                  <div className={"mkt-card " + (voiceConfirmed ? "mkt-line-green" : "mkt-line-cyan")} style={{ padding: "20px 22px", marginTop: 4, background: "linear-gradient(135deg, rgba(45,212,255,0.06), var(--card-bg, rgba(20,22,26,0.6)))" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <Sparkles style={{ width: 14, height: 14, color: "var(--cyan)" }} />
                         <p style={{ fontSize: 12.5, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-3)" }}>How AERA understood it</p>
                       </div>
-                      {voiceConfirmed && <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", padding: "4px 10px", borderRadius: 20, color: "#34D399", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.22)" }}>Confirmed</span>}
+                      {voiceConfirmed && <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", padding: "4px 10px", borderRadius: 20, color: "var(--green)", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.22)" }}>Confirmed</span>}
                     </div>
                     {voiceBusy === "read" ? (
                       <p style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: "var(--text-4)" }}><Loader2 className="animate-spin" style={{ width: 13, height: 13 }} /> Reading your words</p>
                     ) : voiceErr ? (
-                      <p style={{ fontSize: 13, color: "#fb7185" }}>{voiceErr}</p>
+                      <p style={{ fontSize: 13, color: "var(--rose)" }}>{voiceErr}</p>
                     ) : voice ? (
                       <>
                         <p style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", lineHeight: 1.5 }}>{voice.summary}</p>
                         {voice.signature.length > 0 && (
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 }}>
                             {voice.signature.map((w) => (
-                              <span key={w} style={{ fontSize: 12, fontWeight: 700, padding: "5px 11px", borderRadius: 999, color: "#9be7ff", background: "rgba(45,212,255,0.08)", border: "1px solid rgba(45,212,255,0.25)" }}>{w}</span>
+                              <span key={w} style={{ fontSize: 12, fontWeight: 700, padding: "5px 11px", borderRadius: 999, color: "var(--cyan-text)", background: "rgba(45,212,255,0.08)", border: "1px solid rgba(45,212,255,0.25)" }}>{w}</span>
                             ))}
                           </div>
                         )}
@@ -380,7 +380,7 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
                         {voice.avoid.length > 0 && <p style={{ fontSize: 13, color: "var(--text-4)", marginTop: 6, lineHeight: 1.6 }}><span style={{ color: "var(--text-6)", fontWeight: 700 }}>Never: </span>{voice.avoid.join(" · ")}</p>}
                         {!voiceConfirmed && (
                           <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
-                            <button onClick={() => void confirmVoice()} disabled={voiceBusy !== ""} className="mkt-btn dash-btn" style={{ ...btn, background: "rgba(52,211,153,0.10)", border: "1px solid rgba(52,211,153,0.3)", color: "#34D399" }}>
+                            <button onClick={() => void confirmVoice()} disabled={voiceBusy !== ""} className="mkt-btn dash-btn" style={{ ...btn, background: "rgba(52,211,153,0.10)", border: "1px solid rgba(52,211,153,0.3)", color: "var(--green)" }}>
                               {voiceBusy === "confirm" ? <Loader2 className="animate-spin" style={{ width: 13, height: 13 }} /> : <CheckCircle2 style={{ width: 13, height: 13 }} />} That is right
                             </button>
                             <button onClick={() => { setVoice(null); document.querySelector<HTMLInputElement>("input[placeholder^='Bold']")?.focus(); }} className="dash-btn" style={{ ...btn, background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-3)" }}>
@@ -389,7 +389,7 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
                           </div>
                         )}
                         {voice.confidence === "low" && !voiceConfirmed && (
-                          <p style={{ fontSize: 12, color: "#fbbf24", marginTop: 10 }}>AERA is guessing here. A few more words above will sharpen it.</p>
+                          <p style={{ fontSize: 12, color: "var(--amber)", marginTop: 10 }}>AERA is guessing here. A few more words above will sharpen it.</p>
                         )}
                       </>
                     ) : null}
@@ -414,10 +414,10 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
                   const expired = p.conn?.status === "expired";
                   return (
                     <div key={p.key} className="dash-row" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 12, border: "1px solid " + (ok ? "rgba(52,211,153,0.22)" : "var(--border)"), background: ok ? "rgba(52,211,153,0.05)" : "var(--surface-2)" }}>
-                      <p.icon style={{ width: 17, height: 17, color: ok ? "#34D399" : "var(--text-4)" }} />
+                      <p.icon style={{ width: 17, height: 17, color: ok ? "var(--green)" : "var(--text-4)" }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text-2)" }}>{p.label}</p>
-                        <p style={{ fontSize: 12, color: ok ? "#34D399" : expired ? "#fbbf24" : "var(--text-6)", marginTop: 2 }}>
+                        <p style={{ fontSize: 12, color: ok ? "var(--green)" : expired ? "var(--amber)" : "var(--text-6)", marginTop: 2 }}>
                           {ok ? "Connected " + (p.conn?.account_name ?? "") : expired ? "Expired. Reconnect." : "Not connected"}
                         </p>
                       </div>
@@ -470,7 +470,7 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
         <div>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
             <SectionTitle hint="What AERA has learned about this brand and its market.">AERA Intelligence</SectionTitle>
-            {engineErr && <span style={{ fontSize: 12, color: "#f87171" }}>{engineErr}</span>}
+            {engineErr && <span style={{ fontSize: 12, color: "var(--red)" }}>{engineErr}</span>}
           </div>
           <div className="grid lg:grid-cols-3 gap-5">
             <div className="mkt-card mkt-quiet" style={card}>
@@ -560,7 +560,7 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
             <SectionTitle hint="Every lifecycle change, and who or what caused it.">History</SectionTitle>
             {events.map((e, i) => (
               <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 0", borderBottom: i < events.length - 1 ? "1px solid var(--border)" : "none" }}>
-                <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: e.event.includes("archived") || e.event.includes("past_due") ? "#fbbf24" : e.event === "purged" ? "#fb7185" : "#34D399" }} />
+                <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: e.event.includes("archived") || e.event.includes("past_due") ? "var(--amber)" : e.event === "purged" ? "var(--rose)" : "var(--green)" }} />
                 <p style={{ flex: 1, fontSize: 13.5, color: "var(--text-2)" }}>
                   {e.event.replace(/_/g, " ")}{e.reason ? " · " + e.reason : ""}
                 </p>
@@ -576,18 +576,18 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
           <div style={{ padding: "22px 26px", borderRadius: 20, border: "1px solid rgba(251,191,36,0.18)", background: "rgba(251,191,36,0.03)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
               <div>
-                <p style={{ fontSize: 13, fontWeight: 800, color: "#fbbf24", letterSpacing: "0.08em", textTransform: "uppercase" }}>Archive this client</p>
+                <p style={{ fontSize: 13, fontWeight: 800, color: "var(--amber)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Archive this client</p>
                 <p style={{ fontSize: 13, color: "var(--text-5)", marginTop: 5, lineHeight: 1.6, maxWidth: 560 }}>
                   Pauses AERA and hides the workspace, but keeps everything for 30 days. Restore any time in that window. After 30 days it is deleted for good.
                 </p>
-                {delErr && <p style={{ fontSize: 12, color: "#fb7185", marginTop: 6 }}>{delErr}</p>}
+                {delErr && <p style={{ fontSize: 12, color: "var(--rose)", marginTop: 6 }}>{delErr}</p>}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 {archStep === 1 && (
                   <button onClick={() => setArchStep(0)} style={{ padding: "10px 16px", borderRadius: 11, background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-3)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
                 )}
                 <button onClick={() => (archStep === 0 ? setArchStep(1) : void lifecycle("archive"))} disabled={lifeBusy !== ""}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px", borderRadius: 11, background: archStep === 1 ? "rgba(251,191,36,0.9)" : "rgba(251,191,36,0.10)", border: "1px solid rgba(251,191,36,0.35)", color: archStep === 1 ? "#1a1204" : "#fbbf24", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                  style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px", borderRadius: 11, background: archStep === 1 ? "rgba(251,191,36,0.9)" : "rgba(251,191,36,0.10)", border: "1px solid rgba(251,191,36,0.35)", color: archStep === 1 ? "#1a1204" : "var(--amber)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                   {lifeBusy === "archive" ? <Loader2 className="animate-spin" style={{ width: 12, height: 12 }} /> : <Archive style={{ width: 13, height: 13 }} />}
                   {lifeBusy === "archive" ? "Archiving" : archStep === 1 ? "Yes, archive " + brand.name : "Archive client"}
                 </button>
@@ -599,18 +599,18 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
           <div style={{ padding: "22px 26px", borderRadius: 20, border: "1px solid rgba(251,113,133,0.18)", background: "rgba(251,113,133,0.03)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
               <div>
-                <p style={{ fontSize: 13, fontWeight: 800, color: "#fb7185", letterSpacing: "0.08em", textTransform: "uppercase" }}>Delete permanently</p>
+                <p style={{ fontSize: 13, fontWeight: 800, color: "var(--rose)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Delete permanently</p>
                 <p style={{ fontSize: 13, color: "var(--text-5)", marginTop: 5, lineHeight: 1.6, maxWidth: 560 }}>
                   No 30-day window. Removes the workspace, all content, posts, reports, chats, and any client accounts attached only to this brand. Cannot be undone.
                 </p>
-                {delErr && <p style={{ fontSize: 12, color: "#fb7185", marginTop: 6 }}>{delErr}</p>}
+                {delErr && <p style={{ fontSize: 12, color: "var(--rose)", marginTop: 6 }}>{delErr}</p>}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 {delStep === 1 && (
                   <button onClick={() => setDelStep(0)} style={{ padding: "10px 16px", borderRadius: 11, background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-3)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
                 )}
                 <button onClick={() => (delStep === 0 ? setDelStep(1) : delStep === 1 ? void lifecycle("delete") : null)} disabled={lifeBusy !== ""}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px", borderRadius: 11, background: delStep === 1 ? "rgba(251,113,133,0.9)" : "rgba(251,113,133,0.10)", border: "1px solid rgba(251,113,133,0.35)", color: delStep === 1 ? "#1a0509" : "#fb7185", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                  style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px", borderRadius: 11, background: delStep === 1 ? "rgba(251,113,133,0.9)" : "rgba(251,113,133,0.10)", border: "1px solid rgba(251,113,133,0.35)", color: delStep === 1 ? "#1a0509" : "var(--rose)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                   {lifeBusy === "delete" ? <Loader2 className="animate-spin" style={{ width: 12, height: 12 }} /> : null}
                   {lifeBusy === "delete" ? "Deleting" : delStep === 1 ? "Yes, delete " + brand.name + " forever" : "Delete permanently"}
                 </button>

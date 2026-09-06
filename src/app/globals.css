@@ -134,16 +134,46 @@
   color-scheme: dark;
 }
 
-/* ─── APEX Cyan — constant across themes ─── */
-:root, .light {
+/* ─── APEX Cyan and status colors ─── */
+:root, .force-dark {
   /* Primary accent — the APEX logo cyan */
   --cyan:          #2DD4FF;
   --cyan-bright:   #7EEEFF;   /* for hairlines, dots */
   --cyan-display:  #52DFFF;   /* for display text */
+  --cyan-text:     #9be7ff;   /* soft cyan for chips and labels */
   --cyan-dim:      rgba(45, 212, 255, 0.55);
   --cyan-subtle:   rgba(45, 212, 255, 0.08);
   --cyan-border:   rgba(45, 212, 255, 0.18);
   --cyan-glow:     rgba(45, 212, 255, 0.12);
+
+  /* Status colors as text on dark */
+  --green:   #34D399;
+  --amber:   #fbbf24;
+  --violet:  #A78BFA;
+  --rose:    #fb7185;
+  --red:     #f87171;
+}
+
+/* On paper, the same hues need to be deeper to read. The brand cyan
+   stays the brand cyan in the logo; text and buttons use the ink version. */
+.light {
+  --cyan:          #0b8fb8;
+  --cyan-bright:   #1aa9d6;
+  --cyan-display:  #0a7fa3;
+  --cyan-text:     #0b8fb8;
+  --cyan-dim:      rgba(11, 143, 184, 0.60);
+  --cyan-subtle:   rgba(11, 143, 184, 0.07);
+  --cyan-border:   rgba(11, 143, 184, 0.22);
+  --cyan-glow:     rgba(11, 143, 184, 0.10);
+
+  --green:   #0f8f5f;
+  --amber:   #a8690f;
+  --violet:  #6a4fd0;
+  --rose:    #c93656;
+  --red:     #cf3b3b;
+}
+
+:root, .light {
 
   /* Radius scale */
   --r-xs:  4px;
@@ -940,8 +970,9 @@ body {
 .mkt-card {
   position: relative;
   border-radius: 20px;
-  background: rgba(20, 22, 26, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--card-bg, rgba(20, 22, 26, 0.72));
+  border: 1px solid var(--border);
+  box-shadow: var(--card-shadow, none);
   transition: transform 0.35s cubic-bezier(0.22, 0.8, 0.3, 1),
               box-shadow 0.35s ease, border-color 0.35s ease, background 0.35s ease;
 }
@@ -983,9 +1014,9 @@ body {
 }
 .mkt-card:hover {
   transform: translateY(-5px);
-  border-color: rgba(45, 212, 255, 0.2);
-  background: rgba(23, 26, 31, 0.9);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 60px rgba(45, 212, 255, 0.07);
+  border-color: var(--cyan-border);
+  background: var(--card-bg-hover, rgba(23, 26, 31, 0.9));
+  box-shadow: var(--card-shadow-hover, 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 60px rgba(45, 212, 255, 0.07));
 }
 
 /* Accent line colors per card */
@@ -995,6 +1026,13 @@ body {
 .mkt-line-violet { --mkt-line: rgba(167, 139, 250, 0.85); }
 .mkt-line-rose   { --mkt-line: rgba(251, 113, 133, 0.85); }
 .mkt-line-silver { --mkt-line: rgba(230, 230, 230, 0.75); }
+/* Same lines, ink versions for paper */
+.light .mkt-line-cyan   { --mkt-line: rgba(11, 143, 184, 0.85); }
+.light .mkt-line-green  { --mkt-line: rgba(15, 143, 95, 0.80); }
+.light .mkt-line-amber  { --mkt-line: rgba(168, 105, 15, 0.80); }
+.light .mkt-line-violet { --mkt-line: rgba(106, 79, 208, 0.80); }
+.light .mkt-line-rose   { --mkt-line: rgba(201, 54, 86, 0.80); }
+.light .mkt-line-silver { --mkt-line: rgba(90, 90, 110, 0.55); }
 
 /* Buttons: light sweep on hover */
 .mkt-btn {
@@ -1037,9 +1075,9 @@ body {
 .mkt-card.mkt-quiet::after { content: none; }
 .mkt-card.mkt-quiet:hover {
   transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.16);
-  background: rgba(23, 26, 31, 0.85);
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.4);
+  border-color: var(--border-mid);
+  background: var(--card-bg-hover, rgba(23, 26, 31, 0.85));
+  box-shadow: var(--card-shadow-quiet, 0 14px 36px rgba(0, 0, 0, 0.4));
 }
 
 /* Hide scrollbar on the mobile tab strip */
@@ -1143,19 +1181,19 @@ body {
   background-image:
     radial-gradient(ellipse 60% 38% at 50% -6%, rgba(45, 212, 255, 0.10), transparent 62%),
     radial-gradient(ellipse 40% 34% at 100% 104%, rgba(45, 212, 255, 0.045), transparent 62%),
-    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    linear-gradient(var(--grid-line, rgba(255, 255, 255, 0.025)) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line, rgba(255, 255, 255, 0.025)) 1px, transparent 1px);
   background-size: auto, auto, 48px 48px, 48px 48px;
   background-attachment: local;
 }
 .dash-num {
-  background: linear-gradient(180deg, #ffffff 0%, #9be7ff 100%);
+  background: var(--num-gradient, linear-gradient(180deg, #ffffff 0%, #9be7ff 100%));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent !important;
 }
 .dash-row { transition: background 0.2s ease, transform 0.2s ease; }
-.dash-row:hover { background: rgba(255, 255, 255, 0.03); }
+.dash-row:hover { background: var(--hover-fill); }
 .dash-btn {
   transition: transform 0.25s cubic-bezier(0.22, 0.8, 0.3, 1), box-shadow 0.25s ease, background 0.25s ease, border-color 0.25s ease;
 }
@@ -1179,6 +1217,46 @@ body {
   border: 1px solid rgba(45, 212, 255, 0.22);
   box-shadow: 0 0 22px rgba(45, 212, 255, 0.10);
 }
+/* Light mode: cards become paper on paper, not slate on paper */
+.light {
+  --card-bg:           rgba(255, 255, 255, 0.78);
+  --card-bg-hover:     rgba(255, 255, 255, 0.96);
+  --card-shadow:       0 1px 2px rgba(20, 24, 36, 0.05), 0 6px 22px rgba(20, 24, 36, 0.05);
+  --card-shadow-hover: 0 18px 44px rgba(20, 24, 36, 0.11), 0 0 40px rgba(11, 143, 184, 0.06);
+  --card-shadow-quiet: 0 10px 28px rgba(20, 24, 36, 0.08);
+  --grid-line:         rgba(20, 24, 36, 0.045);
+  --num-gradient:      linear-gradient(180deg, #1e1e24 0%, #0b8fb8 100%);
+}
+.light .dash-bg {
+  background-image:
+    radial-gradient(ellipse 60% 38% at 50% -6%, rgba(11, 143, 184, 0.07), transparent 62%),
+    radial-gradient(ellipse 40% 34% at 100% 104%, rgba(11, 143, 184, 0.035), transparent 62%),
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+}
+.light .mkt-card::before { opacity: 0.6; }
+.light .mkt-card::after {
+  background: conic-gradient(from var(--mkt-angle),
+    transparent 0deg, transparent 300deg,
+    var(--mkt-line, rgba(11, 143, 184, 0.9)) 332deg,
+    #0b8fb8 356deg, transparent 360deg);
+}
+.light .mkt-gradient-text {
+  background: linear-gradient(92deg, #0a7fa3 0%, #0b8fb8 45%, #1e1e24 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.light .mkt-grid {
+  background-image:
+    linear-gradient(rgba(20, 24, 36, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20, 24, 36, 0.045) 1px, transparent 1px);
+}
+.light .mkt-btn::before { background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.7), transparent); }
+.light .dash-btn:hover:not(:disabled) { box-shadow: 0 10px 24px rgba(11, 143, 184, 0.14); border-color: rgba(11, 143, 184, 0.45) !important; }
+.light .dash-drop:hover { background: rgba(11, 143, 184, 0.03) !important; box-shadow: 0 0 0 4px rgba(11, 143, 184, 0.05); }
+.light .dash-chip { background: rgba(11, 143, 184, 0.08); border-color: rgba(11, 143, 184, 0.24); box-shadow: 0 0 18px rgba(11, 143, 184, 0.08); }
+.light .mkt-tab::after { background: linear-gradient(90deg, #0b8fb8, #1aa9d6); }
+
 @media (prefers-reduced-motion: reduce) {
   .mkt-card, .mkt-btn, .dash-btn, .mkt-reveal, .auth-orb { animation: none !important; transition: none !important; }
 }
