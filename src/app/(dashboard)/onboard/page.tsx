@@ -41,9 +41,14 @@ export default function OnboardPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setSending(true);
     setError(null);
     setDone(null);
+    const clean = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(clean)) {
+      setError(`"${email.trim()}" is not a complete email address. It needs a domain ending like .com.`);
+      return;
+    }
+    setSending(true);
     try {
       const res = await fetch("/api/agency/onboard", {
         method: "POST",

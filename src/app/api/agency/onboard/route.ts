@@ -22,6 +22,9 @@ export async function POST(request: Request) {
   if (!brandName?.trim() || !email?.trim()) {
     return NextResponse.json({ error: "Brand name and email are required" }, { status: 400 });
   }
+  if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email.trim())) {
+    return NextResponse.json({ error: `"${email.trim()}" is not a complete email address. Check the domain ending (for example .com).` }, { status: 400 });
+  }
   if (tier === "enterprise" && !orgName?.trim()) {
     return NextResponse.json({ error: "Organization name is required for enterprise" }, { status: 400 });
   }
