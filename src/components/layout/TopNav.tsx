@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "@/components/layout/SessionProvider";
 import { useState, useRef, useEffect } from "react";
-import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
 import { useAERA } from "@/context/AERAContext";
 import { navFor } from "@/lib/roles";
@@ -64,6 +63,23 @@ export function TopNav() {
   const tierLabel = TIER_LABEL[role ?? "client"] ?? "Client workspace";
   const initials = userName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
+  // One highlight pill glides between tabs instead of each tab scaling into its neighbours.
+  const tabRefs = useRef<(HTMLAnchorElement | null)[]>([]);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const [pill, setPill] = useState<{ left: number; width: number; on: boolean }>({ left: 0, width: 0, on: false });
+  const activeIdx = navItems.findIndex((n) => pathname === n.href || pathname.startsWith(n.href + "/"));
+  const targetIdx = hoverIdx ?? (activeIdx >= 0 ? activeIdx : null);
+  useEffect(() => {
+    const place = () => {
+      const el = targetIdx != null ? tabRefs.current[targetIdx] : null;
+      if (!el) { setPill((p) => ({ ...p, on: false })); return; }
+      setPill({ left: el.offsetLeft, width: el.offsetWidth, on: true });
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [targetIdx, navItems.length]);
+
   return (
     <header
       className="relative z-30 w-full border-b"
@@ -98,50 +114,47 @@ export function TopNav() {
         </div>
 
         {/* ── Centered nav ── */}
-        <nav className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1">
-          {navItems.map((item) => {
+        <nav className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1" onMouseLeave={() => setHoverIdx(null)}>
+          {/* Gliding highlight */}
+          <span
+            aria-hidden
+            style={{
+              position: "absolute", top: 0, bottom: 0, left: pill.left, width: pill.width,
+              borderRadius: 12,
+              background: "var(--active-fill)",
+              boxShadow: "inset 0 1px 0 color-mix(in srgb, var(--text) 8%, transparent)",
+              opacity: pill.on ? 1 : 0,
+              transition: "left 0.45s cubic-bezier(0.22, 0.8, 0.3, 1), width 0.45s cubic-bezier(0.22, 0.8, 0.3, 1), opacity 0.3s ease",
+              pointerEvents: "none",
+            }}
+          />
+          {navItems.map((item, i) => {
             const Icon = item.icon;
-            const active = pathname === item.href || pathname.startsWith(item.href + "/");
+            const active = i === activeIdx;
+            const lit = active || hoverIdx === i;
 
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={cn(
-                  "group relative flex flex-col items-center gap-[7px] px-5 py-3 rounded-[12px]",
-                  "transition-all duration-300 ease-out cursor-pointer select-none",
-                  "hover:scale-[1.10]",
-                  active ? "scale-[1.04]" : ""
-                )}
+                ref={(el) => { tabRefs.current[i] = el; }}
+                onMouseEnter={() => setHoverIdx(i)}
+                className="group relative flex flex-col items-center gap-[7px] px-5 py-3 rounded-[12px] cursor-pointer select-none"
               >
-                {/* Ambient fill */}
-                <div
-                  className={cn(
-                    "absolute inset-0 rounded-[12px] transition-all duration-300",
-                    active ? "opacity-[0.07]" : "opacity-0 group-hover:opacity-[0.045]"
-                  )}
-                  style={{ background: "var(--text)" }}
-                />
-
-                {/* Bloom glow */}
-                <div
-                  className={cn(
-                    "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[60%]",
-                    "h-10 w-10 rounded-full blur-2xl transition-all duration-500 ease-out",
-                    active
-                      ? "opacity-[0.10] scale-125"
-                      : "opacity-0 scale-100 group-hover:opacity-[0.10] group-hover:scale-150"
-                  )}
-                  style={{ background: "var(--text)" }}
-                />
-
                 {/* Icon */}
-                <div className="relative z-10 transition-all duration-300">
+                <div
+                  className="relative z-10"
+                  style={{
+                    transform: lit ? "translateY(-2px)" : "translateY(0)",
+                    transition: "transform 0.4s cubic-bezier(0.22, 0.8, 0.3, 1)",
+                  }}
+                >
                   <Icon
-                    className="h-[20px] w-[20px] transition-all duration-300"
+                    className="h-[20px] w-[20px]"
                     style={{
-                      color: active ? "var(--text)" : "var(--icon-rest)",
+                      color: lit ? "var(--text)" : "var(--icon-rest)",
                       filter: active ? "drop-shadow(0 0 7px color-mix(in srgb, var(--text) 50%, transparent))" : "none",
+                      transition: "color 0.3s ease, filter 0.3s ease",
                     }}
                     strokeWidth={active ? 2 : 1.65}
                   />
@@ -149,8 +162,8 @@ export function TopNav() {
 
                 {/* Label */}
                 <span
-                  className="relative z-10 text-[12.5px] font-semibold tracking-[0.02em] transition-all duration-300 whitespace-nowrap"
-                  style={{ color: active ? "var(--text)" : "var(--text-4)" }}
+                  className="relative z-10 text-[12.5px] font-semibold tracking-[0.02em] whitespace-nowrap"
+                  style={{ color: lit ? "var(--text)" : "var(--text-4)", transition: "color 0.3s ease" }}
                 >
                   {item.label}
                 </span>
