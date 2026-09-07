@@ -66,7 +66,7 @@ export async function GET(request: Request) {
     if (!igUserId) {
       const e = mj.error ?? {};
       if (e.code === 100 && /unsupported/i.test(e.message ?? "")) {
-        throw new Error("This Instagram account is a personal account. AERA needs a Professional account. In Instagram go to Settings, Account type and tools, Switch to professional account (Creator or Business), then connect again.");
+        throw new Error("Instagram reports this as a personal account. AERA needs a Creator or Business account: in Instagram go to Settings, Account type and tools, Switch to professional account. If you already switched, remove APEXAERA-IG at instagram.com/accounts/manage_access and connect again.");
       }
       const detail = [e.message, e.code != null ? "code " + e.code : null, e.error_subcode != null ? "sub " + e.error_subcode : null, e.error_user_msg, e.fbtrace_id ? "trace " + e.fbtrace_id : null].filter(Boolean).join(" | ");
       throw new Error("profile: " + (detail || "could not read the Instagram account"));

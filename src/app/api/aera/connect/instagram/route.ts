@@ -47,6 +47,9 @@ export async function GET(request: Request) {
   oauth.searchParams.set("scope", scopes);
   oauth.searchParams.set("response_type", "code");
   oauth.searchParams.set("state", nonce + ":" + brandId);
+  // Always re-authenticate: no stale grants from before an account-type switch,
+  // and people with several Instagram accounts get to pick the right one.
+  oauth.searchParams.set("force_reauth", "true");
 
   return NextResponse.redirect(oauth.toString());
 }
