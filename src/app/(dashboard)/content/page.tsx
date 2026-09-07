@@ -77,6 +77,19 @@ function fmtSize(bytes?: number) {
 }
 
 /** Classify a video file by duration (≤ 90s = short-form). */
+async function toJpeg(file: File): Promise<Blob | null> {
+  try {
+    const bmp = await createImageBitmap(file);
+    const canvas = document.createElement("canvas");
+    canvas.width = bmp.width; canvas.height = bmp.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height); // flatten transparency
+    ctx.drawImage(bmp, 0, 0);
+    return await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.92));
+  } catch { return null; }
+}
+
 function classifyVideo(file: File): Promise<{ type: string; duration: number | null }> {
   return new Promise((resolve) => {
     try {
@@ -250,9 +263,16 @@ export default function ContentPage() {
         }
 
         // 2) Upload to the media bucket — path: {brand_id}/{asset_id}/{filename}
+        // Instagram only accepts JPEG images, so PNG/WebP are converted on the way in.
+        let upload: Blob | File = file;
+        let fileName = file.name;
+        if (file.type.startsWith("image/") && file.type !== "image/jpeg") {
+          const jpeg = await toJpeg(file);
+          if (jpeg) { upload = jpeg; fileName = file.name.replace(/\.[^.]+$/, "") + ".jpg"; }
+        }
         const assetId = crypto.randomUUID();
-        const path = `${brandId}/${assetId}/${file.name}`;
-        const { error: upErr } = await supabase.storage.from("media").upload(path, file);
+        const path = `${brandId}/${assetId}/${fileName}`;
+        const { error: upErr } = await supabase.storage.from("media").upload(path, upload, { contentType: upload.type || undefined });
         if (upErr) throw new Error(upErr.message);
 
         // 2b) Video: capture still frames so AERA can see it

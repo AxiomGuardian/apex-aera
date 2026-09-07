@@ -177,6 +177,23 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
     return () => clearTimeout(t);
   }, []);
 
+  async function testInstagram() {
+    setDropBusy("test");
+    try {
+      const r = await fetch("/api/aera/connect/instagram/check?brandId=" + id);
+      const j = (await r.json()) as { ok?: boolean; verdict?: string; step?: string; detail?: string; checks?: { profile?: { username?: string; account_type?: string; followers?: number }; publish?: { ok: boolean; used_24h?: number; limit_24h?: number; detail?: string } } };
+      if (j.verdict) {
+        const p = j.checks?.profile; const pub = j.checks?.publish;
+        const extra = p ? ` @${p.username} (${(p.account_type ?? "").replace("MEDIA_CREATOR", "Creator").replace("BUSINESS", "Business")}, ${p.followers ?? 0} followers)` : "";
+        const quota = pub?.ok ? ` Posts used today: ${pub.used_24h}/${pub.limit_24h}.` : "";
+        setNotice({ tone: j.ok ? "ok" : "bad", text: j.verdict + extra + quota });
+      } else {
+        setNotice({ tone: "bad", text: "Instagram check failed at " + (j.step ?? "unknown") + ": " + (j.detail ?? "no detail") });
+      }
+    } catch { setNotice({ tone: "bad", text: "Could not run the Instagram check." }); }
+    setDropBusy("");
+  }
+
   async function disconnect(platform: string) {
     if (!confirm("Disconnect " + platform + "? AERA will stop publishing there until it is reconnected.")) return;
     setDropBusy(platform);
@@ -464,6 +481,11 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
                         </p>
                         {!ok && <p style={{ fontSize: 11.5, color: "var(--text-5)", marginTop: 4, lineHeight: 1.45 }}>{p.req}</p>}
                       </div>
+                      {ok && p.key === "instagram" && (
+                        <button onClick={() => void testInstagram()} disabled={dropBusy === "test"} title="Check this connection against Instagram right now" style={{ background: "none", border: "none", color: "var(--cyan)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "6px 4px" }}>
+                          {dropBusy === "test" ? "Testing…" : "Test"}
+                        </button>
+                      )}
                       {ok && (
                         <button onClick={() => void disconnect(p.key)} disabled={dropBusy === p.key} title="Disconnect" style={{ background: "none", border: "none", color: "var(--text-5)", fontSize: 12, cursor: "pointer", padding: "6px 4px" }}>
                           {dropBusy === p.key ? "…" : "Disconnect"}

@@ -5,6 +5,9 @@ import { analyzeAsset } from "@/lib/engines/analyzer";
 import { generateCaptions } from "@/lib/engines/captioner";
 import { scheduleAsset } from "@/lib/engines/scheduler";
 import { publishDue } from "@/lib/engines/publisher";
+
+// Publishing waits on Instagram media processing; give the run room to finish.
+export const maxDuration = 60;
 import { generateTrendBrief, getFreshBrief } from "@/lib/engines/trends";
 import { checkConnections } from "@/lib/engines/health";
 import { runLifecycle } from "@/lib/brands/lifecycle";

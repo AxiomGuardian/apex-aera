@@ -73,13 +73,14 @@ async function graph(path: string, params: Record<string, string>, base: string 
   return json;
 }
 
-async function waitForContainer(creationId: string, token: string, base: string = GRAPH): Promise<void> {
-  for (let i = 0; i < 20; i++) {
+async function waitForContainer(creationId: string, token: string, base: string = GRAPH, tries = 12): Promise<void> {
+  for (let i = 0; i < tries; i++) {
     const res = await fetch(base + "/" + creationId + "?fields=status_code&access_token=" + encodeURIComponent(token));
-    const json = (await res.json()) as { status_code?: string };
+    const json = (await res.json()) as { status_code?: string; status?: string; error?: { message?: string } };
+    if (json.error) throw new Error(json.error.message ?? "Instagram rejected the media");
     if (json.status_code === "FINISHED") return;
-    if (json.status_code === "ERROR") throw new Error("Instagram could not process the media");
-    await new Promise((r) => setTimeout(r, 6000));
+    if (json.status_code === "ERROR") throw new Error("Instagram could not process the media" + (json.status ? ": " + json.status : ""));
+    await new Promise((r) => setTimeout(r, 4000));
   }
   throw new Error("Instagram media processing timed out");
 }
@@ -109,7 +110,7 @@ export async function publishInstagram(sb: SupabaseClient, postId: string): Prom
 
     const container = await graph("/" + creds.ig_user_id + "/media", params, base);
     const creationId = String(container.id);
-    if (isVideo) await waitForContainer(creationId, token, base);
+    await waitForContainer(creationId, token, base, isVideo ? 12 : 4);
 
     const published = await graph("/" + creds.ig_user_id + "/media_publish", {
       access_token: token,
