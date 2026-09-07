@@ -5,16 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { ApexMark as Mark } from "@/components/chat/ApexMark";
 
-function ApexMark() {
-  return (
-    <svg viewBox="0 0 28 28" fill="none" width="30" height="30" aria-hidden>
-      <path d="M14 3L26 24H2L14 3Z" stroke="rgba(45,212,255,0.95)" strokeWidth="1.4" strokeLinejoin="round" fill="none" />
-      <path d="M8.5 18H19.5" stroke="rgba(45,212,255,0.95)" strokeWidth="1.4" strokeLinecap="round" />
-      <circle cx="14" cy="3" r="1.4" fill="#2DD4FF" />
-    </svg>
-  );
-}
 
 /** 0..4 strength score. 12+ chars is the floor. */
 function scorePassword(p: string): number {
@@ -133,7 +125,7 @@ export default function WelcomePage() {
       <div className="relative w-full max-w-[440px]">
         <div className="mkt-reveal flex flex-col items-center mb-8">
           <div className="auth-mark">
-            <ApexMark />
+            <Mark size={30} />
           </div>
           <h1 className="text-lg font-semibold tracking-[0.32em] uppercase mt-5" style={{ color: "#ececec" }}>
             Welcome to APEX

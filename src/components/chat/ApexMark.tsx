@@ -1,15 +1,10 @@
 "use client";
 
 /**
- * ApexMark
- *
- * The APEX Marketing logo mark — the mountain / A-shape icon —
- * extracted from the brand logo. Used as the AERA message avatar.
- *
- * Two outer diagonal legs meeting at the apex, a horizontal crossbar
- * at the base, and an inner double-peak (M shape) inside the A.
- * All rendered in APEX cyan (#2DD4FF).
+ * ApexMark: the official APEX mark, traced from the brand logo.
+ * Solid cyan by default. Pass color to recolor, glow for a soft halo.
  */
+const D = "M3897 6938 l-25 -43 -57 -100 -58 -100 -72 -125 -72 -125 -68 -125 -68 -125 -27 -50 -28 -50 -52 -95 -53 -95 -65 -115 -65 -115 -110 -195 -110 -195 -80 -140 -79 -140 -115 -205 -115 -205 -181 -320 -180 -320 -108 -191 -108 -192 -47 -88 -47 -89 -115 -205 -114 -205 -113 -195 -112 -195 -127 -229 -128 -230 -87 -150 -88 -151 -35 -65 -35 -65 -23 -40 -22 -40 -103 -180 -102 -180 -68 -125 -68 -125 -156 -270 -155 -270 -128 -229 -128 -229 7 -10 6 -10 565 5 566 6 17 21 17 21 63 113 62 112 142 250 142 250 108 190 108 190 62 110 62 110 78 145 78 145 53 86 52 86 78 144 77 144 176 305 175 305 56 100 56 100 38 70 39 70 127 225 127 225 43 80 43 80 30 55 30 55 92 160 92 160 78 140 78 140 120 215 119 215 86 155 85 155 147 260 147 260 41 75 40 75 50 92 50 92 -32 53 -32 53 -36 55 -35 55 -48 90 -49 90 -107 190 -107 190 -59 105 -60 104 -11 4 -10 3 -25 -43z M4928 4878 l-85 -143 -58 -110 -58 -110 -122 -215 -121 -215 -69 -125 -68 -125 -32 -55 -33 -55 -148 -260 -147 -260 -79 -150 -80 -150 -39 -62 -40 -61 94 -159 94 -158 45 -80 46 -80 19 -35 20 -35 38 -70 38 -70 21 -32 21 -33 6 0 7 0 113 203 113 202 62 115 61 115 133 245 134 245 25 47 26 48 7 0 6 0 20 -32 20 -33 165 -295 164 -295 28 -50 28 -50 162 -285 161 -285 79 -140 78 -140 132 -235 133 -235 122 -220 122 -220 54 -92 54 -91 0 -5 0 -4 66 -114 67 -114 50 -85 50 -85 35 -63 34 -63 27 -10 26 -10 547 3 548 3 0 8 0 8 -16 32 -16 32 -51 90 -51 90 -53 93 -54 93 -28 52 -28 52 -58 110 -58 110 -87 145 -87 145 -43 80 -43 80 -57 100 -57 100 -33 60 -33 60 -125 225 -125 225 -57 95 -57 95 -93 170 -93 170 -92 160 -92 160 -70 130 -69 130 -90 155 -91 155 -143 255 -143 255 -50 90 -50 90 -92 165 -93 165 -106 193 -106 192 -62 100 -62 100 -11 0 -11 0 -86 -142z M2163 388 l-21 -43 -96 -164 -96 -164 0 -6 0 -6 1984 0 1984 0 -8 15 -8 15 -106 185 -105 185 -10 12 -11 12 -1743 1 -1743 1 -21 -43z";
 
 export function ApexMark({
   size = 14,
@@ -22,54 +17,24 @@ export function ApexMark({
   opacity?: number;
   glow?: boolean;
 }) {
-  const strokeW = size <= 12 ? 1.8 : size <= 18 ? 2.0 : 2.4;
-
+  const height = Math.round(size * 698 / 785);
   return (
     <svg
       width={size}
-      height={size}
-      viewBox="0 0 28 28"
-      fill="none"
+      height={height}
+      viewBox="0 0 785 698"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
       style={{
         opacity,
         filter: glow ? `drop-shadow(0 0 ${size * 0.22}px ${color}66)` : "none",
         flexShrink: 0,
+        display: "block",
       }}
     >
-      {/* ── Outer A — left leg ── */}
-      <path
-        d="M3 26 L14 3"
-        stroke={color}
-        strokeWidth={strokeW}
-        strokeLinecap="round"
-      />
-      {/* ── Outer A — right leg ── */}
-      <path
-        d="M14 3 L25 26"
-        stroke={color}
-        strokeWidth={strokeW}
-        strokeLinecap="round"
-      />
-      {/* ── Outer A — bottom horizontal crossbar ── */}
-      <path
-        d="M6 21 L22 21"
-        stroke={color}
-        strokeWidth={strokeW * 0.85}
-        strokeLinecap="round"
-      />
-      {/* ── Inner double-peak (mountain M) ──
-          Left peak rises from the crossbar, right peak mirrors it,
-          with a shallow valley between — exactly like the logo mark. */}
-      <path
-        d="M9 21 L12 14 L14 17 L16 14 L19 21"
-        stroke={color}
-        strokeWidth={strokeW * 0.78}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
+      <g transform="translate(0,698) scale(0.1,-0.1)" fill={color}>
+        <path d={D} />
+      </g>
     </svg>
   );
 }

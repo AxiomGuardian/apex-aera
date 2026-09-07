@@ -1,5 +1,7 @@
 "use client";
 
+import { ApexMark } from "@/components/chat/ApexMark";
+
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -39,12 +41,7 @@ export function MobileHeader() {
       >
         {/* Logo */}
         <div className="flex items-center gap-2.5">
-          <svg viewBox="0 0 28 28" fill="none" style={{ height: 22, width: 22 }}>
-            <path d="M14 3L26 24H2L14 3Z" stroke="var(--text)" strokeWidth="1.5" strokeLinejoin="round" fill="none" />
-            <path d="M8.5 18H19.5"        stroke="var(--text)" strokeWidth="1.5" strokeLinecap="round" />
-            <path d="M14 10L18.5 18"      stroke="var(--text)" strokeWidth="1.4" strokeLinecap="round" />
-            <path d="M14 10L9.5 18"       stroke="var(--text)" strokeWidth="1.4" strokeLinecap="round" />
-          </svg>
+          <ApexMark size={22} color="#2DD4FF" />
           <div className="flex flex-col leading-none">
             <span className="text-[11px] font-bold tracking-[0.14em] uppercase" style={{ color: "var(--text)" }}>APEX</span>
             <span className="text-[7.5px] tracking-[0.22em] uppercase mt-0.5" style={{ color: "var(--text-6)" }}>AERA Client</span>
@@ -154,12 +151,7 @@ export function MobileHeader() {
                 }}
               >
                 <div className="flex items-center gap-2.5">
-                  <svg viewBox="0 0 28 28" fill="none" style={{ height: 20, width: 20 }}>
-                    <path d="M14 3L26 24H2L14 3Z" stroke="var(--text)" strokeWidth="1.5" strokeLinejoin="round" fill="none" />
-                    <path d="M8.5 18H19.5"        stroke="var(--text)" strokeWidth="1.5" strokeLinecap="round" />
-                    <path d="M14 10L18.5 18"      stroke="var(--text)" strokeWidth="1.4" strokeLinecap="round" />
-                    <path d="M14 10L9.5 18"       stroke="var(--text)" strokeWidth="1.4" strokeLinecap="round" />
-                  </svg>
+                  <ApexMark size={20} color="#2DD4FF" />
                   <span className="text-[11px] font-bold tracking-[0.14em] uppercase" style={{ color: "var(--text)" }}>
                     APEX
                   </span>

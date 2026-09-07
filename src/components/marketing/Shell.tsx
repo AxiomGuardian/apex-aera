@@ -1,5 +1,7 @@
 "use client";
 
+import { ApexMark as Mark } from "@/components/chat/ApexMark";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -11,17 +13,7 @@ const TABS = [
 ];
 
 export function ApexMark({ size = 26 }: { size?: number }) {
-  return (
-    <svg viewBox="0 0 28 28" fill="none" width={size} height={size} aria-hidden>
-      <path
-        d="M14 3L26 24H2L14 3Z"
-        stroke="rgba(45,212,255,0.9)"
-        strokeWidth="1.4"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    </svg>
-  );
+  return <Mark size={size} color="#2DD4FF" />;
 }
 
 export function MarketingNav() {

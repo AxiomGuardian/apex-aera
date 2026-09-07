@@ -7,6 +7,7 @@ import { useState, useRef, useEffect } from "react";
 import { ThemeToggle } from "./ThemeToggle";
 import { useAERA } from "@/context/AERAContext";
 import { navFor } from "@/lib/roles";
+import { ApexMark } from "@/components/chat/ApexMark";
 import {
   LayoutDashboard,
   Wand2,
@@ -95,14 +96,7 @@ export function TopNav() {
 
         {/* Logo */}
         <div className="flex items-center gap-3.5 shrink-0 z-10">
-          <svg viewBox="0 0 28 28" fill="none" className="h-[26px] w-[26px]">
-            <path d="M14 3L26 24H2L14 3Z" stroke="var(--text)" strokeWidth="1.4" strokeLinejoin="round" fill="none" />
-            <path d="M8.5 18H19.5"        stroke="var(--text)" strokeWidth="1.4" strokeLinecap="round" />
-            <path d="M14 10L18.5 18"      stroke="var(--text)" strokeWidth="1.2" strokeLinecap="round" opacity="0.4"/>
-            <path d="M14 10L9.5 18"       stroke="var(--text)" strokeWidth="1.2" strokeLinecap="round" opacity="0.4"/>
-            <circle cx="14" cy="3" r="1.4" fill="#2DD4FF" />
-            <circle cx="14" cy="3" r="3.5" fill="#2DD4FF" opacity="0.12" />
-          </svg>
+          <ApexMark size={26} color="#2DD4FF" />
           <div className="flex flex-col leading-none">
             <span className="text-[13px] font-bold tracking-[0.16em] uppercase" style={{ color: "var(--text)" }}>
               APEX
