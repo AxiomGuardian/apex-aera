@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PagePad } from "@/components/layout/PagePad";
 import {
   ArrowLeft, Loader2, CheckCircle2, Radar, FileText, Filter, RefreshCw,
-  Camera, Share2, Users, Upload, CalendarClock, Link2, Mail, Sparkles, Archive, RotateCcw,
+  Camera, Share2, Music2, Users, Upload, CalendarClock, Link2, Mail, Sparkles, Archive, RotateCcw,
 } from "lucide-react";
 import { DictateButton } from "@/components/voice/DictateButton";
 
@@ -157,12 +157,12 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
   const [dropBusy, setDropBusy] = useState("");
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
-    const which = q.has("instagram") ? "instagram" : q.has("meta") ? "meta" : null;
+    const which = q.has("instagram") ? "instagram" : q.has("meta") ? "meta" : q.has("tiktok") ? "tiktok" : null;
     if (!which) return;
     const r = q.get(which) ?? "";
     const account = q.get("account");
     const reason = q.get("reason");
-    const label = which === "instagram" ? "Instagram" : "Facebook";
+    const label = which === "instagram" ? "Instagram" : which === "tiktok" ? "TikTok" : "Facebook";
     const text =
       r === "connected" ? label + " connected" + (account ? " as " + account : "") + ". AERA can publish here now." :
       r === "connected_fb_only" ? "Facebook Page connected" + (account ? " (" + account + ")" : "") + ". No Instagram business account is linked to that Page." :
@@ -303,6 +303,7 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
 
   const ig = conns.find((c) => c.platform === "instagram");
   const fb = conns.find((c) => c.platform === "facebook");
+  const tt = conns.find((c) => c.platform === "tiktok");
   const connectedCount = conns.filter((c) => c.status === "connected").length;
   const initials = brand.name.replace(/[^A-Za-z0-9 ]/g, "").split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "B";
 
@@ -461,12 +462,13 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
           {/* ── Right: Connections + Team ── */}
           <div className="lg:col-span-2 flex flex-col gap-6">
             <div className="mkt-card mkt-quiet" style={card}>
-              <SectionTitle hint="Where AERA publishes. Instagram connects with your Instagram login, no Facebook needed.">
+              <SectionTitle hint="Where AERA publishes. Each platform connects with its own login.">
                 Platforms
               </SectionTitle>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {[
                   { key: "instagram", label: "Instagram", icon: Camera, conn: ig, href: "/api/aera/connect/instagram?brandId=" + id, req: "Needs a Creator or Business account. Personal accounts will not connect." },
+                  { key: "tiktok", label: "TikTok", icon: Music2, conn: tt, href: "/api/aera/connect/tiktok?brandId=" + id, req: "Needs a Business or Creator account. Posts stay private until TikTok approves the app." },
                   { key: "facebook", label: "Facebook Page", icon: Share2, conn: fb, href: "/api/aera/connect/meta?brandId=" + id, req: "Needs a Facebook Page you manage, not a personal profile." },
                 ].map((p) => {
                   const ok = p.conn?.status === "connected";
@@ -497,7 +499,7 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
                     </div>
                   );
                 })}
-                <p style={{ fontSize: 12, color: "var(--text-6)", marginTop: 4, lineHeight: 1.5 }}>TikTok, YouTube, and LinkedIn are next in line.</p>
+                <p style={{ fontSize: 12, color: "var(--text-6)", marginTop: 4, lineHeight: 1.5 }}>YouTube and LinkedIn are next in line.</p>
               </div>
             </div>
 

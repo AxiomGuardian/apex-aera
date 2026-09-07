@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { ensureTikTokToken } from "./publishers/tiktok";
 
 /**
  * Connection health engine.
@@ -68,7 +69,7 @@ export async function checkConnections(sb: SupabaseClient) {
   const { data: conns } = await sb
     .from("platform_connections")
     .select("id,brand_id,platform,status,credentials,updated_at")
-    .in("platform", ["facebook", "instagram"])
+    .in("platform", ["facebook", "instagram", "tiktok"])
     .in("status", ["connected", "expired"]);
 
   let checked = 0, healthy = 0, expired = 0;
@@ -80,6 +81,24 @@ export async function checkConnections(sb: SupabaseClient) {
     if (now - last < CHECK_EVERY_MS) continue;
 
     checked++;
+
+    // TikTok: keep the 24h access token fresh from the refresh token; expire when that is gone.
+    if (c.platform === "tiktok") {
+      try {
+        const next = await ensureTikTokToken(sb, c.brand_id, creds as Record<string, string | undefined>);
+        healthy++;
+        await sb.from("platform_connections")
+          .update({ status: "connected", credentials: { ...next, last_checked: new Date().toISOString(), last_error: null }, updated_at: new Date().toISOString() })
+          .eq("id", c.id);
+      } catch (e) {
+        expired++;
+        await sb.from("platform_connections")
+          .update({ status: "expired", credentials: { ...creds, last_checked: new Date().toISOString(), last_error: e instanceof Error ? e.message : "refresh failed" }, updated_at: new Date().toISOString() })
+          .eq("id", c.id);
+      }
+      continue;
+    }
+
     const refreshed = creds.kind === "instagram_login" ? await refreshInstagramToken(creds) : creds;
     const result = await pingMeta(c.platform, refreshed);
     const nextCreds = { ...refreshed, last_checked: new Date().toISOString(), last_error: result.ok ? null : result.error ?? null };

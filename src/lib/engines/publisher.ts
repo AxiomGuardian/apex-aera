@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { publishInstagram, publishFacebook } from "./publishers/meta";
+import { publishTikTok } from "./publishers/tiktok";
 
 /**
  * Publishing engine (wireframe). Finds due posts and pushes them through
@@ -13,6 +14,7 @@ type Adapter = (sb: SupabaseClient, postId: string) => Promise<{ ok: boolean; pl
 const ADAPTERS: Record<string, Adapter | undefined> = {
   instagram: publishInstagram,
   facebook: publishFacebook,
+  tiktok: publishTikTok,
 };
 
 export async function publishDue(sb: SupabaseClient) {

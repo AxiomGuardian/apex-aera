@@ -130,7 +130,7 @@ export default function IntroPage() {
             {[
               { name: "Instagram", req: "Creator or Business account", how: "Instagram app: Profile, Menu, Settings, Account type and tools, Switch to professional account." },
               { name: "Facebook", req: "A Facebook Page you manage", how: "Personal profiles cannot connect. Create a Page for the business, or get admin access to the existing one." },
-              { name: "TikTok", req: "Business or Creator account", how: "TikTok app: Profile, Menu, Settings and privacy, Account, Switch to Business account. Coming next." },
+              { name: "TikTok", req: "Business or Creator account", how: "TikTok app: Profile, Menu, Settings and privacy, Account, Switch to Business account." },
             ].map((p, i) => (
               <div key={p.name} className="mkt-card mkt-line-cyan intro-fade p-6" style={{ animationDelay: (0.15 + i * 0.12).toFixed(2) + "s" }}>
                 <h3 className="font-semibold mb-1" style={{ color: "#e4e4e4" }}>{p.name}</h3>
