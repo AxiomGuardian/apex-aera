@@ -449,8 +449,8 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
               </SectionTitle>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {[
-                  { key: "instagram", label: "Instagram", icon: Camera, conn: ig, href: "/api/aera/connect/instagram?brandId=" + id },
-                  { key: "facebook", label: "Facebook Page", icon: Share2, conn: fb, href: "/api/aera/connect/meta?brandId=" + id },
+                  { key: "instagram", label: "Instagram", icon: Camera, conn: ig, href: "/api/aera/connect/instagram?brandId=" + id, req: "Needs a Creator or Business account. Personal accounts will not connect." },
+                  { key: "facebook", label: "Facebook Page", icon: Share2, conn: fb, href: "/api/aera/connect/meta?brandId=" + id, req: "Needs a Facebook Page you manage, not a personal profile." },
                 ].map((p) => {
                   const ok = p.conn?.status === "connected";
                   const expired = p.conn?.status === "expired";
@@ -462,6 +462,7 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
                         <p style={{ fontSize: 12, color: ok ? "var(--green)" : expired ? "var(--amber)" : "var(--text-6)", marginTop: 2 }}>
                           {ok ? "Connected as " + (p.conn?.account_name ?? "unknown account") : expired ? "Token expired. Reconnect." : "Not connected"}
                         </p>
+                        {!ok && <p style={{ fontSize: 11.5, color: "var(--text-5)", marginTop: 4, lineHeight: 1.45 }}>{p.req}</p>}
                       </div>
                       {ok && (
                         <button onClick={() => void disconnect(p.key)} disabled={dropBusy === p.key} title="Disconnect" style={{ background: "none", border: "none", color: "var(--text-5)", fontSize: 12, cursor: "pointer", padding: "6px 4px" }}>

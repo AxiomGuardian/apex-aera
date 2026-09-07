@@ -30,7 +30,7 @@ const BLURB: Record<NavKey, string> = {
 export default function IntroPage() {
   const router = useRouter();
   const { data, status } = useSession();
-  const [beat, setBeat] = useState<0 | 1 | 2>(0);
+  const [beat, setBeat] = useState<0 | 1 | 2 | 3>(0);
   const [leaving, setLeaving] = useState(false);
 
   const role = data?.user?.role ?? null;
@@ -57,7 +57,7 @@ export default function IntroPage() {
   return (
     <main
       className={"auth-bg min-h-screen flex items-center justify-center px-5 relative overflow-hidden " + (leaving ? "intro-out" : "")}
-      onClick={() => beat < 2 && setBeat((b) => (b + 1) as 0 | 1 | 2)}
+      onClick={() => beat < 2 && setBeat((b) => (b + 1) as 0 | 1 | 2 | 3)}
       style={{ cursor: beat < 2 ? "pointer" : "default" }}
     >
       <div className="auth-orb" />
@@ -108,6 +108,41 @@ export default function IntroPage() {
             })}
           </div>
           <div className="text-center mt-10 intro-fade" style={{ animationDelay: "0.8s" }}>
+            <button onClick={(e) => { e.stopPropagation(); setBeat(3); }} className="mkt-btn auth-primary inline-flex items-center justify-center gap-2" style={{ width: "auto", padding: "14px 30px", borderRadius: 999 }}>
+              One more thing <ArrowRight style={{ width: 15, height: 15 }} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {beat === 3 && (
+        <div className="relative w-full max-w-4xl intro-fade">
+          <div className="text-center mb-10">
+            <p className="text-[11px] tracking-[0.35em] uppercase mb-3" style={{ color: "#7fd9f7" }}>Before you connect</p>
+            <h2 className="text-[26px] sm:text-[38px] font-extrabold tracking-tight" style={{ color: "#f0f0f0" }}>
+              Your social accounts need to be professional accounts.
+            </h2>
+            <p className="mt-4 text-base" style={{ color: "rgba(255,255,255,0.5)" }}>
+              Every platform only lets software publish on Creator or Business accounts. Personal accounts will not connect. Switching is free and takes about a minute.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {[
+              { name: "Instagram", req: "Creator or Business account", how: "Instagram app: Profile, Menu, Settings, Account type and tools, Switch to professional account." },
+              { name: "Facebook", req: "A Facebook Page you manage", how: "Personal profiles cannot connect. Create a Page for the business, or get admin access to the existing one." },
+              { name: "TikTok", req: "Business or Creator account", how: "TikTok app: Profile, Menu, Settings and privacy, Account, Switch to Business account. Coming next." },
+            ].map((p, i) => (
+              <div key={p.name} className="mkt-card mkt-line-cyan intro-fade p-6" style={{ animationDelay: (0.15 + i * 0.12).toFixed(2) + "s" }}>
+                <h3 className="font-semibold mb-1" style={{ color: "#e4e4e4" }}>{p.name}</h3>
+                <p className="text-sm font-semibold mb-3" style={{ color: "#7fd9f7" }}>{p.req}</p>
+                <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>{p.how}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-center mt-6 text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
+            You will find Connect buttons under Platforms on your brand page whenever you are ready.
+          </p>
+          <div className="text-center mt-8 intro-fade" style={{ animationDelay: "0.7s" }}>
             <button onClick={enter} className="mkt-btn auth-primary inline-flex items-center justify-center gap-2" style={{ width: "auto", padding: "14px 30px", borderRadius: 999 }}>
               Enter your workspace <ArrowRight style={{ width: 15, height: 15 }} />
             </button>
