@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { randomBytes, createHash } from "crypto";
 import { createClient } from "@/lib/supabase/server";
+import { tiktokCreds } from "@/lib/tiktok/creds";
 
 /**
  * TikTok connect — step 1 (Login Kit, web flow with PKCE).
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
   if (!u.user) return NextResponse.redirect(origin + "/login");
   if (!brandId) return NextResponse.redirect(origin + "/brand?tiktok=invalid");
 
-  const clientKey = process.env.TIKTOK_CLIENT_KEY;
+  const clientKey = tiktokCreds().key;
   if (!clientKey) return NextResponse.redirect(origin + "/brand?tiktok=not_configured");
 
   const nonce = randomBytes(16).toString("hex");

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { publicMediaUrl } from "@/lib/media/link";
+import { tiktokCreds } from "@/lib/tiktok/creds";
 
 /**
  * TikTok publishing adapter (Content Posting API, Direct Post).
@@ -28,8 +29,8 @@ export async function ensureTikTokToken(sb: SupabaseClient, brandId: string, cre
   if (creds.access_token && expMs - Date.now() > 10 * 60 * 1000) return creds;
   if (!creds.refresh_token) throw new Error("TikTok session expired. Reconnect TikTok in the workspace.");
   const form = new URLSearchParams({
-    client_key: process.env.TIKTOK_CLIENT_KEY ?? "",
-    client_secret: process.env.TIKTOK_CLIENT_SECRET ?? "",
+    client_key: tiktokCreds().key ?? "",
+    client_secret: tiktokCreds().secret ?? "",
     grant_type: "refresh_token",
     refresh_token: creds.refresh_token,
   });

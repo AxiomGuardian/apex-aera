@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { connectContext } from "@/lib/connect/finish";
+import { tiktokCreds } from "@/lib/tiktok/creds";
 
 /**
  * TikTok connect — step 2. Exchanges the code, reads the profile,
@@ -30,8 +31,7 @@ export async function GET(request: Request) {
   jar.set("apex_tt_verifier", "", { maxAge: 0, path: "/" });
   if (!saved || saved !== nonce || !verifier) return back("state_mismatch");
 
-  const clientKey = process.env.TIKTOK_CLIENT_KEY;
-  const clientSecret = process.env.TIKTOK_CLIENT_SECRET;
+  const { key: clientKey, secret: clientSecret, sandbox } = tiktokCreds();
   if (!clientKey || !clientSecret) return back("not_configured");
 
   try {
@@ -62,6 +62,7 @@ export async function GET(request: Request) {
         account_name: account,
         credentials: {
           kind: "tiktok",
+          sandbox,
           open_id: tj.open_id,
           username: me.username ?? null,
           display_name: me.display_name ?? null,
