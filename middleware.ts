@@ -55,7 +55,8 @@ export async function middleware(request: NextRequest) {
     (pathname.startsWith("/api/") && (request.headers.get("authorization") ?? "").toLowerCase().startsWith("bearer ")) ||
     pathname.startsWith("/api/heartbeat") ||
     pathname.startsWith("/api/stripe/webhook") ||
-    pathname.startsWith("/api/media/");
+    pathname.startsWith("/api/media/") ||
+    pathname === "/api/voice/health";
 
   const isPublic =
     isMachine ||
