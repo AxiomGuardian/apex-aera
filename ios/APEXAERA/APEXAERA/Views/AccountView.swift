@@ -1,10 +1,13 @@
 import SwiftUI
+import AVFoundation
 
 /// Account and access. Reached from the avatar on any tab.
 struct AccountView: View {
     @Environment(Session.self) private var session
     @Environment(\.dismiss) private var dismiss
     @State private var brand: Brand?
+    @State private var check: [String] = []
+    @State private var checking = false
 
     var body: some View {
         NavigationStack {
@@ -43,6 +46,16 @@ struct AccountView: View {
                                 }
                             }
                         }
+                        ApexCard(quiet: true) {
+                            VStack(alignment: .leading, spacing: 12) {
+                                SectionLabel(text: "Voice check")
+                                Text("Tests the three pieces AERA needs to talk: speech credential, voice, and the action brain.").font(.system(size: 13)).foregroundStyle(Theme.text3)
+                                GhostButton(title: checking ? "Checking…" : "Run voice check", icon: "waveform.badge.magnifyingglass") { Task { await runCheck() } }
+                                ForEach(check, id: \.self) { line in
+                                    Text(line).font(.system(size: 12.5, design: .monospaced)).foregroundStyle(line.hasPrefix("OK") ? Theme.green : Theme.rose)
+                                }
+                            }
+                        }
                         Button {
                             dismiss()
                             Task { await session.signOut() }
@@ -65,6 +78,42 @@ struct AccountView: View {
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() }.foregroundStyle(Theme.cyan) } }
         }
         .task { brand = try? await Repo.shared.myBrand() }
+    }
+
+    private struct Cred: Decodable { let mode: String?; let access_token: String?; let error: String? }
+    private func runCheck() async {
+        checking = true; check = []
+        if session.isDemo { check = ["Demo mode: sign in to test the live voice."]; checking = false; return }
+        // 1. Speech credential
+        do {
+            let c: Cred = try await SupabaseClient.shared.api("api/voice/deepgram-token", method: "GET", as: Cred.self)
+            check.append(c.access_token != nil ? "OK  speech credential (\(c.mode ?? "?"))" : "FAIL speech credential: \(c.error ?? "empty")")
+        } catch { check.append("FAIL speech credential: \(error.localizedDescription)") }
+        // 2. Voice (Aura)
+        do {
+            let s = try await SupabaseClient.shared.refreshIfNeeded()
+            var req = URLRequest(url: Config.apiBase.appending(path: "api/voice/speak"))
+            req.httpMethod = "POST"
+            req.setValue("Bearer " + s.accessToken, forHTTPHeaderField: "Authorization")
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try JSONSerialization.data(withJSONObject: ["text": "AERA online."])
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            if code == 200, data.count > 1000 {
+                check.append("OK  voice (\(data.count / 1024) KB of audio)")
+                try? AudioSessionConfig.activate()
+                if let p = try? AVAudioPlayer(data: data) { p.play(); try? await Task.sleep(for: .seconds(2)) }
+            } else {
+                let msg = (try? JSONDecoder().decode([String: String].self, from: data))?["error"] ?? "HTTP \(code)"
+                check.append("FAIL voice: \(msg)")
+            }
+        } catch { check.append("FAIL voice: \(error.localizedDescription)") }
+        // 3. Action brain
+        do {
+            let r = try await Repo.shared.act([ChatMessage(kind: .user, text: "Say hello in five words.")])
+            check.append("OK  brain: \((r.say ?? "").prefix(60))")
+        } catch { check.append("FAIL brain: \(error.localizedDescription)") }
+        checking = false
     }
 
     private func row(_ k: String, _ v: String) -> some View {

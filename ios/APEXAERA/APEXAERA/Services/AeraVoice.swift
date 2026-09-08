@@ -76,7 +76,7 @@ final class AeraVoice {
 
     private func heardFinal(_ text: String) {
         guard active, state == .listening else { return }
-        heard = text
+        heard = Self.fixName(text)
         ears.stop()
         state = .thinking
         let confirmed = pendingConfirm != nil && Self.isYes(text)
@@ -85,7 +85,7 @@ final class AeraVoice {
             speak("Okay, leaving it as is.")
             return
         }
-        history.append(ChatMessage(kind: .user, text: text))
+        history.append(ChatMessage(kind: .user, text: heard))
         Task { await respond(confirm: confirmed) }
     }
 
@@ -115,6 +115,15 @@ final class AeraVoice {
     private func afterSpeaking() {
         guard active else { return }
         listen()
+    }
+
+    /// Speech engines hear "era", "arrow", "ara", "aira" for AERA. Fix it before it is shown or sent.
+    static func fixName(_ t: String) -> String {
+        var out = t
+        for pat in ["\\b[Aa]rrow\\b", "\\b[Ee]ra\\b", "\\b[Aa]ra\\b", "\\b[Aa]ira\\b", "\\b[Aa]yra\\b", "\\b[Ee]rra\\b", "\\b[Aa]era\\b"] {
+            out = out.replacingOccurrences(of: pat, with: "AERA", options: .regularExpression)
+        }
+        return out
     }
 
     static func isYes(_ t: String) -> Bool {

@@ -6,7 +6,6 @@ struct ChatView: View {
     @State private var draft = ""
     @State private var thinking = false
     @State private var speech = SpeechEngine()
-    @State private var voice = VoiceOut()
     @State private var context: String?
     @FocusState private var focused: Bool
 
@@ -33,21 +32,6 @@ struct ChatView: View {
                     if focused {
                         Button("Done") { focused = false }.font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.cyan)
                     }
-                    Button {
-                        voice.enabled.toggle()
-                        if !voice.enabled { voice.stop() }
-                    } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: voice.speaking ? "waveform" : voice.enabled ? "speaker.wave.2.fill" : "speaker.slash")
-                            Text(voice.enabled ? "Voice on" : "Voice off")
-                        }
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(voice.enabled ? Theme.cyan : Theme.text4)
-                        .padding(.horizontal, 10).padding(.vertical, 6)
-                        .background((voice.enabled ? Theme.cyan : Theme.text4).opacity(0.08), in: Capsule())
-                        .overlay(Capsule().stroke((voice.enabled ? Theme.cyan : Theme.text4).opacity(0.3), lineWidth: 1))
-                    }
-                    .disabled(session.isDemo)
                 }
                 .padding(.horizontal, 20).padding(.vertical, 12)
 
@@ -94,8 +78,8 @@ struct ChatView: View {
                 if speech.listening {
                     VStack(spacing: 6) {
                         WaveformBars(level: speech.level, active: speech.listening)
-                        Text(speech.transcript.isEmpty ? "Listening…" : speech.transcript)
-                            .font(.system(size: 14)).foregroundStyle(Theme.text2).multilineTextAlignment(.center).lineLimit(3)
+                        Text(speech.transcript.isEmpty ? "Listening. Tap the square when you are done." : "Tap the square when you are done.")
+                            .font(.system(size: 12)).foregroundStyle(Theme.text3)
                     }
                     .padding(.horizontal, 20).padding(.vertical, 10)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -106,7 +90,7 @@ struct ChatView: View {
                     Button {
                         if speech.listening {
                             speech.stop()
-                            if !speech.transcript.isEmpty { draft = speech.transcript; send() }
+                            draft = AeraVoice.fixName(speech.transcript)
                         } else { focused = false; speech.start() }
                     } label: {
                         ZStack {
@@ -135,7 +119,8 @@ struct ChatView: View {
             .animation(.easeInOut(duration: 0.3), value: speech.listening)
         }
         .task { context = try? await Repo.shared.brandContext() }
-        .onDisappear { if speech.listening { speech.stop() }; voice.stop() }
+        .onChange(of: speech.transcript) { _, t in if speech.listening { draft = AeraVoice.fixName(t) } }
+        .onDisappear { if speech.listening { speech.stop() } }
     }
 
     private func send() {
@@ -148,7 +133,6 @@ struct ChatView: View {
             do {
                 let r = try await Repo.shared.chat(messages, context: context)
                 messages.append(ChatMessage(kind: .aera, text: r.content, thinking: r.thinking))
-                await voice.say(r.content)
             } catch {
                 messages.append(ChatMessage(kind: .aera, text: "I could not reach the server: \(error.localizedDescription)"))
             }

@@ -56,12 +56,16 @@ final class SpeechEngine {
     private func begin() async {
         // Credential from our server, same as the web dictation button.
         var cred: Cred?
-        do { cred = try await SupabaseClient.shared.api("api/voice/deepgram-token", method: "GET", as: Cred.self) } catch { cred = nil }
+        var credError: String?
+        do { cred = try await SupabaseClient.shared.api("api/voice/deepgram-token", method: "GET", as: Cred.self) } catch { cred = nil; credError = error.localizedDescription }
 
         await MainActor.run { self.startMic() }
 
-        guard let cred else { return } // no live credential: batch fallback will run on stop()
-        var req = URLRequest(url: URL(string: "wss://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&interim_results=true&endpointing=300&encoding=linear16&sample_rate=16000&channels=1")!)
+        guard let cred else {
+            await MainActor.run { self.error = "Live speech unavailable (\(credError ?? "no credential")). Recording for batch transcription instead." }
+            return
+        }
+        var req = URLRequest(url: URL(string: "wss://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&interim_results=true&endpointing=300&encoding=linear16&sample_rate=16000&channels=1&keywords=AERA:5&keywords=APEX:3")!)
         req.setValue((cred.mode == "bearer" ? "Bearer " : "Token ") + cred.access_token, forHTTPHeaderField: "Authorization")
         let task = URLSession.shared.webSocketTask(with: req)
         socket = task
@@ -126,9 +130,12 @@ final class SpeechEngine {
         socket?.receive { [weak self] result in
             guard let self else { return }
             switch result {
-            case .failure:
+            case .failure(let e):
                 // Socket died: keep the mic running and fall back to batch on stop.
-                DispatchQueue.main.async { self.liveOK = false }
+                DispatchQueue.main.async {
+                    if self.listening { self.error = "Live speech dropped (\(e.localizedDescription)). Recording for batch transcription." }
+                    self.liveOK = false
+                }
             case .success(let msg):
                 if case .string(let text) = msg, let d = text.data(using: .utf8), let r = try? JSONDecoder().decode(DGResult.self, from: d) {
                     let piece = r.channel?.alternatives?.first?.transcript ?? ""
@@ -178,7 +185,13 @@ final class SpeechEngine {
             req.setValue("Bearer " + s.accessToken, forHTTPHeaderField: "Authorization")
             req.setValue("audio/wav", forHTTPHeaderField: "Content-Type")
             req.httpBody = wav
-            let (data, _) = try await URLSession.shared.data(for: req)
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            guard code == 200 else {
+                let msg = (try? JSONDecoder().decode([String: String].self, from: data))?["error"] ?? "HTTP \(code)"
+                await MainActor.run { self.error = "Transcription failed: \(msg)" }
+                return
+            }
             let b = try JSONDecoder().decode(Batch.self, from: data)
             await MainActor.run { self.transcript = b.transcript ?? "" }
         } catch {

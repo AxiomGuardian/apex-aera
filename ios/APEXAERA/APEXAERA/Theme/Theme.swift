@@ -172,12 +172,22 @@ struct OrbitBeam: View {
     }
 }
 
-/// While a thumb rests on the view: the edge lights and the beam orbits. Lifts or scrolls away and it settles.
-/// Uses a press detector that yields to scrolling, so lists still scroll normally.
+/// Which element currently holds the light. Shared app-wide so only one glows at a time.
+@Observable
+final class GlowFocus {
+    static let shared = GlowFocus()
+    var id: UUID? = nil
+}
+
+/// Touch a card or button and it lights with the orbiting beam, and stays lit until you touch another.
+/// A press detector that yields to scrolling, so lists still scroll normally.
 struct TouchGlow: ViewModifier {
     var color: Color = Theme.cyan
     var radius: CGFloat = 20
-    @State private var lit = false
+    @State private var me = UUID()
+    @State private var pressing = false
+    private var focus: GlowFocus { GlowFocus.shared }
+    private var lit: Bool { pressing || focus.id == me }
 
     func body(content: Content) -> some View {
         content
@@ -185,11 +195,15 @@ struct TouchGlow: ViewModifier {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .stroke(color.opacity(lit ? 0.35 : 0), lineWidth: 1)
             )
-            .overlay { if lit { OrbitBeam(color: color, radius: radius, speed: 0.6).transition(.opacity) } }
+            .overlay { if lit { OrbitBeam(color: color, radius: radius, speed: pressing ? 0.8 : 0.35).transition(.opacity) } }
             .shadow(color: color.opacity(lit ? 0.22 : 0), radius: lit ? 22 : 0)
-            .scaleEffect(lit ? 1.01 : 1)
+            .scaleEffect(pressing ? 1.01 : 1)
             .animation(.easeOut(duration: 0.25), value: lit)
-            .onLongPressGesture(minimumDuration: 0.08, maximumDistance: 12, perform: {}, onPressingChanged: { pressing in lit = pressing })
+            .animation(.easeOut(duration: 0.25), value: pressing)
+            .onLongPressGesture(minimumDuration: 0.06, maximumDistance: 12, perform: {}, onPressingChanged: { p in
+                pressing = p
+                if p { focus.id = me }
+            })
     }
 }
 
