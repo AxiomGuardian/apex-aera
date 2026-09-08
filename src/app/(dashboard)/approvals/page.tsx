@@ -59,6 +59,16 @@ export default function ApprovalsPage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  const [pubBusy, setPubBusy] = useState("");
+  const [pubMsg, setPubMsg] = useState<string | null>(null);
+  async function publishNow(postId: string) {
+    setPubBusy(postId); setPubMsg(null);
+    const r = await fetch("/api/aera/publish-now", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ postId }) });
+    const j = (await r.json()) as { ok?: boolean; error?: string; platformPostId?: string };
+    setPubMsg(j.ok ? "Published. Post id " + (j.platformPostId ?? "") : "Publish failed: " + (j.error ?? "unknown"));
+    setPubBusy(""); void load();
+  }
+
   async function act(postId: string, status: "approved" | "cancelled") {
     setActing(postId);
     const supabase = createClient();
@@ -85,6 +95,7 @@ export default function ApprovalsPage() {
           <div className="px-6 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
             <span className="section-label">Queued to publish</span>
           </div>
+          {pubMsg && <p style={{ padding: "10px 24px", fontSize: 12.5, fontWeight: 600, color: pubMsg.startsWith("Published") ? "var(--green)" : "var(--rose)", borderBottom: "1px solid var(--border)" }}>{pubMsg}</p>}
           {loading ? (
             <div style={{ padding: 40, textAlign: "center" }}><Loader2 className="animate-spin" style={{ width: 16, height: 16, color: "var(--text-5)", margin: "0 auto" }} /></div>
           ) : posts.length === 0 ? (
@@ -106,6 +117,9 @@ export default function ApprovalsPage() {
                   <CheckCircle2 style={{ width: 12, height: 12 }} /> Approve
                 </button>
               )}
+              <button onClick={() => void publishNow(p.id)} disabled={pubBusy === p.id} title="Send this post to the platform right now" style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: 9, background: "rgba(45,212,255,0.08)", border: "1px solid rgba(45,212,255,0.25)", color: "var(--cyan)", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>
+                {pubBusy === p.id ? "Publishing…" : "Publish now"}
+              </button>
               <button onClick={() => void act(p.id, "cancelled")} disabled={acting === p.id} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: 9, background: "transparent", border: "1px solid var(--border)", color: "var(--text-5)", fontSize: 11.5, fontWeight: 600, cursor: "pointer" }}>
                 <XCircle style={{ width: 12, height: 12 }} /> Pull
               </button>

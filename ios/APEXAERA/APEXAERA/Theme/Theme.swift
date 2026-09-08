@@ -153,49 +153,52 @@ extension View {
 
 // MARK: - Touch glow (the phone version of hover)
 
-/// Lights the edge and sweeps a cyan trace along the top while a thumb rests on the view.
-/// Runs alongside taps, so buttons still fire.
+/// A light that orbits the border, like the beam on the website cards.
+struct OrbitBeam: View {
+    var color: Color = Theme.cyan
+    var radius: CGFloat = 20
+    var lineWidth: CGFloat = 1.5
+    var speed: Double = 1.0     // revolutions per second
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1/60)) { t in
+            let angle = (t.date.timeIntervalSinceReferenceDate * speed * 360).truncatingRemainder(dividingBy: 360)
+            RoundedRectangle(cornerRadius: radius, style: .continuous)
+                .stroke(
+                    AngularGradient(colors: [.clear, .clear, .clear, color.opacity(0.0), color, .white, color.opacity(0.0), .clear], center: .center, angle: .degrees(angle)),
+                    lineWidth: lineWidth
+                )
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// While a thumb rests on the view: the edge lights and the beam orbits. Lifts or scrolls away and it settles.
+/// Uses a press detector that yields to scrolling, so lists still scroll normally.
 struct TouchGlow: ViewModifier {
     var color: Color = Theme.cyan
     var radius: CGFloat = 20
     @State private var lit = false
-    @State private var sweep: CGFloat = -0.4
 
     func body(content: Content) -> some View {
         content
             .overlay(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(color.opacity(lit ? 0.55 : 0), lineWidth: 1)
+                    .stroke(color.opacity(lit ? 0.35 : 0), lineWidth: 1)
             )
-            .overlay(alignment: .top) {
-                GeometryReader { g in
-                    LinearGradient(colors: [.clear, color, .white.opacity(0.9), color, .clear], startPoint: .leading, endPoint: .trailing)
-                        .frame(width: g.size.width * 0.45, height: 2)
-                        .offset(x: g.size.width * sweep, y: -0.5)
-                        .opacity(lit ? 1 : 0)
-                }
-                .frame(height: 2)
-                .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-                .allowsHitTesting(false)
-            }
+            .overlay { if lit { OrbitBeam(color: color, radius: radius, speed: 0.6).transition(.opacity) } }
             .shadow(color: color.opacity(lit ? 0.22 : 0), radius: lit ? 22 : 0)
-            .scaleEffect(lit ? 1.012 : 1)
-            .animation(.easeOut(duration: 0.28), value: lit)
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
-                        guard !lit else { return }
-                        lit = true
-                        sweep = -0.45
-                        withAnimation(.easeInOut(duration: 0.9)) { sweep = 1.0 }
-                    }
-                    .onEnded { _ in lit = false }
-            )
+            .scaleEffect(lit ? 1.01 : 1)
+            .animation(.easeOut(duration: 0.25), value: lit)
+            .onLongPressGesture(minimumDuration: 0.08, maximumDistance: 12, perform: {}, onPressingChanged: { pressing in lit = pressing })
     }
 }
 
 extension View {
     func touchGlow(_ color: Color = Theme.cyan, radius: CGFloat = 20) -> some View { modifier(TouchGlow(color: color, radius: radius)) }
+    /// Always-on slow orbit, for hero cards like the login panel.
+    func orbitBeam(_ color: Color = Theme.cyan, radius: CGFloat = 24, speed: Double = 0.25) -> some View {
+        overlay(OrbitBeam(color: color, radius: radius, lineWidth: 1.2, speed: speed))
+    }
 
     /// Tap anywhere outside a text field to put the keyboard away.
     func dismissKeyboardOnTap() -> some View {

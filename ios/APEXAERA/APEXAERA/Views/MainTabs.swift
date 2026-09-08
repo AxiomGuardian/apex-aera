@@ -2,21 +2,39 @@ import SwiftUI
 
 struct MainTabs: View {
     @Environment(Session.self) private var session
+    @Environment(AppNav.self) private var nav
+    @Environment(AeraVoice.self) private var aera
 
     var body: some View {
-        TabView {
-            if session.role.seesClients {
-                DashboardView().tabItem { Label("Dashboard", systemImage: "square.grid.2x2.fill") }
-                ClientsView().tabItem { Label("Clients", systemImage: "person.2.fill") }
-            } else {
-                BrandTab().tabItem { Label("My Brand", systemImage: "sparkle") }
+        @Bindable var nav = nav
+        ZStack(alignment: .top) {
+            TabView(selection: $nav.tab) {
+                if session.role.seesClients {
+                    DashboardView().tabItem { Label("Dashboard", systemImage: "square.grid.2x2.fill") }.tag(AppTab.dashboard)
+                    ClientsView().tabItem { Label("Clients", systemImage: "person.2.fill") }.tag(AppTab.clients)
+                } else {
+                    BrandTab().tabItem { Label("My Brand", systemImage: "sparkle") }.tag(AppTab.brand)
+                }
+                ContentListView().tabItem { Label("Content", systemImage: "photo.stack.fill") }.tag(AppTab.content)
+                QueueView().tabItem { Label("Queue", systemImage: "checkmark.circle.fill") }.tag(AppTab.queue)
+                ChatView().tabItem { Label("AERA", systemImage: "waveform") }.tag(AppTab.aera)
             }
-            ContentListView().tabItem { Label("Content", systemImage: "photo.stack.fill") }
-            QueueView().tabItem { Label("Queue", systemImage: "checkmark.circle.fill") }
-            ChatView().tabItem { Label("AERA", systemImage: "waveform") }
+            .toolbarBackground(Theme.bg.opacity(0.92), for: .tabBar)
+            .toolbarBackground(.visible, for: .tabBar)
+
+            if aera.active {
+                VoiceCapsule()
+                    .padding(.top, 4)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(5)
+            }
         }
-        .toolbarBackground(Theme.bg.opacity(0.92), for: .tabBar)
-        .toolbarBackground(.visible, for: .tabBar)
+        .animation(.spring(duration: 0.45, bounce: 0.15), value: aera.active)
+        .onAppear {
+            aera.nav = nav
+            aera.role = session.role
+            nav.tab = session.role.seesClients ? .dashboard : .brand
+        }
     }
 }
 
@@ -48,6 +66,7 @@ struct ApexHeader: View {
     let title: String
     var subtitle: String? = nil
     @State private var showAccount = false
+    @Environment(AeraVoice.self) private var aera
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
@@ -55,6 +74,16 @@ struct ApexHeader: View {
                 Text(title).font(.system(size: 28, weight: .heavy)).foregroundStyle(Theme.text)
             }
             Spacer()
+            Button { aera.active ? aera.close() : aera.open() } label: {
+                ZStack {
+                    Circle().fill(aera.active ? Theme.cyan.opacity(0.16) : Theme.surface2)
+                        .overlay(Circle().stroke(aera.active ? Theme.cyan : Theme.cyan.opacity(0.35), lineWidth: 1))
+                    Image("ApexMark").resizable().scaledToFit().frame(width: 16)
+                }
+                .frame(width: 38, height: 38)
+                .shadow(color: Theme.cyan.opacity(aera.active ? 0.5 : 0.15), radius: 10)
+            }
+            .padding(.trailing, 8)
             Button { showAccount = true } label: {
                 ZStack {
                     Circle().fill(Theme.surface2).overlay(Circle().stroke(Theme.borderMid, lineWidth: 1))

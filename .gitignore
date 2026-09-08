@@ -48,3 +48,8 @@ src/app/kit/
 src/components/kit/
 src/lib/kit/
 data/
+
+# Xcode
+ios/**/xcuserdata/
+ios/**/*.xcuserstate
+ios/**/DerivedData/

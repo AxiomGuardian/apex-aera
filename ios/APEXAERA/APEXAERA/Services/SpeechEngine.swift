@@ -12,6 +12,8 @@ final class SpeechEngine {
     var level: CGFloat = 0
     var listening = false
     var error: String?
+    /// Called when Deepgram hears the end of an utterance (hands-free mode).
+    var onFinal: ((String) -> Void)?
 
     private let audio = AVAudioEngine()
     private var socket: URLSessionWebSocketTask?
@@ -24,6 +26,7 @@ final class SpeechEngine {
     private struct Cred: Decodable { let mode: String; let access_token: String }
     private struct DGResult: Decodable {
         let is_final: Bool?
+        let speech_final: Bool?
         let channel: Ch?
         struct Ch: Decodable { let alternatives: [Alt]? }
         struct Alt: Decodable { let transcript: String? }
@@ -119,6 +122,11 @@ final class SpeechEngine {
                         if r.is_final == true {
                             if !piece.isEmpty { self.finalText = (self.finalText + " " + piece).trimmingCharacters(in: .whitespaces) }
                             self.transcript = self.finalText
+                            if r.speech_final == true, !self.finalText.isEmpty, let cb = self.onFinal {
+                                let done = self.finalText
+                                self.finalText = ""
+                                cb(done)
+                            }
                         } else {
                             self.transcript = (self.finalText + " " + piece).trimmingCharacters(in: .whitespaces)
                         }
@@ -181,6 +189,7 @@ final class SpeechEngine {
 final class VoiceOut: NSObject, AVAudioPlayerDelegate {
     var speaking = false
     var enabled = false
+    var onFinished: (() -> Void)?
     private var player: AVAudioPlayer?
 
     func say(_ text: String) async {
@@ -201,12 +210,12 @@ final class VoiceOut: NSObject, AVAudioPlayerDelegate {
             player = p
             await MainActor.run { speaking = true }
             p.play()
-        } catch { await MainActor.run { speaking = false } }
+        } catch { await MainActor.run { speaking = false; onFinished?() } }
     }
 
     func stop() { player?.stop(); player = nil; speaking = false }
 
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        DispatchQueue.main.async { self.speaking = false }
+        DispatchQueue.main.async { self.speaking = false; self.onFinished?() }
     }
 }

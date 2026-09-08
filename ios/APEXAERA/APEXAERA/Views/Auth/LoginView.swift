@@ -46,6 +46,7 @@ struct LoginView: View {
                     .padding(22)
                     .background(Theme.surface.opacity(0.78), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Theme.border, lineWidth: 1))
+                    .orbitBeam(Theme.cyan, radius: 24, speed: 0.22)
                     .padding(.horizontal, 22)
 
                     Button { session.enterDemo() } label: {

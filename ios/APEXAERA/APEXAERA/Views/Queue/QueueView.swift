@@ -4,6 +4,7 @@ struct QueueView: View {
     @State private var posts: [ScheduledPost] = []
     @State private var busy: String = ""
     @State private var pubMsg: String?
+    @Environment(AppNav.self) private var nav
 
     private var needsYes: [ScheduledPost] { posts.filter { $0.status == "proposed" } }
     private var autopilot: [ScheduledPost] { posts.filter { $0.status == "approved" || $0.status == "locked" } }
@@ -80,6 +81,7 @@ struct QueueView: View {
             .toolbar(.hidden, for: .navigationBar)
         }
         .task { await load() }
+        .onChange(of: nav.refreshTick) { _, _ in Task { await load() } }
     }
 
     private func load() async { posts = (try? await Repo.shared.posts()) ?? [] }

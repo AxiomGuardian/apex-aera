@@ -52,6 +52,7 @@ export async function middleware(request: NextRequest) {
 
   // Machine-to-machine routes carry their own secrets; never bounce them to /login.
   const isMachine =
+    (pathname.startsWith("/api/") && (request.headers.get("authorization") ?? "").toLowerCase().startsWith("bearer ")) ||
     pathname.startsWith("/api/heartbeat") ||
     pathname.startsWith("/api/stripe/webhook") ||
     pathname.startsWith("/api/media/");

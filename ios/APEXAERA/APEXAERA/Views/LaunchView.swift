@@ -17,8 +17,7 @@ struct LaunchView: View {
             VStack(spacing: 22) {
                 Image("ApexMark").resizable().scaledToFit().frame(width: 96)
                     .shadow(color: Theme.cyan.opacity(0.7), radius: glow ? 40 : 0)
-                    .scaleEffect(mark ? 1 : 1.9).opacity(mark ? 1 : 0)
-                    .rotation3DEffect(.degrees(mark ? 0 : 35), axis: (x: 1, y: 0, z: 0))
+                    .scaleEffect(mark ? 1 : 1.06).opacity(mark ? 1 : 0)
                 Text("APEX AERA")
                     .font(.system(size: 30, weight: .black)).tracking(title ? 9 : 22)
                     .foregroundStyle(Theme.text).opacity(title ? 1 : 0)
@@ -30,7 +29,7 @@ struct LaunchView: View {
         .scaleEffect(out ? 1.06 : 1)
         .allowsHitTesting(!out)
         .task {
-            withAnimation(.spring(duration: 0.9, bounce: 0.25)) { mark = true }
+            withAnimation(.easeOut(duration: 1.1)) { mark = true }
             try? await Task.sleep(for: .seconds(0.35))
             withAnimation(.easeOut(duration: 1.0)) { glow = true }
             try? await Task.sleep(for: .seconds(0.3))

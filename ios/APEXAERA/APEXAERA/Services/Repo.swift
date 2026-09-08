@@ -135,6 +135,24 @@ final class Repo {
         return try await sb.api("api/aera/publish-now", body: ["postId": postId], as: PublishResult.self)
     }
 
+    struct ActResponse: Decodable {
+        let say: String?
+        let ui: [UIDirective]?
+        let needsConfirm: Confirm?
+        struct UIDirective: Decodable { let type: String; let tab: String?; let kind: String?; let id: String? }
+        struct Confirm: Decodable { let tool: String; let prompt: String }
+    }
+    func act(_ history: [ChatMessage], confirm: Bool = false) async throws -> ActResponse {
+        if demo {
+            try await Task.sleep(for: .seconds(1))
+            let t = (history.last?.text ?? "").lowercased()
+            let ui: [ActResponse.UIDirective] = t.contains("queue") || t.contains("post") ? [.init(type: "navigate", tab: "queue", kind: nil, id: nil), .init(type: "highlight", tab: nil, kind: "post", id: "p1")] : t.contains("client") ? [.init(type: "navigate", tab: "clients", kind: nil, id: nil)] : []
+            return ActResponse(say: MockData.reply(to: t), ui: ui, needsConfirm: nil)
+        }
+        let msgs = history.map { ["role": $0.kind == .user ? "user" : "assistant", "content": $0.text] }
+        return try await sb.api("api/aera/act", body: ["messages": msgs, "confirm": confirm], as: ActResponse.self)
+    }
+
     struct HeartbeatResult: Decodable { let ok: Bool?; let summary: String? }
     func runHeartbeat() async throws -> String {
         if demo { try await Task.sleep(for: .seconds(2)); return "trends 1, analyzed 2, captioned 2, scheduled 1, due 0" }

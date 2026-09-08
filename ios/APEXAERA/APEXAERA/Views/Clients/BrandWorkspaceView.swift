@@ -14,6 +14,7 @@ struct BrandWorkspaceView: View {
     @State private var website = ""
     @State private var autopilot = true
     @State private var notice: String?
+    @Environment(AppNav.self) private var nav
 
     private let platforms: [(key: String, label: String, req: String)] = [
         ("instagram", "Instagram", "Needs a Creator or Business account."),
@@ -165,6 +166,14 @@ struct BrandWorkspaceView: View {
             tone = brand.tone_of_voice ?? ""; audience = brand.target_audience ?? ""; website = brand.website_url ?? ""; autopilot = brand.autopilot ?? true
         }
         .task { await load() }
+        .onChange(of: nav.refreshTick) { _, _ in
+            Task {
+                if let fresh = try? await Repo.shared.brands(includeArchived: true).first(where: { $0.id == brand.id }) {
+                    brand = fresh; tone = fresh.tone_of_voice ?? ""; audience = fresh.target_audience ?? ""; website = fresh.website_url ?? ""; autopilot = fresh.autopilot ?? true
+                }
+                await load()
+            }
+        }
     }
 
     private func connectURL(_ platform: String) -> URL {

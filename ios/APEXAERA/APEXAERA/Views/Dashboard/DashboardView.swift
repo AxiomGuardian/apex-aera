@@ -7,6 +7,7 @@ struct DashboardView: View {
     @State private var posts: [ScheduledPost] = []
     @State private var hbBusy = false
     @State private var hbResult: String?
+    @Environment(AppNav.self) private var nav
 
     private var greeting: String {
         let h = Calendar.current.component(.hour, from: Date())
@@ -76,6 +77,7 @@ struct DashboardView: View {
             .toolbar(.hidden, for: .navigationBar)
         }
         .task { await load() }
+        .onChange(of: nav.refreshTick) { _, _ in Task { await load() } }
     }
 
     private func load() async {
@@ -122,6 +124,7 @@ struct BrandRow: View {
             Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.text4)
         }
         .padding(.vertical, 6)
+        .aeraHighlight("brand", brand.id)
     }
 }
 
@@ -139,5 +142,6 @@ struct PostRow: View {
             Chip(text: post.status == "proposed" ? "Needs yes" : post.status, color: post.status == "proposed" ? Theme.amber : post.status == "published" ? Theme.green : Theme.cyan)
         }
         .padding(.vertical, 5)
+        .aeraHighlight("post", post.id)
     }
 }
