@@ -2,6 +2,16 @@ import Foundation
 import AVFoundation
 import Observation
 
+/// One audio session for the whole voice layer: mic and speaker together, routed to the loudspeaker.
+/// Configured once per use so the input format never changes under a live tap.
+enum AudioSessionConfig {
+    static func activate() throws {
+        let s = AVAudioSession.sharedInstance()
+        try s.setCategory(.playAndRecord, mode: .voiceChat, options: [.defaultToSpeaker, .allowBluetooth, .duckOthers])
+        try s.setActive(true, options: [])
+    }
+}
+
 /// APEX speech engine on iOS: the same Deepgram pipeline as the web portal.
 ///  1. Short-lived credential from /api/voice/deepgram-token (the real key never leaves the server).
 ///  2. Live socket to Deepgram nova-2 with interim results; PCM16 at 16 kHz streamed from the mic.
@@ -15,7 +25,7 @@ final class SpeechEngine {
     /// Called when Deepgram hears the end of an utterance (hands-free mode).
     var onFinal: ((String) -> Void)?
 
-    private let audio = AVAudioEngine()
+    private var audio = AVAudioEngine()
     private var socket: URLSessionWebSocketTask?
     private var converter: AVAudioConverter?
     private var pcmFallback = Data()
@@ -62,19 +72,23 @@ final class SpeechEngine {
 
     @MainActor private func startMic() {
         do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .measurement, options: [.duckOthers, .defaultToSpeaker, .allowBluetooth])
-            try session.setActive(true, options: .notifyOthersOnDeactivation)
+            // Session first, then a fresh engine, then read the REAL hardware format.
+            // Asking the engine before the session is ready returns a stale rate and the tap crashes.
+            try AudioSessionConfig.activate()
+            audio.stop()
+            audio = AVAudioEngine()
             let input = audio.inputNode
-            let inFormat = input.outputFormat(forBus: 0)
+            let inFormat = input.inputFormat(forBus: 0)
+            guard inFormat.sampleRate > 0, inFormat.channelCount > 0 else {
+                error = "Microphone is not available right now."; return
+            }
             converter = AVAudioConverter(from: inFormat, to: outFormat)
-            input.removeTap(onBus: 0)
+            let ratio = outFormat.sampleRate / inFormat.sampleRate
             input.installTap(onBus: 0, bufferSize: 2048, format: inFormat) { [weak self] buf, _ in
                 guard let self else { return }
                 self.meter(buf)
                 guard let converter = self.converter else { return }
-                let ratio = self.outFormat.sampleRate / inFormat.sampleRate
-                let cap = AVAudioFrameCount(Double(buf.frameLength) * ratio + 16)
+                let cap = AVAudioFrameCount(Double(buf.frameLength) * ratio + 32)
                 guard let out = AVAudioPCMBuffer(pcmFormat: self.outFormat, frameCapacity: cap) else { return }
                 var consumed = false
                 var err: NSError?
@@ -148,7 +162,6 @@ final class SpeechEngine {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { s.cancel(with: .normalClosure, reason: nil) }
         }
         socket = nil
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         if !liveOK, pcmFallback.count > 3200 {
             let wav = Self.wav(pcm16: pcmFallback, sampleRate: 16000)
             pcmFallback = Data()
@@ -203,9 +216,9 @@ final class VoiceOut: NSObject, AVAudioPlayerDelegate {
             req.httpBody = try JSONSerialization.data(withJSONObject: ["text": text])
             let (data, resp) = try await URLSession.shared.data(for: req)
             guard (resp as? HTTPURLResponse)?.statusCode == 200 else { return }
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
-            try AVAudioSession.sharedInstance().setActive(true)
+            try AudioSessionConfig.activate()
             let p = try AVAudioPlayer(data: data)
+            p.volume = 1.0
             p.delegate = self
             player = p
             await MainActor.run { speaking = true }
