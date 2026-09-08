@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(Session.self) private var session
+    @State private var launching = true
 
     var body: some View {
         ZStack {
@@ -19,9 +20,15 @@ struct RootView: View {
             case .signingOut:
                 SignOutView()
             }
+            if launching { LaunchView().zIndex(10) }
         }
         .animation(.easeInOut(duration: 0.55), value: phaseKey)
-        .task { await session.boot() }
+        .task {
+            async let boot: () = session.boot()
+            try? await Task.sleep(for: .seconds(3.9))
+            _ = await boot
+            launching = false
+        }
         .onChange(of: session.isDemo, initial: true) { _, v in Repo.shared.demo = v }
     }
     private var phaseKey: Int {
