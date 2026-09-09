@@ -29,7 +29,10 @@ final class SpeechEngine {
 
     private var audio = AVAudioEngine()
     private var socket: URLSessionWebSocketTask?
+    private var socketEvents: SocketEvents?
     private var converter: AVAudioConverter?
+    /// Muted: the mic stays open, nothing is sent or heard.
+    var muted = false
     private var pcmFallback = Data()
     private var finalText = ""
     private var liveOK = false
@@ -67,12 +70,35 @@ final class SpeechEngine {
             await MainActor.run { self.error = "Live speech unavailable (\(credError ?? "no credential")). Recording for batch transcription instead." }
             return
         }
+        // Same handshake as the web dictation: credential rides in the WebSocket subprotocol.
         var req = URLRequest(url: URL(string: "wss://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&interim_results=true&endpointing=300&encoding=linear16&sample_rate=16000&channels=1&keywords=AERA:5&keywords=APEX:3")!)
-        req.setValue((cred.mode == "bearer" ? "Bearer " : "Token ") + cred.access_token, forHTTPHeaderField: "Authorization")
-        let task = URLSession.shared.webSocketTask(with: req)
+        req.setValue((cred.mode == "bearer" ? "bearer" : "token") + ", " + cred.access_token, forHTTPHeaderField: "Sec-WebSocket-Protocol")
+        req.timeoutInterval = 15
+        let delegate = SocketEvents(
+            onOpen: { [weak self] in
+                guard let self else { return }
+                DispatchQueue.main.async {
+                    self.liveOK = true
+                    // Flush what the mic captured while the socket was connecting.
+                    if let socket = self.socket, !self.pcmFallback.isEmpty {
+                        socket.send(.data(self.pcmFallback)) { _ in }
+                        self.pcmFallback = Data()
+                    }
+                }
+            },
+            onClose: { [weak self] reason in
+                guard let self else { return }
+                DispatchQueue.main.async {
+                    if self.listening { self.error = "Live speech closed: \(reason). Recording for batch transcription." }
+                    self.liveOK = false
+                }
+            }
+        )
+        socketEvents = delegate
+        let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
+        let task = session.webSocketTask(with: req)
         socket = task
         task.resume()
-        liveOK = true
         receiveLoop()
     }
 
@@ -92,6 +118,7 @@ final class SpeechEngine {
             let ratio = outFormat.sampleRate / inFormat.sampleRate
             input.installTap(onBus: 0, bufferSize: 2048, format: inFormat) { [weak self] buf, _ in
                 guard let self else { return }
+                if self.muted { DispatchQueue.main.async { self.level = 0 }; return }
                 self.meter(buf)
                 guard let converter = self.converter else { return }
                 let cap = AVAudioFrameCount(Double(buf.frameLength) * ratio + 32)
@@ -135,7 +162,7 @@ final class SpeechEngine {
             case .failure(let e):
                 // Socket died: keep the mic running and fall back to batch on stop.
                 DispatchQueue.main.async {
-                    if self.listening { self.error = "Live speech dropped (\(e.localizedDescription)). Recording for batch transcription." }
+                    if self.listening, self.liveOK { self.error = "Live speech dropped (\(e.localizedDescription)). Recording for batch transcription." }
                     self.liveOK = false
                 }
             case .success(let msg):
@@ -262,4 +289,19 @@ enum AeraVoices {
         V(id: "aura-2-orion-en", name: "Orion", note: "Male. Smooth and grounded."),
         V(id: "aura-2-arcas-en", name: "Arcas", note: "Male. Natural, conversational."),
     ]
+}
+
+
+/// WebSocket lifecycle callbacks for the Deepgram socket.
+final class SocketEvents: NSObject, URLSessionWebSocketDelegate {
+    let onOpen: () -> Void
+    let onClose: (String) -> Void
+    init(onOpen: @escaping () -> Void, onClose: @escaping (String) -> Void) { self.onOpen = onOpen; self.onClose = onClose }
+    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) { onOpen() }
+    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+        onClose("code \(closeCode.rawValue)" + (reason.flatMap { String(data: $0, encoding: .utf8) }.map { " " + $0 } ?? ""))
+    }
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if let error { onClose(error.localizedDescription) }
+    }
 }

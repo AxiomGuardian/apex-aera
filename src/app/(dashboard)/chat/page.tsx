@@ -1,816 +1,256 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Mic, MicOff, Volume2, VolumeX, Radio, ArrowUp } from "lucide-react";
-import { AGENTS, AGENT_DISPLAY_ORDER, hexToRgb } from "@/lib/agents";
-import type { AgentId } from "@/lib/agents";
-import { useAERA } from "@/context/AERAContext";
-import { useClientMemory } from "@/context/ClientMemory";
-import { AERAOrb } from "@/components/chat/AERAOrb";
-import { VoiceWave, IdleWave } from "@/components/chat/VoiceWave";
-import { ThinkingDots } from "@/components/chat/ThinkingDots";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Plus, Trash2, ArrowUp, Mic, MicOff, X, Loader2, ChevronDown } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { useSession } from "@/components/layout/SessionProvider";
+import { PagePad } from "@/components/layout/PagePad";
 import { ApexMark } from "@/components/chat/ApexMark";
-import { ThinkingBubble } from "@/components/chat/ThinkingBubble";
-import { ThreadSidebar } from "@/components/chat/ThreadSidebar";
-import { useDeepgramSTT } from "@/hooks/useDeepgramSTT";
-import { useAudioVisualizer, useSpeechToText } from "@/hooks/useVoice";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { TTS_SPEEDS, type TTSSpeed } from "@/hooks/useElevenLabsTTS";
-import { useSoundFX } from "@/hooks/useSoundFX";
-import AERAChart from "@/components/chat/AERAChart";
+import { DictateButton } from "@/components/voice/DictateButton";
+import { useAeraVoice, AERA_VOICES, type UIDirective } from "@/components/aera/useAeraVoice";
 
-// ── Local transcript cleanup (voice mode) ────────────────────
-// Instant, synchronous — no API round-trip.
-// Deepgram smart_format + punctuate already handles 95% of it;
-// this just covers capitalisation and terminal punctuation edge cases.
-// Saves 500-1000ms per utterance vs. the polish API.
-function localCleanup(text: string): string {
-  if (!text) return text;
-  let t = text.trim();
-  t = t.charAt(0).toUpperCase() + t.slice(1);
-  t = t.replace(/\bi\b/g, "I");
-  if (t && !/[.!?]$/.test(t)) t += ".";
-  return t;
-}
+/**
+ * AERA. One brain (tools, memory, sight, search), private threads shared with the phone,
+ * dictation in the composer, and the voice layer up top. Same look as the app.
+ */
 
-// ── Transcript polish (text-mode dictation only) ─────────────
-// Routes raw STT text through /api/voice/polish (claude-haiku-4-5) for
-// richer punctuation, capitalization, and grammar restoration.
-// NOT used in voice mode — adds 500-1000ms latency per utterance.
-async function polishText(text: string): Promise<string> {
-  if (!text) return text;
-  try {
-    const res = await fetch("/api/voice/polish", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    if (!res.ok) throw new Error(`polish ${res.status}`);
-    const data = await res.json() as { text: string };
-    return data.text || text;
-  } catch {
-    return localCleanup(text);
-  }
-}
+type Thread = { id: string; name: string | null; updated_at: string | null };
+type Msg = { id: string; role: "user" | "aera"; content: string };
 
-export default function ChatPage() {
-  const {
-    messages, addUserMessage, isTyping, togglePanel,
-    isSpeaking, speakingMessageId, speak, stopSpeaking,
-    unlockAudio, ttsSpeed, setTtsSpeed,
-    voiceMode, toggleVoiceMode,
-  } = useAERA();
-  const { memory, resetMemory, setSelectedAgent } = useClientMemory();
-  const selectedAgentId = memory.selectedAgentId;
-  const { send: sfxSend, receive: sfxReceive } = useSoundFX();
+const TAB_HREF: Record<string, string> = { dashboard: "/dashboard", clients: "/clients", brand: "/brand", content: "/content", queue: "/approvals", aera: "/chat" };
 
-  const [input,       setInput]       = useState("");
-  const [interimText, setInterimText] = useState("");
-  const messagesEndRef  = useRef<HTMLDivElement>(null);
-  const textareaRef     = useRef<HTMLTextAreaElement>(null);
+export default function AERAPage() {
+  const router = useRouter();
+  const { data: session } = useSession();
+  const supabase = createClient();
+  const uid = session?.user?.id as string | undefined;
+  const role = session?.user?.role as string | undefined;
+  const seesClients = role === "agency_admin" || role === "enterprise_admin";
 
-  const { bars, amplitude, start: startViz, stop: stopViz } = useAudioVisualizer();
-  const vizActiveRef = useRef(false);
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [thread, setThread] = useState<Thread | null>(null);
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [draft, setDraft] = useState("");
+  const [thinking, setThinking] = useState(false);
+  const [pendingConfirm, setPendingConfirm] = useState(false);
+  const [voiceId, setVoiceId] = useState(AERA_VOICES[0].id);
+  const [voiceMenu, setVoiceMenu] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const voiceRef = useRef(voiceId);
+  voiceRef.current = voiceId;
 
-  // ── Smart transcription (Grok-like) ─────────────────────────
-  // While speaking: show ONLY the waveform — no raw interim text.
-  // Deepgram's smart_format+punctuate gives clean, finalized text.
-  // When auto-send fires: briefly display the clean finalized text in
-  // the waveform label for 500 ms so the user sees what was transcribed,
-  // then send it. This feels intentional and premium — not raw/robotic.
-  const [finalizedText, setFinalizedText] = useState("");
+  useEffect(() => { try { const v = localStorage.getItem("aera.voice"); if (v) setVoiceId(v); } catch { /* ignore */ } }, []);
+  const pickVoice = (id: string) => { setVoiceId(id); setVoiceMenu(false); try { localStorage.setItem("aera.voice", id); } catch { /* ignore */ } };
 
-  // ── Stable refs for use inside async callbacks ───────────────
-  // isSpeakingRef lets onAutoSend detect mid-TTS interrupts without
-  // capturing stale closure values.
-  const isSpeakingRef = useRef(isSpeaking);
-  const voiceModeRef  = useRef(voiceMode);
-  useEffect(() => { isSpeakingRef.current = isSpeaking; }, [isSpeaking]);
-  useEffect(() => { voiceModeRef.current  = voiceMode;  }, [voiceMode]);
+  // ── Threads ────────────────────────────────────────────────
+  const loadThreads = useCallback(async () => {
+    const { data } = await supabase.from("aera_threads").select("id,name,updated_at").order("updated_at", { ascending: false }).limit(60);
+    const list = (data ?? []) as Thread[];
+    setThreads(list);
+    return list;
+  }, [supabase]);
 
-  const { isListening: vcListening, isConnecting: vcConnecting, isMuted: vcMuted, start: vcStart, stop: vcStop, toggleMute: vcToggleMute } = useDeepgramSTT({
-    onInterim:  () => {},  // INTENTIONALLY EMPTY — waveform only, no raw interim
-    onAutoSend: (text) => {
-      // ── ALWAYS-ON MIC: interrupt path ─────────────────────────────
-      // If AERA is currently speaking when a transcript arrives, the user
-      // spoke over her. Stop TTS immediately and send — no API round-trip.
-      if (isSpeakingRef.current) {
-        stopSpeaking();
-        const clean = localCleanup(text);
-        addUserMessage(clean);
-        return;
-      }
-      // Normal voice path: instant local cleanup, show finalized text for
-      // 350 ms so the user sees what was transcribed, then send.
-      const clean = localCleanup(text);
-      setFinalizedText(clean);
-      setInterimText("");
-      setInput("");
-      setTimeout(() => { setFinalizedText(""); addUserMessage(clean); }, 350);
+  const openThread = useCallback(async (t: Thread) => {
+    setThread(t); setPendingConfirm(false);
+    const { data } = await supabase.from("aera_messages").select("msg_id,role,content,created_at").eq("session_id", t.id).order("created_at").limit(300);
+    setMessages(((data ?? []) as { msg_id: string | null; role: string; content: string }[]).map((m, i) => ({ id: m.msg_id ?? String(i), role: m.role === "user" ? "user" : "aera", content: m.content })));
+  }, [supabase]);
+
+  const newThread = useCallback(async () => {
+    if (!uid) return;
+    const t: Thread = { id: "thread-" + crypto.randomUUID(), name: "New chat", updated_at: new Date().toISOString() };
+    await supabase.from("aera_threads").insert({ id: t.id, user_id: uid, name: t.name });
+    setThreads((p) => [t, ...p]); setThread(t); setMessages([]); setPendingConfirm(false);
+  }, [supabase, uid]);
+
+  const deleteThread = useCallback(async (t: Thread) => {
+    await supabase.from("aera_messages").delete().eq("session_id", t.id);
+    await supabase.from("aera_threads").delete().eq("id", t.id);
+    const rest = threads.filter((x) => x.id !== t.id);
+    setThreads(rest);
+    if (thread?.id === t.id) { if (rest[0]) void openThread(rest[0]); else void newThread(); }
+  }, [supabase, threads, thread, openThread, newThread]);
+
+  useEffect(() => {
+    if (!uid) return;
+    void (async () => { const list = await loadThreads(); if (list[0]) await openThread(list[0]); else await newThread(); })();
+  }, [uid]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, thinking]);
+
+  const persist = useCallback(async (m: Msg) => {
+    if (!uid || !thread) return;
+    await supabase.from("aera_messages").insert({ user_id: uid, session_id: thread.id, role: m.role, content: m.content, msg_id: m.id });
+    await supabase.from("aera_threads").update({ updated_at: new Date().toISOString() }).eq("id", thread.id);
+  }, [supabase, uid, thread]);
+
+  const applyDirective = useCallback((d: UIDirective) => {
+    if (d.type === "navigate" && d.tab) {
+      let tab = d.tab;
+      if (!seesClients && (tab === "dashboard" || tab === "clients")) tab = "brand";
+      if (seesClients && tab === "brand") tab = "clients";
+      if (tab !== "aera") router.push(TAB_HREF[tab] ?? "/dashboard");
+    }
+  }, [router, seesClients]);
+
+  // ── Send (same brain as the phone and the voice layer) ─────
+  const send = useCallback(async (confirm = false) => {
+    const text = draft.trim();
+    if (!text || thinking || !thread) return;
+    setDraft(""); setPendingConfirm(false);
+    const mine: Msg = { id: crypto.randomUUID(), role: "user", content: text };
+    setMessages((p) => [...p, mine]); void persist(mine);
+    if (messages.length === 0) { void supabase.from("aera_threads").update({ name: text.slice(0, 40) }).eq("id", thread.id).then(() => loadThreads()); }
+    setThinking(true);
+    try {
+      const history = [...messages, mine].slice(-16).map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
+      const r = await fetch("/api/aera/act", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: history, confirm }) });
+      const j = (await r.json()) as { say?: string; ui?: UIDirective[]; needsConfirm?: unknown };
+      for (const d of j.ui ?? []) applyDirective(d);
+      if (j.needsConfirm) setPendingConfirm(true);
+      const reply: Msg = { id: crypto.randomUUID(), role: "aera", content: j.say ?? "Done." };
+      setMessages((p) => [...p, reply]); void persist(reply);
+    } catch {
+      setMessages((p) => [...p, { id: crypto.randomUUID(), role: "aera", content: "I could not reach the server just now." }]);
+    }
+    setThinking(false);
+  }, [draft, thinking, thread, messages, persist, supabase, loadThreads, applyDirective]);
+
+  // ── Voice layer ────────────────────────────────────────────
+  const voice = useAeraVoice({
+    voice: () => voiceRef.current,
+    onDirective: applyDirective,
+    onExchange: (u, a) => {
+      const m1: Msg = { id: crypto.randomUUID(), role: "user", content: u };
+      const m2: Msg = { id: crypto.randomUUID(), role: "aera", content: a };
+      setMessages((p) => [...p, m1, m2]); void persist(m1); void persist(m2);
     },
   });
 
-  // Simple dictation mic — only active in text mode
-  const { isListening: simpleListening, toggle: _simpleMicToggleRaw } = useSpeechToText((text) => {
-    polishText(text).then((clean) => {
-      setInput((prev) => (prev ? prev + " " + clean : clean));
-    });
-  });
-
-  // Wrap toggle so the audio visualizer also starts/stops with dictation
-  const simpleMicToggle = () => {
-    if (simpleListening) {
-      _simpleMicToggleRaw();
-      stopViz(); vizActiveRef.current = false;
-    } else {
-      _simpleMicToggleRaw();
-      if (!vizActiveRef.current) { vizActiveRef.current = true; startViz(); }
-    }
-  };
-
-  // Orb state — four distinct modes:
-  // speaking → smooth vocal wave (AERA delivering audio)
-  // thinking → rapid energetic pulse (AERA processing / generating)
-  // listening → calm visible breath (mic open, user speaking)
-  // idle     → meditative slow breath (standby)
-  const orbState = isSpeaking
-    ? "speaking" as const
-    : isTyping
-      ? "thinking" as const
-      : vcListening
-        ? "listening" as const
-        : "idle" as const;
-
-  // ── Scroll to bottom ─────────────────────────────────────────
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isTyping]);
-
-  // ── Sound FX on AERA response complete ───────────────────────
-  const wasTypingRef = useRef(false);
-  useEffect(() => {
-    if (wasTypingRef.current && !isTyping) {
-      sfxReceive(); // chime when AERA finishes generating
-    }
-    wasTypingRef.current = isTyping;
-  }, [isTyping, sfxReceive]);
-
-  // ── Handlers ─────────────────────────────────────────────────
-  const handleSend = () => {
-    const trimmed = (voiceMode ? finalizedText : input).trim() || input.trim();
-    if (!trimmed) return;
-    sfxSend(); // chirp on send
-    if (voiceMode) {
-      setFinalizedText("");
-      setInterimText("");
-    }
-    addUserMessage(trimmed);
-    setInput("");
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
-  };
-
-  const handleSpeak = (text: string, id: string, agentId?: AgentId) => {
-    if (speakingMessageId === id) stopSpeaking();
-    else {
-      const voiceId = agentId ? AGENTS[agentId]?.voice_id : undefined;
-      speak(text, id, voiceId);
-    }
-  };
-
-  const handleToggleVoiceMode = () => {
-    if (voiceMode) {
-      vcStop(); stopViz(); vizActiveRef.current = false;
-      setInterimText(""); stopSpeaking(); toggleVoiceMode();
-    } else {
-      // Unlock AudioContext here — we're inside a user gesture, so the
-      // browser grants autoplay permission for all future async audio playback.
-      unlockAudio();
-      toggleVoiceMode();
-      vcStart();
-      if (!vizActiveRef.current) { vizActiveRef.current = true; startViz(); }
-    }
-  };
-
-  // ── Tap-to-interrupt — click the waveform strip to stop AERA ──
-  // Voice interrupt now also works automatically: the mic is always on,
-  // so speaking over AERA fires onAutoSend which calls stopSpeaking()
-  // before sending. This handler is the manual tap fallback.
-  const handleInterrupt = () => {
-    stopSpeaking();
-  };
-
-  // Status label for orb sidebar
-  const statusLabel = isSpeaking
-    ? "Speaking…"
-    : vcMuted
-      ? "Muted"
-      : vcListening
-        ? "Listening…"
-        : vcConnecting
-          ? "Connecting…"
-          : isTyping
-            ? "Thinking…"
-            : voiceMode
-              ? "Voice · Ready"
-              : "Intelligence Layer";
-
-  // Waveform strip label — show finalized text (clean, Grok-style) briefly, otherwise status
-  const waveLabel = finalizedText
-    ? finalizedText
-    : vcMuted
-      ? "Muted — tap to unmute"
-      : vcConnecting
-        ? "Connecting — just a moment…"
-        : vcListening
-          ? "Listening — speak naturally"
-          : isSpeaking
-            ? "Tap to interrupt AERA"
-            : isTyping
-              ? "AERA is thinking…"
-              : "Ready — speak to begin";
-
-  const hasText = input.trim().length > 0 || finalizedText.trim().length > 0;
+  const starters = seesClients
+    ? ["What is trending across my clients this week?", "What is waiting in the queue?", "Give me a report on every brand."]
+    : ["What is trending for my brand this week?", "What is in my queue?", "What should I post next?"];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden", padding: "clamp(16px, 2.5vw, 40px)" }}>
-
-      {/* ── Page header ── */}
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24, flexShrink: 0 }}>
-        <div>
-          <p className="label-eyebrow mb-3">AI Brand Companion</p>
-          <h2 style={{ fontSize: "clamp(26px, 4vw, 32px)", fontWeight: 800, letterSpacing: "-0.045em", color: "var(--text)", lineHeight: 1 }}>
-            AERA Intelligence
-          </h2>
+    <PagePad>
+      <div className="flex flex-col gap-5 opacity-0 animate-fade-in-up" style={{ animationFillMode: "forwards", height: "calc(100vh - 140px)", minHeight: 560 }}>
+        {/* Header */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-4">
+            <div className="auth-mark" style={{ width: 52, height: 52 }}><ApexMark size={22} /></div>
+            <div>
+              <h2 style={{ fontSize: 26, fontWeight: 800, letterSpacing: "0.12em", color: "var(--text)", lineHeight: 1 }}>AERA</h2>
+              <p style={{ fontSize: 12.5, color: "var(--text-4)", marginTop: 5 }}>{voice.active ? (voice.state === "listening" ? (voice.muted ? "Muted" : "Listening") : voice.state === "thinking" ? "Thinking" : voice.state === "speaking" ? "Speaking" : "Voice") : thinking ? "Thinking" : "Awake. I can see your brands, your queue, and your content."}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Voice picker */}
+            <div style={{ position: "relative" }}>
+              <button onClick={() => setVoiceMenu((v) => !v)} className="dash-btn" style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 13px", borderRadius: 10, background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-3)", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+                Voice: {AERA_VOICES.find((v) => v.id === voiceId)?.name ?? "Thalia"} <ChevronDown style={{ width: 12, height: 12 }} />
+              </button>
+              {voiceMenu && (
+                <div style={{ position: "absolute", right: 0, top: "110%", zIndex: 30, width: 280, borderRadius: 14, background: "var(--surface)", border: "1px solid var(--border-mid)", boxShadow: "var(--shadow-lg)", padding: 6 }}>
+                  {AERA_VOICES.map((v) => (
+                    <button key={v.id} onClick={() => pickVoice(v.id)} className="dash-row" style={{ display: "block", width: "100%", textAlign: "left", padding: "9px 10px", borderRadius: 9, background: v.id === voiceId ? "var(--cyan-subtle)" : "transparent", border: "none", cursor: "pointer" }}>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: v.id === voiceId ? "var(--cyan)" : "var(--text-2)" }}>{v.name}</p>
+                      <p style={{ fontSize: 11.5, color: "var(--text-5)" }}>{v.note}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button onClick={() => (voice.active ? voice.close() : voice.open())} className="mkt-btn dash-btn" style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 16px", borderRadius: 10, background: voice.active ? "var(--cyan-subtle)" : "rgba(45,212,255,0.08)", border: "1px solid " + (voice.active ? "var(--cyan)" : "rgba(45,212,255,0.25)"), color: "var(--cyan)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+              <ApexMark size={14} /> {voice.active ? "End voice" : "Talk to AERA"}
+            </button>
+          </div>
         </div>
 
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-
-          {/* ── Mute toggle — only visible in voice mode ── */}
-          {voiceMode && (
-            <button
-              onClick={vcToggleMute}
-              title={vcMuted ? "Unmute microphone" : "Mute microphone"}
-              style={{
-                display: "flex", alignItems: "center", gap: 8,
-                padding: "9px 18px", borderRadius: 11,
-                border: vcMuted ? "1px solid rgba(245,158,11,0.55)" : "1px solid var(--border)",
-                background: vcMuted ? "rgba(245,158,11,0.10)" : "transparent",
-                color: vcMuted ? "#f59e0b" : "var(--text-4)",
-                fontSize: 13, fontWeight: 500, letterSpacing: "0.01em", cursor: "pointer",
-                transition: "all 0.2s",
-                boxShadow: vcMuted ? "0 0 12px rgba(245,158,11,0.15)" : "none",
-              }}
-            >
-              {vcMuted
-                ? <MicOff style={{ width: 15, height: 15 }} strokeWidth={1.7} />
-                : <Mic style={{ width: 15, height: 15 }} strokeWidth={1.7} />
-              }
-              <span className="hidden sm:inline">{vcMuted ? "Unmute" : "Mute"}</span>
-            </button>
-          )}
-
-          {/* ── TTS Speed picker — only in voice mode ── */}
-          {voiceMode && (
-            <div style={{ display: "flex", alignItems: "center", gap: 2, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "3px 4px" }}>
-              {(TTS_SPEEDS as TTSSpeed[]).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setTtsSpeed(s)}
-                  title={`Playback speed ${s}×`}
-                  style={{
-                    fontSize: 10.5, fontWeight: s === ttsSpeed ? 700 : 500,
-                    padding: "3px 7px", borderRadius: 7, border: "none",
-                    background: s === ttsSpeed ? "rgba(45,212,255,0.15)" : "transparent",
-                    color: s === ttsSpeed ? "var(--cyan)" : "var(--text-5)",
-                    cursor: "pointer", letterSpacing: "0.01em",
-                    transition: "all 0.15s",
-                  }}
-                >{s}×</button>
+        {/* Voice capsule */}
+        {voice.active && (
+          <div className="mkt-card mkt-line-cyan" style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px" }}>
+            <button onClick={voice.interrupt} title="Interrupt" className="auth-mark" style={{ width: 38, height: 38, border: "none", cursor: "pointer" }}><ApexMark size={14} /></button>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--cyan-text)" }}>{voice.state === "listening" ? (voice.muted ? "Muted" : "Listening") : voice.state === "thinking" ? "Thinking" : voice.state === "speaking" ? "AERA" : "Voice"}</p>
+              <p style={{ fontSize: 13.5, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{voice.state === "speaking" ? voice.said : voice.heard || (voice.state === "listening" ? "I am listening." : "")}</p>
+              {voice.error && <p style={{ fontSize: 11, color: "var(--rose)" }}>{voice.error}</p>}
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 26 }}>
+              {Array.from({ length: 12 }).map((_, i) => (
+                <span key={i} style={{ width: 3, borderRadius: 2, background: "var(--cyan)", height: 4 + (voice.state === "listening" || voice.state === "speaking" ? (Math.sin(Date.now() / 120 + i) * 0.5 + 0.5) * (voice.state === "speaking" ? 14 : voice.level * 22) : 0), transition: "height 0.1s" }} />
               ))}
             </div>
-          )}
-
-          {/* Voice Mode and Side Panel removed from header — Voice Mode is now in the chat bar */}
-        </div>
-      </div>
-
-      {/* ── Main chat area — always dark regardless of theme ── */}
-      <div className="force-dark" style={{ flex: 1, display: "flex", borderRadius: 18, border: "1px solid rgba(45,212,255,0.10)", overflow: "hidden", background: "#0a0a0e", boxShadow: "var(--shadow-card)", minHeight: 0 }}>
-
-        {/* ── Left: orb + identity — always dark regardless of theme ── */}
-        <div className="hidden md:flex force-dark" style={{ width: 260, minWidth: 260, borderRight: "1px solid rgba(255,255,255,0.05)", flexDirection: "column", alignItems: "center", padding: "22px 16px 16px", background: "#0a0a0c", position: "relative" }}>
-          {/* Deep radial glow behind orb */}
-          <div style={{ position: "absolute", width: 320, height: 320, borderRadius: "50%", background: "radial-gradient(circle, rgba(45,212,255,0.07) 0%, transparent 65%)", top: -20, left: "50%", transform: "translateX(-50%)", pointerEvents: "none", zIndex: 1 }} />
-          {/* Outer breathing ring */}
-          <div className="animate-orb-ring" style={{ position: "absolute", width: 200, height: 200, borderRadius: "50%", border: "1px solid rgba(45,212,255,0.08)", top: "38%", left: "50%", transform: "translate(-50%, -50%)", pointerEvents: "none", zIndex: 1 }} />
-          <div className="animate-orb-ring delay-300" style={{ position: "absolute", width: 240, height: 240, borderRadius: "50%", border: "1px solid rgba(45,212,255,0.04)", top: "38%", left: "50%", transform: "translate(-50%, -50%)", pointerEvents: "none", zIndex: 1 }} />
-
-          {/* Content layer — scrollable so all controls are reachable on smaller screens */}
-          <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", width: "100%", flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden" }}>
-
-          <AERAOrb size={148} orbState={orbState} />
-
-          {/* State bar — animated full-width color strip */}
-          <div style={{ width: 72, marginTop: 18, marginBottom: 6 }}>
-            <div className={`aera-state-bar ${isSpeaking ? "aera-state-bar--speaking" : (vcListening || isTyping) ? "aera-state-bar--active" : "aera-state-bar--idle"}`} />
-          </div>
-
-          {/* AERA name — editorial Space Grotesk */}
-          <div style={{ textAlign: "center" }}>
-            <p className="aera-name-display" style={{ fontSize: 22, color: "#ffffff", lineHeight: 1, letterSpacing: "-0.05em" }}>
-              AERA
-            </p>
-            <p className="aera-label-caps" style={{ color: "rgba(45,212,255,0.50)", marginTop: 6 }}>
-              Intelligence Layer
-            </p>
-          </div>
-
-          {/* Live status chip */}
-          <div style={{ marginTop: 14, display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 13px", borderRadius: 20, background: "rgba(255,255,255,0.03)", border: `1px solid ${(isSpeaking || vcListening) ? "rgba(45,212,255,0.25)" : "rgba(255,255,255,0.06)"}`, transition: "border-color 0.4s" }}>
-            <span style={{ width: 5, height: 5, borderRadius: "50%", background: isSpeaking ? "#2DD4FF" : vcListening ? "#2DD4FF" : isTyping ? "#F59E0B" : "#22c55e", boxShadow: isSpeaking || vcListening ? "0 0 6px rgba(45,212,255,0.8)" : isTyping ? "0 0 6px rgba(245,158,11,0.7)" : "0 0 5px rgba(34,197,94,0.6)", flexShrink: 0, transition: "all 0.3s" }} />
-            <span className="aera-label-caps" style={{ color: (isSpeaking || vcListening) ? "rgba(45,212,255,0.80)" : isTyping ? "rgba(245,158,11,0.80)" : "rgba(255,255,255,0.35)", letterSpacing: "0.12em", transition: "color 0.3s" }}>
-              {isSpeaking ? "Speaking" : vcListening ? "Listening" : isTyping ? "Thinking" : voiceMode ? "Voice Ready" : "Active"}
-            </span>
-          </div>
-
-          {/* ── Thread sidebar ── */}
-          {/* minHeight ensures the "New Chat" / "New Folder" buttons are always visible */}
-          <div style={{ flex: 1, width: "100%", marginTop: 16, display: "flex", flexDirection: "column", minHeight: "min(120px, 18vh)", flexShrink: 0 }}>
-            <ThreadSidebar />
-          </div>
-
-          {/* Metrics */}
-          <div style={{ width: "100%", marginTop: 14, display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
-            {/* Label */}
-            <p style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-6)", marginBottom: 2 }}>Campaign Pulse</p>
-
-            {[
-              { label: "Messages",    value: messages.length.toString(), icon: "💬" },
-              { label: "Brand Score", value: memory.campaignStats.brandScore,       icon: "⭐" },
-              { label: "Velocity",    value: memory.campaignStats.velocity,         icon: "🚀" },
-            ].map((stat) => (
-              <div key={stat.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderRadius: 9, background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 1px 4px rgba(0,0,0,0.20)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 13, lineHeight: 1 }}>{stat.icon}</span>
-                  <span style={{ fontSize: 11.5, fontWeight: 500, color: "var(--text-4)" }}>{stat.label}</span>
-                </div>
-                <span suppressHydrationWarning style={{ fontSize: 13, fontWeight: 700, color: "var(--cyan)", letterSpacing: "-0.02em", fontFeatureSettings: '"tnum"' }}>{stat.value}</span>
-              </div>
-            ))}
-
-            {/* ── Voice Profile picker ── */}
-            <div style={{ marginTop: 12, flexShrink: 0 }}>
-              <p style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-6)", marginBottom: 8 }}>Team</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                {AGENT_DISPLAY_ORDER.map((id: AgentId) => {
-                  const a = AGENTS[id];
-                  const isActive = selectedAgentId === id;
-                  function hexToRgb(hex: string): string {
-                    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-                    if (!result) return "45,212,255";
-                    return `${parseInt(result[1], 16)},${parseInt(result[2], 16)},${parseInt(result[3], 16)}`;
-                  }
-                  return (
-                    <button
-                      key={id}
-                      onClick={() => setSelectedAgent(id)}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 7,
-                        padding: "6px 9px", borderRadius: 8,
-                        border: `1px solid ${isActive ? `rgba(${hexToRgb(a.color)}, 0.28)` : "var(--border)"}`,
-                        background: isActive ? `rgba(${hexToRgb(a.color)}, 0.07)` : "transparent",
-                        cursor: "pointer", width: "100%", textAlign: "left",
-                        transition: "all 0.15s",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isActive) e.currentTarget.style.background = "var(--surface)";
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) e.currentTarget.style.background = "transparent";
-                      }}
-                    >
-                      <div style={{
-                        width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-                        background: `rgba(${hexToRgb(a.color)}, ${isActive ? "0.14" : "0.07"})`,
-                        border: `1px solid rgba(${hexToRgb(a.color)}, 0.18)`,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                      }}>
-                        <span style={{ fontSize: 7.5, fontWeight: 800, color: a.color }}>{a.initials}</span>
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <p style={{ fontSize: 10.5, fontWeight: 600, color: isActive ? a.color : "var(--text-4)", lineHeight: 1, letterSpacing: "-0.01em", transition: "color 0.15s" }}>{a.name}</p>
-                        <p style={{ fontSize: 9, color: "var(--text-6)", marginTop: 1.5 }}>{a.role}</p>
-                      </div>
-                      {isActive && (
-                        <div style={{ width: 5, height: 5, borderRadius: "50%", background: a.color, boxShadow: `0 0 4px ${a.color}88`, flexShrink: 0 }} />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <button
-              onClick={() => { resetMemory(); }}
-              title="Reset stored memory to defaults"
-              style={{ marginTop: 4, width: "100%", padding: "7px 0", borderRadius: 9, border: "1px solid var(--border)", background: "transparent", color: "var(--text-5)", fontSize: 10, letterSpacing: "0.09em", textTransform: "uppercase", cursor: "pointer", fontWeight: 500, transition: "all 0.15s" }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface)"; e.currentTarget.style.color = "var(--text-3)"; e.currentTarget.style.borderColor = "var(--border-mid)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-5)"; e.currentTarget.style.borderColor = "var(--border)"; }}
-            >
-              Reset Memory
+            <button onClick={voice.toggleMute} title={voice.muted ? "Unmute" : "Mute mic"} style={{ width: 34, height: 34, borderRadius: 999, border: "1px solid " + (voice.muted ? "rgba(251,113,133,0.5)" : "var(--border)"), background: voice.muted ? "rgba(251,113,133,0.12)" : "var(--surface-2)", color: voice.muted ? "var(--rose)" : "var(--text-3)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {voice.muted ? <MicOff style={{ width: 14, height: 14 }} /> : <Mic style={{ width: 14, height: 14 }} />}
             </button>
+            <button onClick={voice.close} title="End" style={{ width: 34, height: 34, borderRadius: 999, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text-3)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X style={{ width: 14, height: 14 }} /></button>
           </div>
+        )}
 
-          </div>{/* end content layer */}
-
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(45,212,255,0.10), transparent)", zIndex: 3 }} />
-        </div>
-
-        {/* ── Mobile orb strip ── */}
-        <div className="flex md:hidden items-center gap-3 px-4 py-3 shrink-0 border-b" style={{ borderColor: "var(--border)", background: "var(--bg-deep)", position: "absolute", width: "100%", zIndex: 1 }}>
-          <AERAOrb size={36} orbState={orbState} />
-          <div>
-            <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", lineHeight: 1, letterSpacing: "-0.01em" }}>AERA</p>
-            <p style={{ fontSize: 8.5, color: voiceMode ? "var(--cyan)" : "var(--text-6)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2.5 }}>
-              {statusLabel}
-            </p>
-          </div>
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5 }}>
-            <span style={{ width: 5, height: 5, borderRadius: "50%", background: (isSpeaking || vcListening) ? "var(--cyan)" : "#22c55e", boxShadow: (isSpeaking || vcListening) ? "0 0 4px rgba(45,212,255,0.6)" : "0 0 4px rgba(34,197,94,0.5)", transition: "all 0.3s" }} />
-            <span suppressHydrationWarning style={{ fontSize: 9.5, color: "var(--text-6)", letterSpacing: "0.04em" }}>{messages.length} msgs</span>
-          </div>
-        </div>
-
-        {/* ── Right: messages + input ── */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, background: "#0d0d10" }}>
-
-          {/* Messages */}
-          <div className="pt-[62px] md:pt-0" style={{ flex: 1, overflowY: "auto", padding: "28px 24px", display: "flex", flexDirection: "column", gap: 24 }}>
-            {messages.map((msg) => (
-              <motion.div
-                key={msg.id}
-                initial={{ opacity: 0, scale: msg.role === "user" ? 0.84 : 0.94, y: msg.role === "user" ? 6 : 10, x: msg.role === "user" ? 8 : -4 }}
-                animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
-                transition={msg.role === "user"
-                  ? { type: "spring", stiffness: 480, damping: 30, mass: 0.8 }
-                  : { type: "spring", stiffness: 300, damping: 32, mass: 0.9 }
-                }
-                style={{ display: "flex", flexDirection: msg.role === "user" ? "row-reverse" : "row", gap: 13, alignItems: "flex-start" }}
-              >
-                {/* Agent avatar — shows the specific agent's initials + color */}
-                {msg.role === "aera" && (() => {
-                  const agent = AGENTS[msg.agentId ?? "aera"];
-                  const isTalking = speakingMessageId === msg.id;
-                  return (
-                    <div style={{ marginTop: 18, flexShrink: 0 }}>
-                      <div style={{
-                        width: 36, height: 36, borderRadius: 10,
-                        background: `rgba(${hexToRgb(agent.color)}, ${isTalking ? "0.18" : "0.10"})`,
-                        border: `1.5px solid rgba(${hexToRgb(agent.color)}, ${isTalking ? "0.55" : "0.28"})`,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        boxShadow: isTalking ? `0 0 14px rgba(${hexToRgb(agent.color)}, 0.35)` : "none",
-                        transition: "all 0.3s",
-                      }}>
-                        <span style={{ fontSize: 10, fontWeight: 800, color: agent.color, letterSpacing: "-0.01em" }}>
-                          {agent.initials}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", gap: 5 }}>
-
-                  {/* Sender label — shows agent name with their accent color */}
-                  {msg.role === "aera" ? (() => {
-                    const agent = AGENTS[msg.agentId ?? "aera"];
-                    return (
-                      <p className="msg-sender" style={{ color: `rgba(${hexToRgb(agent.color)}, 0.70)`, paddingLeft: 2 }}>
-                        {agent.name.toUpperCase()}
-                      </p>
-                    );
-                  })() : (
-                    <p className="msg-sender" style={{ color: "rgba(255,255,255,0.30)", textAlign: "right" }}>
-                      You
-                    </p>
-                  )}
-
-                  {/* Reasoning bubble */}
-                  {msg.role === "aera" && msg.thinking && (
-                    <ThinkingBubble thinking={msg.thinking} />
-                  )}
-
-                  {/* Main bubble */}
-                  <div className={msg.role === "aera" ? "aera-bubble" : "user-bubble"}
-                    style={{ fontSize: 15, fontWeight: 440, lineHeight: 1.72, color: msg.role === "aera" ? "rgba(255,255,255,0.82)" : "rgba(255,255,255,0.90)", letterSpacing: "-0.007em" }}
-                  >
-                    {msg.role === "aera" ? (
-                      <div className="aera-markdown">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
-                      </div>
-                    ) : msg.content}
-                  </div>
-
-                  {/* Inline chart */}
-                  {msg.role === "aera" && msg.chart && (
-                    <AERAChart chart={msg.chart} />
-                  )}
-
-                  {/* Hear / stop button */}
-                  {msg.role === "aera" && (
-                    <button
-                      onClick={() => handleSpeak(msg.content, msg.id, msg.agentId)}
-                      title={speakingMessageId === msg.id ? "Stop" : "Hear this"}
-                      style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 5, padding: "3px 8px", borderRadius: 6, border: "none", background: speakingMessageId === msg.id ? "rgba(45,212,255,0.10)" : "transparent", color: speakingMessageId === msg.id ? "#2DD4FF" : "rgba(255,255,255,0.22)", cursor: "pointer", transition: "all 0.15s", fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600 }}
-                      onMouseEnter={(e) => { if (speakingMessageId !== msg.id) e.currentTarget.style.color = "rgba(255,255,255,0.50)"; }}
-                      onMouseLeave={(e) => { if (speakingMessageId !== msg.id) e.currentTarget.style.color = "rgba(255,255,255,0.22)"; }}
-                    >
-                      {speakingMessageId === msg.id
-                        ? <VolumeX style={{ width: 9, height: 9 }} strokeWidth={1.9} />
-                        : <Volume2 style={{ width: 9, height: 9 }} strokeWidth={1.9} />}
-                      {speakingMessageId === msg.id ? "Stop" : "Hear"}
-                    </button>
-                  )}
+        {/* Body: threads + conversation */}
+        <div className="grid gap-5" style={{ gridTemplateColumns: "260px 1fr", flex: 1, minHeight: 0 }}>
+          {/* Threads */}
+          <div className="mkt-card mkt-quiet" style={{ padding: 14, display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <button onClick={() => void newThread()} className="mkt-btn dash-btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px 14px", borderRadius: 10, background: "rgba(45,212,255,0.08)", border: "1px solid rgba(45,212,255,0.25)", color: "var(--cyan)", fontSize: 13, fontWeight: 700, cursor: "pointer", marginBottom: 12 }}>
+              <Plus style={{ width: 14, height: 14 }} /> New chat
+            </button>
+            <p className="section-label" style={{ marginBottom: 8 }}>Your chats</p>
+            <div style={{ overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
+              {threads.map((t) => (
+                <div key={t.id} className="dash-row" style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", borderRadius: 10, background: thread?.id === t.id ? "var(--cyan-subtle)" : "transparent", border: "1px solid " + (thread?.id === t.id ? "var(--cyan-border)" : "transparent") }}>
+                  <button onClick={() => void openThread(t)} style={{ flex: 1, textAlign: "left", background: "none", border: "none", cursor: "pointer", minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: thread?.id === t.id ? "var(--cyan)" : "var(--text-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name ?? "Chat"}</p>
+                  </button>
+                  <button onClick={() => { if (confirm("Delete this chat?")) void deleteThread(t); }} title="Delete" style={{ background: "none", border: "none", color: "var(--text-6)", cursor: "pointer", padding: 2 }}><Trash2 style={{ width: 13, height: 13 }} /></button>
                 </div>
-              </motion.div>
-            ))}
-
-            {/* Thinking indicator */}
-            <AnimatePresence>
-              {isTyping && (
-                <motion.div
-                  initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                  transition={{ type: "spring", stiffness: 340, damping: 32 }}
-                  style={{ display: "flex", gap: 13, alignItems: "flex-start" }}
-                >
-                  <div style={{ marginTop: 18, flexShrink: 0 }}>
-                    {(() => {
-                      const agent = AGENTS[selectedAgentId];
-                      return (
-                        <div style={{
-                          width: 36, height: 36, borderRadius: 10,
-                          background: `rgba(${hexToRgb(agent.color)}, 0.08)`,
-                          border: `1.5px solid rgba(${hexToRgb(agent.color)}, 0.22)`,
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          animation: "breathe 1.6s ease-in-out infinite",
-                        }}>
-                          <span style={{ fontSize: 10, fontWeight: 800, color: agent.color, opacity: 0.7 }}>
-                            {agent.initials}
-                          </span>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    <p className="msg-sender" style={{ color: `rgba(${hexToRgb(AGENTS[selectedAgentId].color)}, 0.55)` }}>
-                      {AGENTS[selectedAgentId].name.toUpperCase()}
-                    </p>
-                    <div className="thinking-shimmer" style={{
-                      padding: "14px 20px",
-                      borderRadius: "3px 18px 18px 18px",
-                      border: "1px solid rgba(45,212,255,0.12)",
-                      display: "flex", alignItems: "center", gap: 12,
-                    }}>
-                      <ThinkingDots size={4} gap={3.5} />
-                      <span style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", letterSpacing: "0.06em", fontWeight: 500 }}>
-                        Processing…
-                      </span>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div ref={messagesEndRef} />
+              ))}
+            </div>
+            <p style={{ fontSize: 11, color: "var(--text-6)", marginTop: 10, lineHeight: 1.5 }}>Private to your account. Shared with your phone.</p>
           </div>
 
-          {/* ── Input area ── */}
-          <div style={{ padding: "10px 20px 18px", borderTop: "1px solid rgba(255,255,255,0.05)", flexShrink: 0, background: "#0d0d0f" }}>
-
-            {/* ── Simple dictation mic waveform ── */}
-            <AnimatePresence>
-              {simpleListening && !voiceMode && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.22, ease: "easeOut" }}
-                  style={{
-                    marginBottom: 8,
-                    borderRadius: 10,
-                    border: "1px solid rgba(45,212,255,0.30)",
-                    background: "rgba(45,212,255,0.04)",
-                    padding: "8px 14px 6px",
-                    overflow: "hidden",
-                  }}
-                >
-                  <VoiceWave bars={bars} amplitude={amplitude} height={28} />
-                  <p style={{ fontSize: 9.5, color: "var(--text-6)", marginTop: 5, textAlign: "center", letterSpacing: "0.07em", textTransform: "uppercase" }}>
-                    Dictating — speak naturally
-                  </p>
-                </motion.div>
+          {/* Conversation */}
+          <div className="mkt-card mkt-quiet" style={{ padding: 0, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "22px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+              {messages.length === 0 && !thinking && (
+                <div style={{ textAlign: "center", padding: "56px 20px 20px" }}>
+                  <div className="auth-mark" style={{ width: 64, height: 64, margin: "0 auto 14px" }}><ApexMark size={26} /></div>
+                  <p style={{ fontSize: 17, fontWeight: 700, color: "var(--text)" }}>Ask me anything about your brand.</p>
+                  <p style={{ fontSize: 13, color: "var(--text-4)", marginTop: 6, maxWidth: 420, marginInline: "auto" }}>I can look at your content, search what is trending, and change things in your queue.</p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 18 }}>
+                    {starters.map((s) => (
+                      <button key={s} onClick={() => { setDraft(s); setTimeout(() => void send(), 0); }} className="dash-btn" style={{ padding: "9px 14px", borderRadius: 999, background: "rgba(45,212,255,0.08)", border: "1px solid rgba(45,212,255,0.25)", color: "var(--cyan-text)", fontSize: 13, cursor: "pointer" }}>{s}</button>
+                    ))}
+                  </div>
+                </div>
               )}
-            </AnimatePresence>
-
-            {/* ── Voice mode waveform strip ── */}
-            <AnimatePresence>
-              {voiceMode && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.28, ease: "easeOut" }}
-                  onClick={vcMuted ? vcToggleMute : isSpeaking ? handleInterrupt : undefined}
-                  style={{
-                    marginBottom: 10,
-                    borderRadius: 12,
-                    border: vcMuted
-                      ? "1px solid rgba(245,158,11,0.40)"
-                      : isSpeaking
-                        ? "1px solid rgba(45,212,255,0.50)"
-                        : vcListening
-                          ? "1px solid rgba(45,212,255,0.35)"
-                          : "1px solid var(--border)",
-                    background: vcMuted
-                      ? "rgba(245,158,11,0.05)"
-                      : vcListening
-                        ? "rgba(45,212,255,0.05)"
-                        : "var(--surface-2)",
-                    padding: "12px 18px 10px",
-                    transition: "border-color 0.3s, background 0.3s",
-                    overflow: "hidden",
-                    cursor: (vcMuted || isSpeaking) ? "pointer" : "default",
-                  }}
-                >
-                  {(!vcMuted && vcListening)
-                    ? <VoiceWave bars={bars} amplitude={amplitude} height={44} />
-                    : <IdleWave height={44} />
-                  }
-                  {isTyping ? (
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 8 }}>
-                      <ThinkingDots size={4} gap={3} />
-                      <span style={{ fontSize: 10, color: "var(--cyan)", letterSpacing: "0.07em", textTransform: "uppercase", fontWeight: 600, opacity: 0.85 }}>
-                        Thinking…
-                      </span>
-                    </div>
-                  ) : (
-                    <p style={{
-                      fontSize: finalizedText ? 13 : 10,
-                      color: finalizedText ? "var(--text-2)" : "var(--text-6)",
-                      marginTop: 8,
-                      textAlign: "center",
-                      letterSpacing: finalizedText ? "-0.005em" : "0.07em",
-                      textTransform: finalizedText ? "none" : "uppercase",
-                      lineHeight: 1.45,
-                      fontWeight: finalizedText ? 400 : 500,
-                      transition: "all 0.2s",
-                    }}>
-                      {waveLabel}
-                    </p>
-                  )}
-                </motion.div>
+              {messages.map((m) => (
+                <div key={m.id} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-end", gap: 8 }}>
+                  {m.role === "aera" && <ApexMark size={14} opacity={0.8} />}
+                  <div style={{ maxWidth: "72%", padding: "12px 16px", borderRadius: 18, fontSize: 15, lineHeight: 1.55, whiteSpace: "pre-wrap", background: m.role === "user" ? "var(--cyan)" : "var(--surface-2)", color: m.role === "user" ? "#04131a" : "var(--text)", border: m.role === "user" ? "none" : "1px solid var(--border)" }}>{m.content}</div>
+                </div>
+              ))}
+              {thinking && <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-5)", fontSize: 12.5 }}><Loader2 className="animate-spin" style={{ width: 14, height: 14, color: "var(--cyan)" }} /> AERA is thinking</div>}
+              {pendingConfirm && (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => { setDraft("yes"); void send(true); }} className="dash-btn" style={{ padding: "8px 14px", borderRadius: 9, background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.3)", color: "var(--green)", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>Yes, do it</button>
+                  <button onClick={() => { setPendingConfirm(false); setMessages((p) => [...p, { id: crypto.randomUUID(), role: "aera", content: "Okay, leaving it as is." }]); }} className="dash-btn" style={{ padding: "8px 14px", borderRadius: 9, background: "transparent", border: "1px solid var(--border)", color: "var(--text-4)", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>No</button>
+                </div>
               )}
-            </AnimatePresence>
-
-            {/* ── Text input — floating glass pod with animated gradient ring ── */}
-            <div className="input-glow-ring" style={{
-              display: "flex", gap: 0, alignItems: "flex-end",
-              background: "rgba(255,255,255,0.025)",
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
-              border: "1px solid rgba(255,255,255,0.07)",
-              borderRadius: 24,
-              padding: "10px 10px 10px 22px",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)",
-            }}>
-              <textarea
-                ref={textareaRef}
-                value={voiceMode ? (finalizedText || input) : input}
-                onChange={voiceMode ? undefined : (e) => {
-                  setInput(e.target.value);
-                  e.target.style.height = "auto";
-                  e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px";
-                }}
-                readOnly={voiceMode}
-                onKeyDown={voiceMode ? undefined : handleKeyDown}
-                rows={1}
-                placeholder={voiceMode ? (vcListening ? "Speak now…" : "Voice mode active") : "Ask AERA anything…"}
-                style={{ flex: 1, resize: "none", background: "transparent", border: "none", outline: "none", fontSize: 14.5, color: "rgba(255,255,255,0.88)", lineHeight: 1.60, padding: "4px 0", minHeight: 28, maxHeight: 140, fontFamily: "inherit", letterSpacing: "-0.005em", cursor: voiceMode ? "default" : "text" }}
-              />
-
-              <div style={{ display: "flex", gap: 7, alignItems: "flex-end", padding: "0 0 2px 12px", flexShrink: 0 }}>
-
-                {/* Dictation mic (text mode) / Mute toggle (voice mode) */}
-                {voiceMode ? (
-                  <motion.button
-                    onClick={vcToggleMute}
-                    title={vcMuted ? "Unmute microphone" : "Mute microphone"}
-                    whileTap={{ scale: 0.86 }}
-                    style={{
-                      width: 40, height: 40, borderRadius: "50%",
-                      background: vcMuted ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.04)",
-                      border: `1px solid ${vcMuted ? "rgba(245,158,11,0.40)" : "rgba(255,255,255,0.08)"}`,
-                      color: vcMuted ? "#f59e0b" : "rgba(255,255,255,0.40)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      cursor: "pointer", transition: "all 0.18s",
-                      boxShadow: vcMuted ? "0 0 16px rgba(245,158,11,0.22)" : "none",
-                    }}
-                  >
-                    {vcMuted
-                      ? <MicOff style={{ width: 15, height: 15 }} strokeWidth={1.7} />
-                      : <Mic style={{ width: 15, height: 15 }} strokeWidth={1.7} />}
-                  </motion.button>
-                ) : (
-                  <motion.button
-                    onClick={simpleMicToggle}
-                    title={simpleListening ? "Stop dictation" : "Dictate"}
-                    whileTap={{ scale: 0.86 }}
-                    style={{
-                      width: 40, height: 40, borderRadius: "50%",
-                      background: simpleListening ? "rgba(45,212,255,0.12)" : "rgba(255,255,255,0.04)",
-                      border: `1px solid ${simpleListening ? "rgba(45,212,255,0.40)" : "rgba(255,255,255,0.08)"}`,
-                      color: simpleListening ? "#2DD4FF" : "rgba(255,255,255,0.40)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      cursor: "pointer", transition: "all 0.18s",
-                      boxShadow: simpleListening ? "0 0 16px rgba(45,212,255,0.25)" : "none",
-                    }}
-                    onMouseEnter={(e) => { if (!simpleListening) { e.currentTarget.style.color = "rgba(255,255,255,0.70)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.16)"; } }}
-                    onMouseLeave={(e) => { if (!simpleListening) { e.currentTarget.style.color = "rgba(255,255,255,0.40)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; } }}
-                  >
-                    {simpleListening
-                      ? <MicOff style={{ width: 15, height: 15 }} strokeWidth={1.7} />
-                      : <Mic style={{ width: 15, height: 15 }} strokeWidth={1.7} />}
-                  </motion.button>
-                )}
-
-                {/* Voice Mode toggle — always in the bar */}
-                <motion.button
-                  onClick={handleToggleVoiceMode}
-                  title={voiceMode ? "Exit voice mode" : "Start voice mode"}
-                  whileTap={{ scale: 0.86 }}
-                  style={{
-                    width: 40, height: 40, borderRadius: "50%",
-                    background: voiceMode ? "rgba(45,212,255,0.12)" : "rgba(255,255,255,0.04)",
-                    border: `1px solid ${voiceMode ? "rgba(45,212,255,0.40)" : "rgba(255,255,255,0.08)"}`,
-                    color: voiceMode ? "#2DD4FF" : "rgba(255,255,255,0.40)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    cursor: "pointer", transition: "all 0.18s",
-                    boxShadow: voiceMode ? "0 0 16px rgba(45,212,255,0.25)" : "none",
-                    position: "relative",
-                  }}
-                  onMouseEnter={(e) => { if (!voiceMode) { e.currentTarget.style.color = "rgba(255,255,255,0.70)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.16)"; } }}
-                  onMouseLeave={(e) => { if (!voiceMode) { e.currentTarget.style.color = "rgba(255,255,255,0.40)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; } }}
-                >
-                  <Radio style={{ width: 15, height: 15 }} strokeWidth={1.7} />
-                  {/* Live indicator dot when voice mode active */}
-                  {voiceMode && (
-                    <span style={{
-                      position: "absolute", top: 7, right: 7,
-                      width: 5, height: 5, borderRadius: "50%",
-                      background: vcMuted ? "#f59e0b" : vcListening ? "#2DD4FF" : "rgba(45,212,255,0.5)",
-                      boxShadow: vcListening ? "0 0 4px rgba(45,212,255,0.8)" : "none",
-                      transition: "all 0.2s",
-                    }} />
-                  )}
-                </motion.button>
-
-                {/* Send button */}
-                <motion.button
-                  onClick={handleSend}
-                  disabled={!hasText}
-                  whileTap={hasText ? { scale: 0.86 } : {}}
-                  style={{
-                    width: 40, height: 40, borderRadius: "50%",
-                    background: hasText
-                      ? "linear-gradient(140deg, #2DD4FF 0%, #00C4E8 55%, #0099B8 100%)"
-                      : "rgba(255,255,255,0.05)",
-                    border: hasText ? "none" : "1px solid rgba(255,255,255,0.07)",
-                    color: hasText ? "#00080f" : "rgba(255,255,255,0.22)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    cursor: hasText ? "pointer" : "default",
-                    transition: "all 0.22s",
-                    boxShadow: hasText
-                      ? "0 0 22px rgba(45,212,255,0.50), 0 4px 12px rgba(0,0,0,0.35)"
-                      : "none",
-                  }}
-                >
-                  <ArrowUp style={{ width: 17, height: 17 }} strokeWidth={2.6} />
-                </motion.button>
-              </div>
+              <div ref={bottomRef} />
             </div>
-
-            <p className="aera-label-caps" style={{ color: "rgba(255,255,255,0.18)", textAlign: "center", marginTop: 10, letterSpacing: "0.10em" }}>
-              {voiceMode ? "Voice · AERA listens and replies aloud" : "APEX Intelligence · All responses preserve brand standards"}
-            </p>
+            {/* Composer */}
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 10, padding: 14, borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
+              <DictateButton size={42} title="Dictate" onText={(t) => setDraft((d) => (d ? d + " " + t : t))} />
+              <textarea value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }} placeholder="Talk to AERA" rows={1}
+                style={{ flex: 1, resize: "none", padding: "12px 14px", borderRadius: 12, background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)", fontSize: 14.5, outline: "none", maxHeight: 140, fontFamily: "inherit" }} />
+              <button onClick={() => void send()} disabled={!draft.trim() || thinking} className="mkt-btn dash-btn" style={{ width: 42, height: 42, borderRadius: 999, border: "none", background: "var(--cyan)", color: "#04131a", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: !draft.trim() || thinking ? 0.5 : 1 }}>
+                <ArrowUp style={{ width: 16, height: 16 }} strokeWidth={2.5} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </PagePad>
   );
 }

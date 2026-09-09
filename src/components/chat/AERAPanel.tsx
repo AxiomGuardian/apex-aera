@@ -1,38 +1,36 @@
 "use client";
 
 /**
- * AERAPanel — Compact Quick Ask side panel.
+ * AERAPanel — the quick ask drawer.
  *
- * This is NOT a chat clone. Design intent:
- * - Purpose: 10-second queries while navigating any dashboard page
- * - Shows last 3 messages (shared context with the full chat)
- * - Page-aware context brief (key metrics relevant to current page)
- * - Single-line quick-ask input with mic + send
- * - "Open full conversation →" for deep work
- *
- * Full chat lives at /chat. This panel is the CliffsNotes entry point.
+ * Same brain as /chat and the phone: /api/aera/act with tools, memory and sight.
+ * Kept small on purpose: a running thread named "Quick ask" that syncs to the
+ * phone, dictation in the box, and the voice layer one tap away.
+ * Deep work goes to /chat.
  */
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ArrowUpRight, Radio, Volume2, VolumeX, Mic, MicOff, ChevronRight } from "lucide-react";
-import { usePathname } from "next/navigation";
-import Link from "next/link";
+import { X, ArrowUp, Mic, MicOff, Loader2, Maximize2, Eraser } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { useSession } from "@/components/layout/SessionProvider";
 import { useAERA } from "@/context/AERAContext";
-import { useClientMemory } from "@/context/ClientMemory";
-import { AGENTS, hexToRgb } from "@/lib/agents";
-import type { AgentId } from "@/lib/agents";
-import { AERAOrb } from "./AERAOrb";
-import { ThinkingDots } from "./ThinkingDots";
-import { ThinkingBubble } from "./ThinkingBubble";
-import { VoiceWave, IdleWave } from "./VoiceWave";
-import { useDeepgramSTT } from "@/hooks/useDeepgramSTT";
-import { useAudioVisualizer } from "@/hooks/useVoice";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import AERAChart from "./AERAChart";
+import { ApexMark } from "./ApexMark";
+import { DictateButton } from "@/components/voice/DictateButton";
+import { useAeraVoice, type UIDirective } from "@/components/aera/useAeraVoice";
 
-// ── Mobile detection ───────────────────────────────────────────────
+type Msg = { id: string; role: "user" | "aera"; content: string };
+
+const TAB_HREF: Record<string, string> = {
+  dashboard: "/dashboard",
+  clients: "/clients",
+  brand: "/brand",
+  content: "/content",
+  queue: "/approvals",
+  aera: "/chat",
+};
+
 function useIsMobile() {
   const [is, setIs] = useState(false);
   useEffect(() => {
@@ -44,512 +42,324 @@ function useIsMobile() {
   return is;
 }
 
-// ── Voice cleanup ──────────────────────────────────────────────────
-function localCleanup(text: string): string {
-  if (!text) return text;
-  let t = text.trim();
-  t = t.charAt(0).toUpperCase() + t.slice(1);
-  t = t.replace(/\bi\b/g, "I");
-  if (!/[.!?]$/.test(t)) t += ".";
-  return t;
-}
-
-// ── Page-aware context brief data ─────────────────────────────────
-type ContextItem = { label: string; value: string; color?: string };
-function useContextBrief(pathname: string, stats: ReturnType<typeof useClientMemory>["memory"]["campaignStats"]): { heading: string; items: ContextItem[] } {
-  if (pathname.startsWith("/campaigns")) return {
-    heading: "Campaign Health",
-    items: [
-      { label: "Velocity",    value: stats.velocity,     color: "#2DD4FF" },
-      { label: "Brand Score", value: stats.brandScore,   color: "#22C55E" },
-      { label: "Open Rate",   value: stats.openRate,     color: "#818CF8" },
-    ],
-  };
-  if (pathname.startsWith("/account")) return {
-    heading: "Account Overview",
-    items: [
-      { label: "Quarter",     value: "Q2 2026",          color: "#2DD4FF" },
-      { label: "CPA",         value: stats.cpa,          color: "#F59E0B" },
-      { label: "SEO Lift",    value: stats.seoLift,      color: "#22C55E" },
-    ],
-  };
-  // Default: Dashboard / other pages
-  return {
-    heading: "Campaign Pulse",
-    items: [
-      { label: "ROAS",        value: stats.roas,         color: "#2DD4FF" },
-      { label: "Velocity",    value: stats.velocity,     color: "#22C55E" },
-      { label: "Brand Score", value: stats.brandScore,   color: "#818CF8" },
-    ],
-  };
-}
-
-// ── Component ──────────────────────────────────────────────────────
 export function AERAPanel() {
-  const {
-    isOpen, closePanel,
-    messages, addUserMessage,
-    isTyping, isSpeaking, speakingMessageId, speak, stopSpeaking,
-    unlockAudio, voiceMode, toggleVoiceMode,
-  } = useAERA();
+  const { isOpen, closePanel } = useAERA();
+  const { data: session } = useSession();
+  const router = useRouter();
+  const supabase = createClient();
+  const isMobile = useIsMobile();
 
-  const { memory } = useClientMemory();
-  const pathname   = usePathname();
-  const isMobile   = useIsMobile();
-  const contextBrief = useContextBrief(pathname ?? "/", memory.campaignStats);
+  const uid = session?.user?.id as string | undefined;
+  const role = session?.user?.role as string | undefined;
+  const seesClients = role === "agency_admin" || role === "enterprise_admin";
 
-  const [input, setInput]               = useState("");
-  const [finalizedText, setFinalizedText] = useState("");
-  const inputRef    = useRef<HTMLInputElement>(null);
-  const bottomRef   = useRef<HTMLDivElement>(null);
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [draft, setDraft] = useState("");
+  const [thinking, setThinking] = useState(false);
+  const [pendingConfirm, setPendingConfirm] = useState(false);
+  const [ready, setReady] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const isSpeakingRef = useRef(isSpeaking);
-  const voiceModeRef  = useRef(voiceMode);
-  useEffect(() => { isSpeakingRef.current = isSpeaking; }, [isSpeaking]);
-  useEffect(() => { voiceModeRef.current  = voiceMode;  }, [voiceMode]);
+  const threadId = uid ? `quickask-${uid}` : null;
+  const voiceRef = useRef("aura-2-thalia-en");
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem("aera.voice");
+      if (v) voiceRef.current = v;
+    } catch { /* ignore */ }
+  }, [isOpen]);
 
-  // ── Voice / STT ────────────────────────────────────────────────
-  const { bars, amplitude, start: startViz, stop: stopViz } = useAudioVisualizer();
-  const vizRef = useRef(false);
+  // The quick ask thread (same tables as /chat and the phone)
+  useEffect(() => {
+    if (!isOpen || !uid || !threadId || ready) return;
+    void (async () => {
+      await supabase.from("aera_threads").upsert({ id: threadId, user_id: uid, name: "Quick ask" }, { onConflict: "id" });
+      const { data } = await supabase
+        .from("aera_messages")
+        .select("msg_id,role,content,created_at")
+        .eq("session_id", threadId)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      const rows = ((data ?? []) as { msg_id: string | null; role: string; content: string }[]).reverse();
+      setMessages(rows.map((m, i) => ({ id: m.msg_id ?? String(i), role: m.role === "user" ? "user" : "aera", content: m.content })));
+      setReady(true);
+    })();
+  }, [isOpen, uid, threadId, ready, supabase]);
 
-  const { isListening, isConnecting, isMuted, start: vcStart, stop: vcStop, toggleMute: vcToggleMute } = useDeepgramSTT({
-    onInterim: () => {},
-    onAutoSend: useCallback((text: string) => {
-      if (isSpeakingRef.current) { stopSpeaking(); addUserMessage(localCleanup(text)); return; }
-      const clean = localCleanup(text);
-      setFinalizedText(clean);
-      setInput("");
-      setTimeout(() => { setFinalizedText(""); addUserMessage(clean); }, 350);
-    }, [addUserMessage, stopSpeaking]),
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, thinking, isOpen]);
+  useEffect(() => { if (isOpen) setTimeout(() => inputRef.current?.focus(), 380); }, [isOpen]);
+
+  const persist = useCallback(async (m: Msg) => {
+    if (!uid || !threadId) return;
+    await supabase.from("aera_messages").insert({ user_id: uid, session_id: threadId, role: m.role, content: m.content, msg_id: m.id });
+    await supabase.from("aera_threads").update({ updated_at: new Date().toISOString() }).eq("id", threadId);
+  }, [supabase, uid, threadId]);
+
+  const applyDirective = useCallback((d: UIDirective) => {
+    if (d.type === "navigate" && d.tab) {
+      let tab = d.tab;
+      if (!seesClients && (tab === "dashboard" || tab === "clients")) tab = "brand";
+      if (seesClients && tab === "brand") tab = "clients";
+      if (tab === "aera") { router.push("/chat"); closePanel(); return; }
+      router.push(TAB_HREF[tab] ?? "/dashboard");
+    }
+  }, [router, seesClients, closePanel]);
+
+  const ask = useCallback(async (text: string, confirm = false) => {
+    const body = text.trim();
+    if (!body || thinking) return;
+    setDraft(""); setPendingConfirm(false);
+    const mine: Msg = { id: crypto.randomUUID(), role: "user", content: body };
+    setMessages((p) => [...p, mine]); void persist(mine);
+    setThinking(true);
+    try {
+      const history = [...messages, mine].slice(-12).map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
+      const r = await fetch("/api/aera/act", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: history, confirm }),
+      });
+      const j = (await r.json()) as { say?: string; ui?: UIDirective[]; needsConfirm?: unknown };
+      for (const d of j.ui ?? []) applyDirective(d);
+      if (j.needsConfirm) setPendingConfirm(true);
+      const reply: Msg = { id: crypto.randomUUID(), role: "aera", content: j.say ?? "Done." };
+      setMessages((p) => [...p, reply]); void persist(reply);
+    } catch {
+      setMessages((p) => [...p, { id: crypto.randomUUID(), role: "aera", content: "I could not reach the server just now." }]);
+    }
+    setThinking(false);
+  }, [thinking, messages, persist, applyDirective]);
+
+  // Voice layer
+  const voice = useAeraVoice({
+    voice: () => voiceRef.current,
+    onDirective: applyDirective,
+    onExchange: (u, a) => {
+      const m1: Msg = { id: crypto.randomUUID(), role: "user", content: u };
+      const m2: Msg = { id: crypto.randomUUID(), role: "aera", content: a };
+      setMessages((p) => [...p, m1, m2]); void persist(m1); void persist(m2);
+    },
   });
 
-  // Cleanup when panel closes
-  useEffect(() => {
-    if (!isOpen) { vcStop(); stopViz(); vizRef.current = false; setFinalizedText(""); }
-  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!isOpen && voice.active) voice.close(); }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-scroll to latest
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isTyping]);
+  const clearThread = useCallback(async () => {
+    if (!threadId) return;
+    setMessages([]); setPendingConfirm(false);
+    await supabase.from("aera_messages").delete().eq("session_id", threadId);
+  }, [supabase, threadId]);
 
-  // Focus input on open
-  useEffect(() => {
-    if (isOpen && !voiceMode) setTimeout(() => inputRef.current?.focus(), 350);
-  }, [isOpen, voiceMode]);
+  const starters = seesClients
+    ? ["What is in the queue?", "What is trending this week?", "Give me today's brief."]
+    : ["What is in my queue?", "What should I post next?", "Give me today's brief."];
 
-  // ── Handlers ──────────────────────────────────────────────────
-  const handleSend = () => {
-    const text = (voiceMode ? finalizedText : input).trim() || input.trim();
-    if (!text) return;
-    addUserMessage(text);
-    setInput(""); setFinalizedText("");
-  };
+  const status = voice.active
+    ? (voice.state === "listening" ? (voice.muted ? "Muted" : "Listening") : voice.state === "thinking" ? "Thinking" : voice.state === "speaking" ? "Speaking" : "Voice")
+    : thinking ? "Thinking" : "Quick ask";
 
-  const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") { e.preventDefault(); handleSend(); }
-  };
-
-  const handleVoiceToggle = () => {
-    if (voiceMode) {
-      vcStop(); stopViz(); vizRef.current = false; stopSpeaking(); setFinalizedText(""); toggleVoiceMode();
-    } else {
-      unlockAudio(); toggleVoiceMode(); vcStart();
-      if (!vizRef.current) { vizRef.current = true; startViz(); }
-    }
-  };
-
-  // ── Derived state ──────────────────────────────────────────────
-  const orbState = isSpeaking ? "speaking" as const : isTyping ? "thinking" as const : isListening ? "listening" as const : "idle" as const;
-
-  // Show last 3 messages (non-greeting) for context
-  const recentMessages = messages.slice(-4);
-  const hiddenCount    = Math.max(0, messages.length - 4);
-
-  // ── Animation variants ─────────────────────────────────────────
-  const slideVariants = isMobile
-    ? { initial: { y: "100%", opacity: 0 }, animate: { y: 0, opacity: 1 }, exit: { y: "100%", opacity: 0 } }
-    : { initial: { x: 400, opacity: 0 },    animate: { x: 0, opacity: 1 }, exit: { x: 400, opacity: 0 }    };
+  const slide = isMobile
+    ? { initial: { y: "100%" }, animate: { y: 0 }, exit: { y: "100%" } }
+    : { initial: { x: 420, opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: 420, opacity: 0 } };
 
   const panelStyle: React.CSSProperties = isMobile
-    ? { position: "fixed", inset: 0, top: "auto", height: "90vh", zIndex: 60, display: "flex", flexDirection: "column", overflow: "hidden", background: "rgba(10,10,14,0.97)", backdropFilter: "blur(28px)", WebkitBackdropFilter: "blur(28px)", borderRadius: "20px 20px 0 0", boxShadow: "0 -8px 60px rgba(0,0,0,0.65)", borderTop: "1px solid rgba(45,212,255,0.12)" }
-    : { width: 360, minWidth: 360, maxWidth: 360, height: "100%", display: "flex", flexDirection: "column", overflow: "hidden", background: "rgba(10,10,14,0.97)", backdropFilter: "blur(28px)", WebkitBackdropFilter: "blur(28px)", borderLeft: "1px solid rgba(45,212,255,0.13)", boxShadow: "-32px 0 80px rgba(0,0,0,0.35), -1px 0 0 rgba(45,212,255,0.05)", position: "relative", zIndex: 20 };
-
-  const statusText = isSpeaking ? "Speaking…" : isMuted ? "Muted" : isListening ? "Listening…" : isConnecting ? "Connecting…" : isTyping ? "Thinking…" : voiceMode ? "Voice · Ready" : "Active";
+    ? {
+        position: "fixed", left: 0, right: 0, bottom: 0, height: "88vh", zIndex: 60,
+        display: "flex", flexDirection: "column", overflow: "hidden",
+        background: "var(--surface)", borderTop: "1px solid var(--border-mid)",
+        borderRadius: "20px 20px 0 0", boxShadow: "0 -18px 60px rgba(0,0,0,0.28)",
+      }
+    : {
+        width: 380, minWidth: 380, maxWidth: 380, height: "100%",
+        display: "flex", flexDirection: "column", overflow: "hidden",
+        background: "var(--surface)", borderLeft: "1px solid var(--border-mid)",
+        boxShadow: "-24px 0 60px rgba(0,0,0,0.10)", position: "relative", zIndex: 20,
+      };
 
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop (mobile only) */}
           {isMobile && (
             <motion.div
-              key="panel-bd"
+              key="aera-panel-backdrop"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={closePanel}
-              style={{ position: "fixed", inset: 0, zIndex: 59, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(3px)" }}
+              style={{ position: "fixed", inset: 0, zIndex: 59, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)" }}
             />
           )}
 
           <motion.aside
-            key="quick-ask-panel"
-            initial={slideVariants.initial}
-            animate={slideVariants.animate}
-            exit={slideVariants.exit}
-            transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
+            key="aera-panel"
+            initial={slide.initial} animate={slide.animate} exit={slide.exit}
+            transition={{ duration: 0.36, ease: [0.16, 1, 0.3, 1] }}
             style={panelStyle}
           >
-            {/* Top cyan accent line */}
-            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(45,212,255,0.5), transparent)", zIndex: 2 }} />
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(45,212,255,0.55), transparent)", zIndex: 2 }} />
 
-            {/* Left-edge gradient veil — softens the hard contrast cut against light dashboard */}
-            <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 32, background: "linear-gradient(90deg, rgba(10,10,14,0.55) 0%, transparent 100%)", pointerEvents: "none", zIndex: 1 }} />
-
-            {/* ── Header ──────────────────────────────────────────── */}
-            <div style={{ padding: "14px 16px 12px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-
-              {/* Mini orb */}
-              <div style={{ flexShrink: 0 }}>
-                <AERAOrb size={42} orbState={orbState} />
-              </div>
-
-              {/* Identity + status */}
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "14px 16px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+              <div className="auth-mark" style={{ width: 38, height: 38 }}><ApexMark size={16} /></div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1 }}>AERA</span>
-                  <span style={{ fontSize: 8.5, fontWeight: 600, letterSpacing: "0.10em", textTransform: "uppercase", color: "rgba(45,212,255,0.55)", background: "rgba(45,212,255,0.08)", border: "1px solid rgba(45,212,255,0.14)", borderRadius: 4, padding: "1.5px 5px" }}>
-                    QUICK ASK
-                  </span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4 }}>
-                  <span style={{
-                    width: 5, height: 5, borderRadius: "50%", flexShrink: 0,
-                    background: (isSpeaking || isListening) ? "#2DD4FF" : isMuted ? "#F59E0B" : "#22C55E",
-                    boxShadow: (isSpeaking || isListening) ? "0 0 5px rgba(45,212,255,0.8)" : undefined,
-                    transition: "all 0.3s",
-                  }} />
-                  <span style={{ fontSize: 10, color: voiceMode ? "#2DD4FF" : "rgba(255,255,255,0.35)", letterSpacing: "0.05em", transition: "color 0.3s" }}>
-                    {statusText}
-                  </span>
-                </div>
+                <p style={{ fontSize: 14, fontWeight: 800, letterSpacing: "0.1em", color: "var(--text)", lineHeight: 1 }}>AERA</p>
+                <p style={{ fontSize: 11.5, color: voice.active ? "var(--cyan-text)" : "var(--text-5)", marginTop: 4 }}>{status}</p>
               </div>
 
-              {/* Action buttons */}
-              <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+              <button
+                onClick={() => (voice.active ? voice.close() : voice.open())}
+                title={voice.active ? "End voice" : "Talk to AERA"}
+                style={{
+                  height: 32, padding: "0 12px", borderRadius: 9, cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 6,
+                  border: "1px solid " + (voice.active ? "var(--cyan)" : "rgba(45,212,255,0.25)"),
+                  background: voice.active ? "var(--cyan-subtle)" : "rgba(45,212,255,0.07)",
+                  color: "var(--cyan-text)", fontSize: 12, fontWeight: 700,
+                }}
+              >
+                <Mic style={{ width: 13, height: 13 }} /> {voice.active ? "End" : "Talk"}
+              </button>
 
-                {/* Voice toggle */}
-                <button
-                  onClick={handleVoiceToggle}
-                  title={voiceMode ? "Exit voice mode" : "Enter voice mode"}
-                  style={{
-                    width: 28, height: 28, borderRadius: 7,
-                    border: voiceMode ? "1px solid rgba(45,212,255,0.40)" : "1px solid rgba(255,255,255,0.08)",
-                    background: voiceMode ? "rgba(45,212,255,0.10)" : "transparent",
-                    color: voiceMode ? "#2DD4FF" : "rgba(255,255,255,0.35)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    cursor: "pointer", transition: "all 0.2s",
-                  }}
-                >
-                  <Radio style={{ width: 12, height: 12 }} strokeWidth={1.8} />
-                </button>
+              <button
+                onClick={() => { closePanel(); router.push("/chat"); }}
+                title="Open full conversation"
+                style={{ width: 32, height: 32, borderRadius: 9, border: "1px solid var(--border)", background: "transparent", color: "var(--text-4)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <Maximize2 style={{ width: 13, height: 13 }} />
+              </button>
 
-                {/* Mute (voice mode only) */}
-                {voiceMode && (
-                  <button
-                    onClick={vcToggleMute}
-                    style={{
-                      width: 28, height: 28, borderRadius: 7,
-                      border: isMuted ? "1px solid rgba(245,158,11,0.5)" : "1px solid rgba(255,255,255,0.08)",
-                      background: isMuted ? "rgba(245,158,11,0.10)" : "transparent",
-                      color: isMuted ? "#F59E0B" : "rgba(255,255,255,0.35)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      cursor: "pointer", transition: "all 0.2s",
-                    }}
-                  >
-                    {isMuted ? <MicOff style={{ width: 12, height: 12 }} strokeWidth={1.8} /> : <Mic style={{ width: 12, height: 12 }} strokeWidth={1.8} />}
-                  </button>
-                )}
-
-                {/* Open full chat */}
-                <Link href="/chat" onClick={closePanel}>
-                  <button
-                    title="Open full AERA conversation"
-                    style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "rgba(255,255,255,0.35)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.18s" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.20)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.35)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
-                  >
-                    <ArrowUpRight style={{ width: 12, height: 12 }} strokeWidth={1.8} />
-                  </button>
-                </Link>
-
-                {/* Close */}
-                <button
-                  onClick={closePanel}
-                  style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "rgba(255,255,255,0.35)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.18s" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.20)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.35)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
-                >
-                  <X style={{ width: 12, height: 12 }} strokeWidth={1.8} />
-                </button>
-              </div>
+              <button
+                onClick={closePanel}
+                title="Close"
+                style={{ width: 32, height: 32, borderRadius: 9, border: "1px solid var(--border)", background: "transparent", color: "var(--text-4)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <X style={{ width: 13, height: 13 }} />
+              </button>
             </div>
 
-            {/* ── Context brief ────────────────────────────────────── */}
-            <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", flexShrink: 0 }}>
-              <p style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.22)", marginBottom: 8 }}>
-                {contextBrief.heading}
-              </p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
-                {contextBrief.items.map((item) => (
-                  <div
-                    key={item.label}
-                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 9, padding: "8px 10px", textAlign: "center" }}
-                  >
-                    <p suppressHydrationWarning style={{ fontSize: 14, fontWeight: 700, color: item.color ?? "#2DD4FF", letterSpacing: "-0.03em", lineHeight: 1, fontFeatureSettings: '"tnum"' }}>{item.value}</p>
-                    <p style={{ fontSize: 9, color: "rgba(255,255,255,0.30)", letterSpacing: "0.05em", marginTop: 4, textTransform: "uppercase" }}>{item.label}</p>
-                  </div>
-                ))}
+            {/* Voice capsule */}
+            {voice.active && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "12px 14px 0", padding: "10px 12px", borderRadius: 14, background: "var(--cyan-subtle)", border: "1px solid var(--cyan-border)", flexShrink: 0 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--cyan-text)" }}>
+                    {voice.state === "listening" ? (voice.muted ? "Muted" : "Listening") : voice.state === "thinking" ? "Thinking" : voice.state === "speaking" ? "AERA" : "Voice"}
+                  </p>
+                  <p style={{ fontSize: 12.5, color: "var(--text-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>
+                    {voice.state === "speaking" ? voice.said : voice.heard || (voice.state === "listening" ? "I am listening." : "")}
+                  </p>
+                  {voice.error && <p style={{ fontSize: 10.5, color: "var(--rose)" }}>{voice.error}</p>}
+                </div>
+                <button
+                  onClick={voice.toggleMute}
+                  title={voice.muted ? "Unmute" : "Mute mic"}
+                  style={{ width: 30, height: 30, borderRadius: 999, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid " + (voice.muted ? "rgba(251,113,133,0.5)" : "var(--border)"), background: voice.muted ? "rgba(251,113,133,0.12)" : "var(--surface-2)", color: voice.muted ? "var(--rose)" : "var(--text-3)" }}
+                >
+                  {voice.muted ? <MicOff style={{ width: 13, height: 13 }} /> : <Mic style={{ width: 13, height: 13 }} />}
+                </button>
+                <button
+                  onClick={voice.interrupt}
+                  title="Interrupt"
+                  style={{ width: 30, height: 30, borderRadius: 999, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text-3)" }}
+                >
+                  <X style={{ width: 13, height: 13 }} />
+                </button>
               </div>
-            </div>
+            )}
 
-            {/* ── Recent conversation ──────────────────────────────── */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
-
-              {/* "N earlier messages" link */}
-              {hiddenCount > 0 && (
-                <Link href="/chat" onClick={closePanel}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "6px 10px", borderRadius: 8, background: "rgba(45,212,255,0.04)", border: "1px solid rgba(45,212,255,0.10)", cursor: "pointer", marginBottom: 2 }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(45,212,255,0.08)"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(45,212,255,0.04)"; }}
-                  >
-                    <span style={{ fontSize: 10.5, color: "rgba(45,212,255,0.65)", fontWeight: 500 }}>
-                      {hiddenCount} earlier message{hiddenCount !== 1 ? "s" : ""}
-                    </span>
-                    <ChevronRight style={{ width: 10, height: 10, color: "rgba(45,212,255,0.50)" }} strokeWidth={2} />
+            {/* Conversation */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px 8px", display: "flex", flexDirection: "column", gap: 12, minHeight: 0 }}>
+              {messages.length === 0 && !thinking && (
+                <div style={{ padding: "26px 4px 6px" }}>
+                  <p style={{ fontSize: 14.5, fontWeight: 700, color: "var(--text)" }}>Ask me anything, right here.</p>
+                  <p style={{ fontSize: 12.5, color: "var(--text-5)", marginTop: 5, lineHeight: 1.55 }}>
+                    I can see your brands, your queue and your content, and I can change things for you.
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 14 }}>
+                    {starters.map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => void ask(s)}
+                        className="dash-btn"
+                        style={{ textAlign: "left", padding: "10px 12px", borderRadius: 11, background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-3)", fontSize: 12.5, cursor: "pointer" }}
+                      >
+                        {s}
+                      </button>
+                    ))}
                   </div>
-                </Link>
+                </div>
               )}
 
-              {/* Message list */}
-              {recentMessages.map((msg) => {
-                const agentId: AgentId = (msg.role === "aera" ? (msg.agentId ?? "aera") : "aera") as AgentId;
-                const agent    = msg.role === "aera" ? AGENTS[agentId] ?? AGENTS.aera : null;
-                const agentRgb = agent ? hexToRgb(agent.color) : "45,212,255";
-
-                return (
-                <motion.div
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.25, ease: "easeOut" }}
-                  style={{ display: "flex", flexDirection: msg.role === "user" ? "row-reverse" : "row", gap: 8, alignItems: "flex-start" }}
-                >
-                  {/* Avatar */}
-                  <div style={{
-                    width: 22, height: 22, borderRadius: "50%", flexShrink: 0, marginTop: 1,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    background: agent ? `rgba(${agentRgb},0.12)` : "rgba(255,255,255,0.05)",
-                    border: `1px solid ${agent ? `rgba(${agentRgb},0.30)` : "rgba(255,255,255,0.10)"}`,
-                  }}>
-                    {agent
-                      ? <span style={{ fontSize: 7, fontWeight: 800, color: agent.color, letterSpacing: "0.02em" }}>{agent.initials}</span>
-                      : <span style={{ fontSize: 7.5, fontWeight: 700, color: "rgba(255,255,255,0.40)" }}>I</span>
-                    }
-                  </div>
-
-                  {/* Bubble */}
-                  <div style={{ maxWidth: "82%", display: "flex", flexDirection: "column", gap: 3 }}>
-
-                    {/* Sender label (agent messages only) */}
-                    {agent && (
-                      <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: agent.color, opacity: 0.75, paddingLeft: 2 }}>
-                        {agent.name}
-                      </span>
-                    )}
-
-                    {/* Reasoning bubble (compact) */}
-                    {msg.role === "aera" && msg.thinking && (
-                      <ThinkingBubble thinking={msg.thinking} compact />
-                    )}
-
-                    <div style={{
-                      padding: "8px 11px",
-                      borderRadius: msg.role === "aera" ? "3px 11px 11px 11px" : "11px 3px 11px 11px",
-                      background: msg.role === "aera" ? "rgba(255,255,255,0.05)" : "rgba(45,212,255,0.09)",
-                      border: `1px solid ${msg.role === "aera" ? "rgba(255,255,255,0.07)" : "rgba(45,212,255,0.18)"}`,
-                      fontSize: 12.5,
-                      lineHeight: 1.6,
-                      color: msg.role === "aera" ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.90)",
-                      letterSpacing: "-0.003em",
-                    }}>
-                      {msg.role === "aera" ? (
-                        <div className="aera-markdown" style={{ fontSize: 12.5 }}>
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
-                        </div>
-                      ) : msg.content}
-                    </div>
-
-                    {/* Inline chart (compact) */}
-                    {msg.role === "aera" && msg.chart && (
-                      <AERAChart chart={msg.chart} />
-                    )}
-
-                    {/* Hear button */}
-                    {msg.role === "aera" && (
-                      <button
-                        onClick={() => speakingMessageId === msg.id ? stopSpeaking() : speak(msg.content, msg.id)}
-                        style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 4, padding: "2px 5px", borderRadius: 4, border: "none", background: "transparent", color: speakingMessageId === msg.id ? "#2DD4FF" : "rgba(255,255,255,0.22)", cursor: "pointer", fontSize: 8.5, letterSpacing: "0.06em", textTransform: "uppercase", transition: "color 0.15s" }}
-                        onMouseEnter={(e) => { if (speakingMessageId !== msg.id) e.currentTarget.style.color = "rgba(255,255,255,0.45)"; }}
-                        onMouseLeave={(e) => { if (speakingMessageId !== msg.id) e.currentTarget.style.color = "rgba(255,255,255,0.22)"; }}
-                      >
-                        {speakingMessageId === msg.id
-                          ? <VolumeX style={{ width: 8, height: 8 }} strokeWidth={1.8} />
-                          : <Volume2 style={{ width: 8, height: 8 }} strokeWidth={1.8} />
-                        }
-                        {speakingMessageId === msg.id ? "Stop" : "Hear"}
-                      </button>
-                    )}
-                  </div>
-                </motion.div>
-              ); })}
-
-              {/* Thinking indicator */}
-              <AnimatePresence>
-                {isTyping && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    style={{ display: "flex", gap: 8, alignItems: "center" }}
+              {messages.map((m) => (
+                <div key={m.id} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-end", gap: 7 }}>
+                  {m.role === "aera" && <ApexMark size={12} opacity={0.8} />}
+                  <div
+                    style={{
+                      maxWidth: "85%", padding: "10px 13px", borderRadius: 15, fontSize: 13.5, lineHeight: 1.55, whiteSpace: "pre-wrap",
+                      background: m.role === "user" ? "var(--cyan)" : "var(--surface-2)",
+                      color: m.role === "user" ? "#04131a" : "var(--text)",
+                      border: m.role === "user" ? "none" : "1px solid var(--border)",
+                    }}
                   >
-                    <div style={{ width: 22, height: 22, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(45,212,255,0.12)", border: "1px solid rgba(45,212,255,0.30)" }}>
-                      <span style={{ fontSize: 7, fontWeight: 800, color: "#2DD4FF", letterSpacing: "0.02em" }}>SA</span>
-                    </div>
-                    <div style={{ padding: "7px 12px", borderRadius: "3px 10px 10px 10px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", gap: 7 }}>
-                      <ThinkingDots size={3} gap={3} />
-                      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: "0.04em" }}>Thinking…</span>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                    {m.content}
+                  </div>
+                </div>
+              ))}
+
+              {thinking && (
+                <div style={{ display: "flex", alignItems: "center", gap: 7, color: "var(--text-5)", fontSize: 12 }}>
+                  <Loader2 className="animate-spin" style={{ width: 13, height: 13, color: "var(--cyan)" }} /> AERA is thinking
+                </div>
+              )}
+
+              {pendingConfirm && (
+                <div style={{ display: "flex", gap: 7 }}>
+                  <button onClick={() => void ask("yes", true)} className="dash-btn" style={{ padding: "7px 12px", borderRadius: 9, background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.3)", color: "var(--green)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Yes, do it</button>
+                  <button onClick={() => { setPendingConfirm(false); setMessages((p) => [...p, { id: crypto.randomUUID(), role: "aera", content: "Okay, leaving it as is." }]); }} className="dash-btn" style={{ padding: "7px 12px", borderRadius: 9, background: "transparent", border: "1px solid var(--border)", color: "var(--text-4)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>No</button>
+                </div>
+              )}
 
               <div ref={bottomRef} />
             </div>
 
-            {/* ── Voice strip (voice mode only) ────────────────────── */}
-            <AnimatePresence>
-              {voiceMode && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.25, ease: "easeOut" }}
-                  onClick={isMuted ? vcToggleMute : isSpeaking ? stopSpeaking : undefined}
-                  style={{
-                    margin: "0 14px",
-                    borderRadius: 10,
-                    border: isMuted ? "1px solid rgba(245,158,11,0.35)" : isListening ? "1px solid rgba(45,212,255,0.30)" : "1px solid rgba(255,255,255,0.06)",
-                    background: isMuted ? "rgba(245,158,11,0.05)" : isListening ? "rgba(45,212,255,0.04)" : "rgba(255,255,255,0.02)",
-                    padding: "8px 12px",
-                    overflow: "hidden",
-                    cursor: (isMuted || isSpeaking) ? "pointer" : "default",
-                    flexShrink: 0,
-                    marginBottom: 8,
-                    transition: "border-color 0.3s",
-                  }}
-                >
-                  {!isMuted && isListening
-                    ? <VoiceWave bars={bars} amplitude={amplitude} height={28} compact />
-                    : <IdleWave height={28} compact />
-                  }
-                  <p style={{ fontSize: 9, textAlign: "center", marginTop: 5, letterSpacing: "0.07em", textTransform: "uppercase", color: isMuted ? "#F59E0B" : isTyping ? "#2DD4FF" : "rgba(255,255,255,0.25)", fontWeight: isMuted || isTyping ? 600 : 400 }}>
-                    {finalizedText || (isMuted ? "Muted — tap to unmute" : isTyping ? "Thinking…" : isSpeaking ? "Tap to interrupt" : isListening ? "Listening…" : "Speak naturally")}
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ── Quick Ask input ──────────────────────────────────── */}
-            <div style={{ padding: "8px 14px 14px", flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-
-              <div style={{
-                display: "flex", alignItems: "center", gap: 0,
-                background: "rgba(255,255,255,0.04)",
-                border: `1px solid ${isListening ? "rgba(45,212,255,0.35)" : input ? "rgba(45,212,255,0.18)" : "rgba(255,255,255,0.08)"}`,
-                borderRadius: 24,
-                padding: "8px 8px 8px 16px",
-                transition: "border-color 0.2s",
-              }}>
-                <input
+            {/* Composer */}
+            <div style={{ padding: 12, borderTop: "1px solid var(--border)", flexShrink: 0, background: "var(--surface)" }}>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
+                <DictateButton size={38} title="Dictate" onText={(t) => setDraft((d) => (d ? d + " " + t : t))} />
+                <textarea
                   ref={inputRef}
-                  type="text"
-                  value={voiceMode ? (finalizedText || "") : input}
-                  onChange={voiceMode ? undefined : (e) => setInput(e.target.value)}
-                  onKeyDown={voiceMode ? undefined : handleKey}
-                  readOnly={voiceMode}
-                  placeholder={isListening ? "Listening…" : voiceMode ? "Speak to AERA…" : "Ask AERA anything…"}
-                  style={{
-                    flex: 1, border: "none", outline: "none", background: "transparent",
-                    fontSize: 13, color: "#fff", fontFamily: "inherit",
-                    letterSpacing: "-0.005em",
-                    cursor: voiceMode ? "default" : "text",
-                  }}
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void ask(draft); } }}
+                  placeholder="Ask AERA"
+                  rows={1}
+                  style={{ flex: 1, resize: "none", padding: "10px 12px", borderRadius: 11, background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)", fontSize: 13.5, outline: "none", maxHeight: 110, fontFamily: "inherit" }}
                 />
-
-                <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
-                  {/* Mic */}
-                  <button
-                    onClick={voiceMode
-                      ? (isListening ? () => { vcStop(); stopViz(); vizRef.current = false; } : () => { vcStart(); if (!vizRef.current) { vizRef.current = true; startViz(); } })
-                      : handleVoiceToggle
-                    }
-                    title="Voice"
-                    style={{
-                      width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
-                      background: isListening ? "rgba(45,212,255,0.15)" : "transparent",
-                      border: isListening ? "1px solid rgba(45,212,255,0.35)" : "none",
-                      color: isListening ? "#2DD4FF" : "rgba(255,255,255,0.30)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      cursor: "pointer", transition: "all 0.18s",
-                    }}
-                    onMouseEnter={(e) => { if (!isListening) e.currentTarget.style.color = "rgba(255,255,255,0.60)"; }}
-                    onMouseLeave={(e) => { if (!isListening) e.currentTarget.style.color = "rgba(255,255,255,0.30)"; }}
-                  >
-                    {isListening
-                      ? <MicOff style={{ width: 12, height: 12 }} strokeWidth={1.8} />
-                      : <Mic style={{ width: 12, height: 12 }} strokeWidth={1.8} />
-                    }
-                  </button>
-
-                  {/* Send */}
-                  <button
-                    onClick={handleSend}
-                    disabled={!input.trim() && !finalizedText.trim()}
-                    style={{
-                      width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
-                      background: (input.trim() || finalizedText.trim()) ? "linear-gradient(135deg, #2DD4FF, #1AACCC)" : "rgba(255,255,255,0.06)",
-                      border: "none",
-                      color: (input.trim() || finalizedText.trim()) ? "#000" : "rgba(255,255,255,0.20)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      cursor: (input.trim() || finalizedText.trim()) ? "pointer" : "default",
-                      transition: "all 0.18s",
-                      boxShadow: (input.trim() || finalizedText.trim()) ? "0 0 12px rgba(45,212,255,0.30)" : "none",
-                    }}
-                  >
-                    <ArrowUpRight style={{ width: 13, height: 13 }} strokeWidth={2.2} />
-                  </button>
-                </div>
+                <button
+                  onClick={() => void ask(draft)}
+                  disabled={!draft.trim() || thinking}
+                  className="mkt-btn dash-btn"
+                  style={{ width: 38, height: 38, borderRadius: 999, border: "none", background: "var(--cyan)", color: "#04131a", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: !draft.trim() || thinking ? 0.5 : 1, flexShrink: 0 }}
+                >
+                  <ArrowUp style={{ width: 15, height: 15 }} strokeWidth={2.5} />
+                </button>
               </div>
 
-              {/* Footer CTA */}
-              <Link href="/chat" onClick={closePanel}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, marginTop: 10, cursor: "pointer", opacity: 0.5, transition: "opacity 0.15s" }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.85"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.50"; }}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 9 }}>
+                <button
+                  onClick={() => { closePanel(); router.push("/chat"); }}
+                  style={{ background: "none", border: "none", color: "var(--cyan-text)", fontSize: 11.5, fontWeight: 600, cursor: "pointer", padding: 0 }}
                 >
-                  <span style={{ fontSize: 10.5, color: "#2DD4FF", letterSpacing: "0.04em" }}>Open full conversation</span>
-                  <ChevronRight style={{ width: 11, height: 11, color: "#2DD4FF" }} strokeWidth={2} />
-                </div>
-              </Link>
+                  Open full conversation
+                </button>
+                {messages.length > 0 && (
+                  <button
+                    onClick={() => { if (confirm("Clear this quick ask thread?")) void clearThread(); }}
+                    title="Clear"
+                    style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "var(--text-6)", fontSize: 11.5, cursor: "pointer", padding: 0 }}
+                  >
+                    <Eraser style={{ width: 12, height: 12 }} /> Clear
+                  </button>
+                )}
+              </div>
             </div>
           </motion.aside>
         </>

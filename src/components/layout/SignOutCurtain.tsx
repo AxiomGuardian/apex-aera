@@ -19,6 +19,9 @@ export function SignOutCurtain() {
     const handler = () => {
       // Capture the name now; the session is about to go away
       setFirst((data?.user?.name ?? "").split(" ")[0] || "");
+      // Leaving the portal: the curtain, the login screen and the site are dark.
+      // The light preference stays saved for the next sign in.
+      try { document.documentElement.classList.remove("light"); } catch { /* ignore */ }
       setShow(true);
       setTimeout(async () => {
         setLeaving(true); // words fade, veil stays

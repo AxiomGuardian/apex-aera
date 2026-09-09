@@ -15,7 +15,6 @@ import {
   Users,
   Plus,
   CheckCircle2,
-  Sparkles,
   LogOut,
   Settings,
   ChevronDown,
@@ -201,14 +200,7 @@ export function TopNav() {
               }
             }}
           >
-            <Sparkles
-              className="h-4 w-4 transition-all duration-200"
-              style={{
-                color: isOpen ? "var(--cyan)" : "var(--text-5)",
-                filter: isOpen ? "drop-shadow(0 0 5px rgba(45,212,255,0.7))" : "none",
-              }}
-              strokeWidth={1.7}
-            />
+            <ApexMark size={15} color={isOpen ? "var(--cyan)" : "var(--text-5)"} />
             <span
               className="text-[13px] font-semibold tracking-[0.02em]"
               style={{ color: isOpen ? "var(--cyan)" : "var(--text-3)" }}

@@ -9,6 +9,7 @@ import {
   Camera, Share2, Music2, Users, Upload, CalendarClock, Link2, Mail, Sparkles, Archive, RotateCcw,
 } from "lucide-react";
 import { DictateButton } from "@/components/voice/DictateButton";
+import { ImpactReport } from "@/components/brand/ImpactReport";
 
 type Brand = {
   id: string; name: string; slug: string; status: string;
@@ -381,6 +382,8 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
           {/* ── Left: Autopilot + Voice ── */}
           <div className="lg:col-span-3 flex flex-col gap-6">
             {/* Autopilot */}
+            <ImpactReport brandId={id} canEditBaseline={agency} />
+
             <div className="mkt-card mkt-line-cyan" style={{ ...card, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, background: autopilot ? "linear-gradient(135deg, rgba(52,211,153,0.07), var(--card-bg, rgba(20,22,26,0.7)))" : "linear-gradient(135deg, rgba(251,191,36,0.07), var(--card-bg, rgba(20,22,26,0.7)))" }}>
               <div>
                 <p style={{ fontSize: 16, fontWeight: 800, color: autopilot ? "var(--green)" : "var(--amber)", letterSpacing: "-0.01em" }}>

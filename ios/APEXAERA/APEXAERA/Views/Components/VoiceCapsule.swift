@@ -7,14 +7,14 @@ struct VoiceCapsule: View {
     private var label: String {
         switch aera.state {
         case .idle: return "Tap to talk"
-        case .listening: return "Listening"
+        case .listening: return aera.muted ? "Muted" : "Listening"
         case .thinking: return "Thinking"
         case .speaking: return "AERA"
         }
     }
     private var body_text: String {
         switch aera.state {
-        case .listening: return aera.heard.isEmpty ? (aera.ears.transcript.isEmpty ? "I am listening." : aera.ears.transcript) : aera.heard
+        case .listening: return aera.heard.isEmpty ? (aera.realtime || aera.ears.transcript.isEmpty ? "I am listening." : aera.ears.transcript) : aera.heard
         case .thinking: return aera.heard
         case .speaking: return aera.said
         case .idle: return ""
@@ -38,8 +38,14 @@ struct VoiceCapsule: View {
                     }
                 }
                 Spacer()
-                WaveformBars(level: aera.state == .listening ? aera.ears.level : (aera.state == .speaking ? 0.5 : 0), active: aera.state == .listening || aera.state == .speaking, bars: 9)
+                WaveformBars(level: aera.state == .listening ? aera.level : (aera.state == .speaking ? 0.5 : 0), active: aera.state == .listening || aera.state == .speaking, bars: 9)
                     .frame(width: 56)
+                Button { aera.toggleMute() } label: {
+                    Image(systemName: aera.muted ? "mic.slash.fill" : "mic.fill").font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(aera.muted ? Theme.rose : Theme.text3).frame(width: 28, height: 28)
+                        .background(aera.muted ? Theme.rose.opacity(0.15) : Theme.surface2, in: Circle())
+                        .overlay(Circle().stroke(aera.muted ? Theme.rose.opacity(0.5) : .clear, lineWidth: 1))
+                }
                 Button { aera.close() } label: {
                     Image(systemName: "xmark").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.text3).frame(width: 28, height: 28)
                         .background(Theme.surface2, in: Circle())

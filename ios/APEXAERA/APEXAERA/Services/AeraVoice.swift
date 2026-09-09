@@ -40,6 +40,9 @@ final class AeraVoice {
 
     let ears = SpeechEngine()
     let mouth = VoiceOut()
+    let live = XaiRealtime()
+    /// True while the real-time xAI socket is carrying the conversation.
+    private(set) var realtime = false
     private var history: [ChatMessage] = []
     weak var nav: AppNav?
     var role: Role = .client
@@ -48,24 +51,73 @@ final class AeraVoice {
         mouth.enabled = true
         ears.onFinal = { [weak self] text in self?.heardFinal(text) }
         mouth.onFinished = { [weak self] in self?.afterSpeaking() }
+
+        live.onState = { [weak self] s in
+            guard let self, self.realtime else { return }
+            switch s {
+            case .idle: self.state = .idle
+            case .connecting, .thinking: self.state = .thinking
+            case .listening: self.state = .listening
+            case .speaking: self.state = .speaking
+            }
+            self.heard = self.live.heard
+            self.said = self.live.said
+        }
+        live.onDirective = { [weak self] d in
+            guard let self else { return }
+            self.nav?.apply(d, role: self.role)
+        }
+        live.onExchange = { [weak self] u, a in
+            guard let self else { return }
+            self.heard = u; self.said = a
+            if !u.isEmpty { self.history.append(ChatMessage(kind: .user, text: u)) }
+            if !a.isEmpty { self.history.append(ChatMessage(kind: .aera, text: a)) }
+            self.onExchange?(u, a)
+        }
+        live.onClosed = { [weak self] reason in
+            // The socket dropped mid-conversation: keep her talking on the Deepgram loop.
+            guard let self, self.active, self.realtime else { return }
+            self.realtime = false
+            self.error = "Live voice dropped (\(reason)). Switched to the standard voice."
+            self.listen()
+        }
     }
+
+    /// A finished spoken turn, so the chat screen can keep the transcript.
+    var onExchange: ((String, String) -> Void)?
 
     func open() {
         active = true; error = nil
-        listen()
+        state = .thinking
+        Task { @MainActor in
+            // Real time first. If it cannot open, fall back to listen, think, speak.
+            let ok = await live.start()
+            guard self.active else { if ok { self.live.stop() }; return }
+            self.realtime = ok
+            if ok { self.state = .listening } else { self.listen() }
+        }
     }
 
     func close() {
         active = false
+        realtime = false
+        live.stop()
         ears.stop(); mouth.stop()
         state = .idle
     }
 
+    var muted: Bool { realtime ? live.muted : ears.muted }
+    func toggleMute() { if realtime { live.toggleMute() } else { ears.muted.toggle() } }
+
     /// Tap while she is talking: interrupt and listen.
     func interrupt() {
+        if realtime { live.interrupt(); return }
         mouth.stop()
         listen()
     }
+
+    /// Mic level for the waveform, whichever engine is live.
+    var level: CGFloat { realtime ? live.level : ears.level }
 
     private func listen() {
         guard active else { return }

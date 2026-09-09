@@ -7,7 +7,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Menu, X, Sparkles,
+  Menu, X,
   LayoutDashboard, BrainCircuit, Users, Plus, Upload, CheckCircle2,
 } from "lucide-react";
 import { useAERA } from "@/context/AERAContext";
@@ -59,14 +59,7 @@ export function MobileHeader() {
               background: aeraOpen ? "var(--cyan-subtle)" : "transparent",
             }}
           >
-            <Sparkles
-              style={{
-                width: 13, height: 13,
-                color: aeraOpen ? "var(--cyan)" : "var(--text-5)",
-                filter: aeraOpen ? "drop-shadow(0 0 4px rgba(45,212,255,0.6))" : "none",
-              }}
-              strokeWidth={1.7}
-            />
+            <ApexMark size={13} color={aeraOpen ? "var(--cyan)" : "var(--text-5)"} />
             <span
               className="text-[11px] font-medium"
               style={{ color: aeraOpen ? "var(--cyan)" : "var(--text-4)" }}
