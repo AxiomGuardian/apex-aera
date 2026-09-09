@@ -195,8 +195,9 @@ struct ChatView: View {
         Task {
             do {
                 let r = try await Repo.shared.act(messages, confirm: confirm)
-                Log.event("chat.reply", area: "chat", ms: Int(Date().timeIntervalSince(t0) * 1000),
+                Log.event("chat.reply", area: "chat",
                           label: String((r.say ?? "").prefix(200)),
+                          ms: Int(Date().timeIntervalSince(t0) * 1000),
                           detail: ["steps": (r.steps ?? []).map { $0.tool }])
                 for d in r.ui ?? [] { nav.apply(d, role: session.role) }
                 if r.needsConfirm != nil { pendingConfirm = true }
@@ -205,7 +206,7 @@ struct ChatView: View {
                 withAnimation { messages.append(reply) }
                 await Repo.shared.saveMessage(thread: thread.id, reply)
             } catch {
-                Log.failure("chat.reply", error, area: "chat", ms: Int(Date().timeIntervalSince(t0) * 1000), label: String(text.prefix(200)))
+                Log.failure("chat.reply", error, area: "chat", label: String(text.prefix(200)), ms: Int(Date().timeIntervalSince(t0) * 1000))
                 withAnimation { messages.append(ChatMessage(kind: .aera, text: "I could not reach the server: \(error.localizedDescription)")) }
             }
             thinking = false
