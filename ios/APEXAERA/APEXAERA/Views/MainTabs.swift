@@ -29,6 +29,11 @@ struct MainTabs: View {
                     .zIndex(5)
             }
         }
+        .overlay(alignment: .top) {
+            // Demo mode used to be a line of small text on one screen, which is how
+            // a demo workspace got mistaken for real client data. Now it follows you.
+            if session.isDemo { DemoBadge() }
+        }
         .animation(.spring(duration: 0.45, bounce: 0.15), value: aera.active)
         .onAppear {
             aera.nav = nav
@@ -99,5 +104,43 @@ struct ApexHeader: View {
             .sheet(isPresented: $showAccount) { AccountView().environment(session).preferredColorScheme(.dark) }
         }
         .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 4)
+    }
+}
+
+
+/// Sits above every tab while the app is showing the built in sample workspace,
+/// so nobody compares it to the real portal and thinks the data is out of sync.
+struct DemoBadge: View {
+    @Environment(Session.self) private var session
+    @State private var pulse = false
+
+    var body: some View {
+        Button {
+            Task { await session.signOut() }
+        } label: {
+            HStack(spacing: 7) {
+                Circle()
+                    .fill(Theme.amber)
+                    .frame(width: 6, height: 6)
+                    .opacity(pulse ? 0.35 : 1)
+                Text("DEMO DATA")
+                    .font(.system(size: 10, weight: .heavy))
+                    .tracking(1.6)
+                    .foregroundStyle(Theme.amber)
+                Text("Sign in for real")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Theme.amber.opacity(0.75))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(Color.black.opacity(0.55), in: Capsule())
+            .background(Theme.amber.opacity(0.14), in: Capsule())
+            .overlay(Capsule().stroke(Theme.amber.opacity(0.45), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 2)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { pulse = true }
+        }
     }
 }

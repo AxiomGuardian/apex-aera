@@ -50,7 +50,10 @@ struct LoginView: View {
                     .padding(.horizontal, 22)
 
                     Button { session.enterDemo() } label: {
-                        Text("Explore a demo workspace").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.cyanSoft)
+                        VStack(spacing: 2) {
+                            Text("Explore a demo workspace").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.cyanSoft)
+                            Text("Sample data, not your real clients").font(.system(size: 10.5)).foregroundStyle(Theme.text4)
+                        }
                     }
                     Text("Access is by invitation. Your workspace is private and qualified.")
                         .font(.system(size: 11.5)).foregroundStyle(Theme.text4).multilineTextAlignment(.center).padding(.horizontal, 40)
