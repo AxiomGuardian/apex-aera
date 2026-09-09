@@ -41,7 +41,11 @@ final class Session {
             isDemo = false
             lastSeen = UserDefaults.standard.object(forKey: lastSeenKey) as? Date
             phase = .welcomeBack
-        } catch { self.error = error.localizedDescription }
+            Log.event("auth.signin", area: "auth", label: "Signed in on the phone", detail: ["email": email])
+        } catch {
+            self.error = error.localizedDescription
+            Log.failure("auth.signin", error, area: "auth", label: "Sign in refused on the phone", detail: ["email": email])
+        }
     }
 
     func enterDemo() {
@@ -58,6 +62,8 @@ final class Session {
 
     /// Farewell first, then the actual sign-out underneath it.
     func signOut() async {
+        Log.event("auth.signout", area: "auth", label: "Signed out on the phone")
+        Log.flush()
         phase = .signingOut
         try? await Task.sleep(for: .seconds(3.2))
         if !isDemo { await SupabaseClient.shared.signOut() }

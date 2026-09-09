@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   LogOut,
   Settings,
+  ScrollText,
   ChevronDown,
   Fingerprint,
 } from "lucide-react";
@@ -276,6 +277,18 @@ export function TopNav() {
                   >
                     <Settings className="h-4 w-4" strokeWidth={1.6} />
                     <span className="text-[13px]">Account Settings</span>
+                  </Link>
+
+                  <Link
+                    href="/logs"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-[9px] transition-all duration-150 group"
+                    style={{ color: "var(--text-3)" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--hover-fill)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <ScrollText className="h-4 w-4" strokeWidth={1.6} />
+                    <span className="text-[13px]">Activity log</span>
                   </Link>
 
                   <div className="my-1.5 mx-2 h-px" style={{ background: "var(--border)" }} />

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { logServer } from "@/lib/log/server";
 
 /**
  * Speech engine: short-lived Deepgram credential for the browser.
@@ -30,6 +31,7 @@ export async function GET() {
       });
       const kd = (await kr.json().catch(() => ({}))) as { key?: string };
       if (kr.ok && typeof kd.key === "string") {
+        void logServer(u.user.id, { event: "voice.token", area: "voice", ok: true, label: "Minted a Deepgram key", detail: { engine: "deepgram", mode: "token" } });
         return NextResponse.json({ mode: "token", access_token: kd.key, key: kd.key });
       }
     }
@@ -44,9 +46,11 @@ export async function GET() {
     });
     const gd = (await g.json().catch(() => ({}))) as { access_token?: string; expires_in?: number };
     if (g.ok && gd.access_token) {
+      void logServer(u.user.id, { event: "voice.token", area: "voice", ok: true, label: "Minted a Deepgram grant", detail: { engine: "deepgram", mode: "bearer" } });
       return NextResponse.json({ mode: "bearer", access_token: gd.access_token, key: gd.access_token, expires_in: gd.expires_in });
     }
   } catch { /* fall through */ }
 
+  void logServer(u.user.id, { event: "voice.token", area: "voice", ok: false, label: "Could not mint a Deepgram credential", detail: { engine: "deepgram" } });
   return NextResponse.json({ error: "Could not mint a speech credential" }, { status: 500 });
 }

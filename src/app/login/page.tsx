@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { log, flush } from "@/lib/log/client";
 import { ApexMark as Mark } from "@/components/chat/ApexMark";
 
 
@@ -23,10 +24,14 @@ export default function LoginPage() {
     const supabase = createClient();
     const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
     if (err || !data.user) {
+      log("auth.signin", { area: "auth", ok: false, label: "Sign in refused for " + email, detail: { email, error: err?.message ?? "no user" } });
+      flush();
       setLoading(false);
       setError("That email and password did not match.");
       return;
     }
+    log("auth.signin", { area: "auth", ok: true, label: "Signed in", detail: { email } });
+    flush();
     router.push("/welcome-back");
     router.refresh();
   }

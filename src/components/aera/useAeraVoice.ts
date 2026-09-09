@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { log, logError } from "@/lib/log/client";
+import type { Step } from "@/lib/aera/steps";
 
 /**
  * Web voice layer, same shape as the phone: Deepgram live -> AERA brain -> Aura voice -> listen again.
@@ -23,6 +25,8 @@ export function useAeraVoice(opts: { onDirective?: (d: UIDirective) => void; onE
   const [muted, setMuted] = useState(false);
   const [level, setLevel] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [steps, setSteps] = useState<Step[]>([]);
+  const openedAt = useRef(0);
 
   const activeRef = useRef(false);
   const mutedRef = useRef(false);
@@ -47,6 +51,7 @@ export function useAeraVoice(opts: { onDirective?: (d: UIDirective) => void; onE
 
   const speak = useCallback(async (text: string) => {
     setSaid(text); setState("speaking");
+    const t0 = performance.now();
     try {
       const r = await fetch("/api/voice/speak", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, voice: opts.voice() }) });
       if (!r.ok) throw new Error("voice " + r.status);
@@ -55,7 +60,11 @@ export function useAeraVoice(opts: { onDirective?: (d: UIDirective) => void; onE
       const a = new Audio(url); a.volume = 1; audioRef.current = a;
       await new Promise<void>((res) => { a.onended = () => res(); a.onerror = () => res(); void a.play().catch(() => res()); });
       URL.revokeObjectURL(url);
-    } catch (e) { setError(e instanceof Error ? e.message : "voice failed"); }
+      log("voice.speak", { area: "voice", ms: performance.now() - t0, label: "AERA spoke", detail: { chars: text.length, voice: opts.voice() } });
+    } catch (e) {
+      logError("voice.speak", e, { area: "voice", ms: performance.now() - t0, label: "AERA could not speak", detail: { chars: text.length } });
+      setError(e instanceof Error ? e.message : "voice failed");
+    }
     audioRef.current = null;
     if (activeRef.current) void listen();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -63,16 +72,21 @@ export function useAeraVoice(opts: { onDirective?: (d: UIDirective) => void; onE
 
   const respond = useCallback(async (text: string, confirm: boolean) => {
     historyRef.current.push({ role: "user", content: text });
+    const t0 = performance.now();
+    setSteps([]);
     try {
       const r = await fetch("/api/aera/act", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: historyRef.current.slice(-16), confirm }) });
-      const j = (await r.json()) as { say?: string; ui?: UIDirective[]; needsConfirm?: unknown };
+      const j = (await r.json()) as { say?: string; ui?: UIDirective[]; needsConfirm?: unknown; steps?: Step[] };
+      setSteps(j.steps ?? []);
+      log("voice.turn", { area: "voice", ms: performance.now() - t0, label: text.slice(0, 200), detail: { steps: (j.steps ?? []).map((x) => x.tool), reply: (j.say ?? "").slice(0, 200), confirm } });
       for (const d of j.ui ?? []) opts.onDirective?.(d);
       pendingConfirmRef.current = !!j.needsConfirm;
       const say = j.say ?? "Done.";
       historyRef.current.push({ role: "assistant", content: say });
       opts.onExchange?.(text, say);
       await speak(say);
-    } catch {
+    } catch (e) {
+      logError("voice.turn", e, { area: "voice", ms: performance.now() - t0, label: text.slice(0, 200) });
       await speak("I could not reach the server just now.");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -82,7 +96,7 @@ export function useAeraVoice(opts: { onDirective?: (d: UIDirective) => void; onE
     if (!activeRef.current) return;
     setHeard(""); finalRef.current = ""; setState("listening"); setError(null);
     let stream: MediaStream;
-    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch { setError("Microphone permission is off."); return; }
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch (e) { logError("voice.mic", e, { area: "voice", label: "Microphone permission refused" }); setError("Microphone permission is off."); return; }
     streamRef.current = stream;
     // level meter
     try {
@@ -94,7 +108,7 @@ export function useAeraVoice(opts: { onDirective?: (d: UIDirective) => void; onE
 
     let cred: { mode?: string; access_token?: string } = {};
     try { cred = await (await fetch("/api/voice/deepgram-token")).json(); } catch { /* handled below */ }
-    if (!cred.access_token) { setError("Live speech unavailable."); return; }
+    if (!cred.access_token) { logError("voice.listen", "no credential", { area: "voice", label: "No speech credential" }); setError("Live speech unavailable."); return; }
     const ws = new WebSocket(DG_URL, [cred.mode === "bearer" ? "bearer" : "token", cred.access_token]);
     wsRef.current = ws;
     ws.onopen = () => {
@@ -123,14 +137,22 @@ export function useAeraVoice(opts: { onDirective?: (d: UIDirective) => void; onE
     ws.onclose = () => { if (wsRef.current === ws && activeRef.current && state === "listening") setError("Live speech closed."); };
   }, [respond, speak, stopMic, state]);
 
-  const open = useCallback(() => { activeRef.current = true; setActive(true); void listen(); }, [listen]);
-  const close = useCallback(() => { activeRef.current = false; setActive(false); stopMic(); audioRef.current?.pause(); setState("idle"); }, [stopMic]);
-  const interrupt = useCallback(() => { audioRef.current?.pause(); audioRef.current = null; void listen(); }, [listen]);
-  const toggleMute = useCallback(() => { mutedRef.current = !mutedRef.current; setMuted(mutedRef.current); }, []);
+  const open = useCallback(() => {
+    activeRef.current = true; setActive(true); openedAt.current = Date.now();
+    log("voice.open", { area: "voice", label: "Opened the voice layer", detail: { engine: "deepgram", voice: opts.voice() } });
+    void listen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listen]);
+  const close = useCallback(() => {
+    if (activeRef.current) log("voice.close", { area: "voice", ms: openedAt.current ? Date.now() - openedAt.current : undefined, label: "Closed the voice layer" });
+    activeRef.current = false; setActive(false); stopMic(); audioRef.current?.pause(); setState("idle"); setSteps([]);
+  }, [stopMic]);
+  const interrupt = useCallback(() => { log("voice.interrupt", { area: "voice", label: "Interrupted AERA" }); audioRef.current?.pause(); audioRef.current = null; void listen(); }, [listen]);
+  const toggleMute = useCallback(() => { mutedRef.current = !mutedRef.current; setMuted(mutedRef.current); log("voice.mute", { area: "voice", label: mutedRef.current ? "Muted the mic" : "Unmuted the mic" }); }, []);
 
   useEffect(() => () => { activeRef.current = false; stopMic(); }, [stopMic]);
 
-  return { active, state, heard, said, muted, level, error, open, close, interrupt, toggleMute };
+  return { active, state, heard, said, muted, level, error, steps, open, close, interrupt, toggleMute };
 }
 
 export const AERA_VOICES = [

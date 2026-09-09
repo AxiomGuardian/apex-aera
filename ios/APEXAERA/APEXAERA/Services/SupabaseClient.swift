@@ -152,6 +152,8 @@ actor SupabaseClient {
         req.httpMethod = method
         req.setValue("Bearer " + s.accessToken, forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // So the activity log knows this came from the phone.
+        req.setValue("ios", forHTTPHeaderField: "x-apex-surface")
         if let body { req.httpBody = try JSONSerialization.data(withJSONObject: body) }
         return try await run(req, as: T.self)
     }

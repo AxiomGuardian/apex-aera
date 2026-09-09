@@ -89,13 +89,18 @@ struct QueueView: View {
         busy = p.id; pubMsg = nil
         do {
             let r = try await Repo.shared.publishNow(p.id)
+            Log.event("post.publish_now", area: "queue", label: r.ok ? "Published a post by hand" : "Publish by hand failed", ok: r.ok, detail: ["postId": p.id, "platform": p.platform, "error": r.error ?? ""])
             pubMsg = r.ok ? "Published to \(p.platform.platformLabel)." : "Publish failed: \(r.error ?? "unknown")"
-        } catch { pubMsg = "Publish failed: \(error.localizedDescription)" }
+        } catch {
+            Log.failure("post.publish_now", error, area: "queue", label: "Publish by hand failed", detail: ["postId": p.id])
+            pubMsg = "Publish failed: \(error.localizedDescription)"
+        }
         busy = ""; await load()
     }
     private func act(_ p: ScheduledPost, _ status: String) async {
         busy = p.id
         try? await Repo.shared.setPost(p.id, status: status)
+        Log.event("post." + status, area: "queue", label: (status == "approved" ? "Approved" : "Cancelled") + " a post", detail: ["postId": p.id, "platform": p.platform])
         withAnimation { if let i = posts.firstIndex(of: p) { if status == "cancelled" { posts.remove(at: i) } else { posts[i].status = status } } }
         busy = ""
     }

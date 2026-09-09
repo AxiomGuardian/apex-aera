@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Mic, Square, Loader2 } from "lucide-react";
+import { log, logError } from "@/lib/log/client";
 
 /**
  * Speech engine, browser side. Ported from the Eloy Connect dictation module.
@@ -72,6 +73,7 @@ export function DictateButton({ onText, size = 36, title = "Dictate" }: { onText
 
   async function finish() {
     const text = finalRef.current.trim();
+    log("dictation.final", { area: "voice", ok: !!text, label: text ? "Dictated " + text.split(/\s+/).length + " words" : "Dictation heard nothing", detail: { mode: "live", chars: text.length } });
     if (text) onTextRef.current(text);
     finalRef.current = "";
     cleanup();
@@ -84,14 +86,16 @@ export function DictateButton({ onText, size = 36, title = "Dictate" }: { onText
     try {
       const res = await fetch("/api/voice/transcribe", { method: "POST", headers: { "Content-Type": "audio/webm" }, body: blob });
       const j = (await res.json()) as { transcript?: string };
+      log("dictation.final", { area: "voice", ok: !!j.transcript, label: j.transcript ? "Dictated by batch" : "Batch dictation heard nothing", detail: { mode: "batch", chars: (j.transcript ?? "").length } });
       if (j.transcript) onTextRef.current(j.transcript.trim());
-    } catch { /* nothing to add */ }
+    } catch (e) { logError("dictation.final", e, { area: "voice", label: "Batch transcription failed", detail: { mode: "batch" } }); }
     cleanup();
     setPhase("idle");
   }
 
   async function start() {
     setPhase("starting");
+    log("dictation.start", { area: "voice", label: "Started dictation" });
     finalRef.current = "";
     chunksRef.current = [];
     batchModeRef.current = false;
@@ -99,7 +103,8 @@ export function DictateButton({ onText, size = 36, title = "Dictate" }: { onText
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
+    } catch (e) {
+      logError("dictation.mic", e, { area: "voice", label: "Microphone permission refused" });
       setPhase("idle");
       return;
     }
@@ -114,7 +119,8 @@ export function DictateButton({ onText, size = 36, title = "Dictate" }: { onText
       if (!d.access_token) throw new Error("no credential");
       mode = d.mode ?? "token";
       cred = d.access_token;
-    } catch {
+    } catch (e) {
+      logError("dictation.credential", e, { area: "voice", label: "No live speech credential, falling back to batch" });
       // No live credential: record locally and transcribe in one shot on stop
       batchModeRef.current = true;
       const rec = new MediaRecorder(stream, { mimeType: "audio/webm" });

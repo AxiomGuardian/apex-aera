@@ -51,9 +51,14 @@ final class SpeechEngine {
 
     func start() {
         error = nil; transcript = ""; finalText = ""; pcmFallback = Data(); liveOK = false
+        Log.event("dictation.start", area: "voice", label: "Started listening")
         AVAudioApplication.requestRecordPermission { [weak self] ok in
             guard let self else { return }
-            guard ok else { DispatchQueue.main.async { self.error = "Microphone permission is off. Enable it in Settings." }; return }
+            guard ok else {
+                Log.failure("dictation.mic", nil, area: "voice", label: "Microphone permission is off")
+                DispatchQueue.main.async { self.error = "Microphone permission is off. Enable it in Settings." }
+                return
+            }
             Task { await self.begin() }
         }
     }
@@ -67,6 +72,7 @@ final class SpeechEngine {
         await MainActor.run { self.startMic() }
 
         guard let cred else {
+            Log.failure("dictation.credential", nil, area: "voice", label: "No Deepgram credential, recording for batch", detail: ["error": credError ?? "unknown"])
             await MainActor.run { self.error = "Live speech unavailable (\(credError ?? "no credential")). Recording for batch transcription instead." }
             return
         }
@@ -88,6 +94,7 @@ final class SpeechEngine {
             },
             onClose: { [weak self] reason in
                 guard let self else { return }
+                Log.failure("dictation.socket", nil, area: "voice", label: "Deepgram socket closed: " + reason)
                 DispatchQueue.main.async {
                     if self.listening { self.error = "Live speech closed: \(reason). Recording for batch transcription." }
                     self.liveOK = false
@@ -175,6 +182,7 @@ final class SpeechEngine {
                             if r.speech_final == true, !self.finalText.isEmpty, let cb = self.onFinal {
                                 let done = self.finalText
                                 self.finalText = ""
+                                Log.event("dictation.final", area: "voice", label: "Heard " + String(done.split(separator: " ").count) + " words", detail: ["mode": "live", "chars": done.count])
                                 cb(done)
                             }
                         } else {
@@ -218,12 +226,15 @@ final class SpeechEngine {
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
             guard code == 200 else {
                 let msg = (try? JSONDecoder().decode([String: String].self, from: data))?["error"] ?? "HTTP \(code)"
+                Log.failure("dictation.final", nil, area: "voice", label: "Transcription refused", detail: ["mode": "batch", "error": msg])
                 await MainActor.run { self.error = "Transcription failed: \(msg)" }
                 return
             }
             let b = try JSONDecoder().decode(Batch.self, from: data)
+            Log.event("dictation.final", area: "voice", label: "Batch transcript", detail: ["mode": "batch", "chars": (b.transcript ?? "").count])
             await MainActor.run { self.transcript = b.transcript ?? "" }
         } catch {
+            Log.failure("dictation.final", error, area: "voice", label: "Batch transcription failed", detail: ["mode": "batch"])
             await MainActor.run { self.error = "Transcription failed: \(error.localizedDescription)" }
         }
     }

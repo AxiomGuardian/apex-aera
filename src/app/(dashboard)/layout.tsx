@@ -5,6 +5,7 @@ import { AERAProvider } from "@/context/AERAContext";
 import { ClientMemoryProvider } from "@/context/ClientMemory";
 import { ConditionalAERAPanel } from "@/components/chat/ConditionalAERAPanel";
 import { RouteGuard } from "@/components/layout/RouteGuard";
+import { ActivityLogger } from "@/components/layout/ActivityLogger";
 
 export default function DashboardLayout({
   children,
@@ -19,6 +20,7 @@ export default function DashboardLayout({
         style={{ background: "var(--bg)" }}
       >
         <RouteGuard />
+        <ActivityLogger />
 
         {/* Desktop top nav */}
         <div className="hidden md:block shrink-0">

@@ -10,6 +10,7 @@ struct ChatView: View {
     @State private var messages: [ChatMessage] = []
     @State private var draft = ""
     @State private var thinking = false
+    @State private var stepsFor: [UUID: [Repo.ActResponse.StepInfo]] = [:]
     @State private var speech = SpeechEngine()
     @State private var showThreads = false
     @State private var pendingConfirm = false
@@ -70,6 +71,11 @@ struct ChatView: View {
                                 .padding(.top, 40)
                             }
                             ForEach(messages) { m in
+                                if let steps = stepsFor[m.id], !steps.isEmpty {
+                                    StepTrailView(steps: steps)
+                                        .padding(.leading, 22)
+                                        .transition(.opacity)
+                                }
                                 HStack(alignment: .bottom, spacing: 8) {
                                     if m.kind == .user { Spacer(minLength: 56) }
                                     else { Image("ApexMark").resizable().scaledToFit().frame(width: 14).padding(.bottom, 8).opacity(0.8) }
@@ -184,15 +190,22 @@ struct ChatView: View {
         Task { await Repo.shared.saveMessage(thread: thread.id, mine) }
         if messages.count == 1 { Task { try? await Repo.shared.renameThread(thread.id, name: String(text.prefix(40))); await loadThreadsQuiet() } }
         thinking = true
+        let t0 = Date()
+        Log.event("chat.send", area: "chat", label: String(text.prefix(200)))
         Task {
             do {
                 let r = try await Repo.shared.act(messages, confirm: confirm)
+                Log.event("chat.reply", area: "chat", ms: Int(Date().timeIntervalSince(t0) * 1000),
+                          label: String((r.say ?? "").prefix(200)),
+                          detail: ["steps": (r.steps ?? []).map { $0.tool }])
                 for d in r.ui ?? [] { nav.apply(d, role: session.role) }
                 if r.needsConfirm != nil { pendingConfirm = true }
                 let reply = ChatMessage(kind: .aera, text: r.say ?? "Done.")
+                if let st = r.steps, !st.isEmpty { stepsFor[reply.id] = st }
                 withAnimation { messages.append(reply) }
                 await Repo.shared.saveMessage(thread: thread.id, reply)
             } catch {
+                Log.failure("chat.reply", error, area: "chat", ms: Int(Date().timeIntervalSince(t0) * 1000), label: String(text.prefix(200)))
                 withAnimation { messages.append(ChatMessage(kind: .aera, text: "I could not reach the server: \(error.localizedDescription)")) }
             }
             thinking = false
@@ -242,5 +255,39 @@ struct ThreadsSheet: View {
             .toolbarBackground(Theme.bg.opacity(0.9), for: .navigationBar)
         }
         .preferredColorScheme(.dark)
+    }
+}
+
+
+/// What AERA did, in order, above her answer. The phone twin of the portal's trail.
+struct StepTrailView: View {
+    let steps: [Repo.ActResponse.StepInfo]
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            ForEach(steps, id: \.self) { s in
+                HStack(spacing: 6) {
+                    Image(systemName: s.ok ? "checkmark" : "xmark")
+                        .font(.system(size: 8, weight: .black))
+                        .foregroundStyle(s.ok ? Theme.green : Theme.rose)
+                    Text(s.label)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Theme.text3)
+                        .lineLimit(1)
+                    if let ms = s.ms, ms > 400 {
+                        Text(String(format: "%.1fs", Double(ms) / 1000))
+                            .font(.system(size: 10))
+                            .foregroundStyle(Theme.text3.opacity(0.7))
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 8)
+        .background(Theme.surface2.opacity(0.7), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

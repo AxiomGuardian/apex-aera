@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/components/layout/SessionProvider";
+import { log, flush } from "@/lib/log/client";
 
 /**
  * Sign-out curtain. Listens for "apex:signout", drops a solid veil over the
@@ -23,6 +24,8 @@ export function SignOutCurtain() {
       // The light preference stays saved for the next sign in.
       try { document.documentElement.classList.remove("light"); } catch { /* ignore */ }
       setShow(true);
+      log("auth.signout", { area: "auth", label: "Signed out" });
+      flush();
       setTimeout(async () => {
         setLeaving(true); // words fade, veil stays
         try { await createClient().auth.signOut(); } catch { /* ignore */ }

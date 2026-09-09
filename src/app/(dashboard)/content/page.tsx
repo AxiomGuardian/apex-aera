@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { log, logError } from "@/lib/log/client";
 import { PagePad } from "@/components/layout/PagePad";
 import {
   Upload, FileText, CheckCircle2, Loader2, AlertCircle, Video, Image as ImageIcon, Trash2,
@@ -250,6 +251,8 @@ export default function ContentPage() {
 
     for (const file of Array.from(files)) {
       setUploading(file.name);
+      const t0 = performance.now();
+      log("content.upload.start", { area: "content", brandId, label: "Uploading " + file.name, detail: { name: file.name, bytes: file.size, mime: file.type } });
       try {
         // 1) Classify
         let type = "other";
@@ -300,7 +303,9 @@ export default function ContentPage() {
           metadata: { size: file.size, mime: file.type, frames: framePaths },
         });
         if (insErr) throw new Error(insErr.message);
+        log("content.upload", { area: "content", brandId, ms: performance.now() - t0, label: "Uploaded " + file.name, detail: { assetId, type, bytes: file.size, mime: file.type, frames: framePaths.length, converted: fileName !== file.name } });
       } catch (e) {
+        logError("content.upload", e, { area: "content", brandId, ms: performance.now() - t0, label: "Upload failed for " + file.name, detail: { name: file.name, bytes: file.size, mime: file.type } });
         setError(e instanceof Error ? e.message : "Upload failed — try again.");
       }
     }
@@ -328,7 +333,9 @@ export default function ContentPage() {
         throw new Error(j.error ?? "Analysis failed");
       }
       setExpanded(assetId);
+      log("content.analyze", { area: "content", brandId, label: "Analyzed an upload", detail: { assetId } });
     } catch (e) {
+      logError("content.analyze", e, { area: "content", brandId, label: "Analysis failed", detail: { assetId } });
       setError(e instanceof Error ? e.message : "Analysis failed — try again.");
     } finally {
       setAnalyzing(null);

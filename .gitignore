@@ -53,3 +53,4 @@ data/
 ios/**/xcuserdata/
 ios/**/*.xcuserstate
 ios/**/DerivedData/
+_to_delete/

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { log, logError } from "@/lib/log/client";
 import { PagePad } from "@/components/layout/PagePad";
 import { CheckCircle2, XCircle, Loader2, Clock } from "lucide-react";
 
@@ -63,8 +64,10 @@ export default function ApprovalsPage() {
   const [pubMsg, setPubMsg] = useState<string | null>(null);
   async function publishNow(postId: string) {
     setPubBusy(postId); setPubMsg(null);
+    const t0 = performance.now();
     const r = await fetch("/api/aera/publish-now", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ postId }) });
     const j = (await r.json()) as { ok?: boolean; error?: string; platformPostId?: string };
+    log("post.publish_now", { area: "queue", ok: !!j.ok, ms: performance.now() - t0, label: j.ok ? "Published a post by hand" : "Publish by hand failed", detail: { postId, platformPostId: j.platformPostId ?? null, error: j.error ?? null } });
     setPubMsg(j.ok ? "Published. Post id " + (j.platformPostId ?? "") : "Publish failed: " + (j.error ?? "unknown"));
     setPubBusy(""); void load();
   }
@@ -72,7 +75,9 @@ export default function ApprovalsPage() {
   async function act(postId: string, status: "approved" | "cancelled") {
     setActing(postId);
     const supabase = createClient();
-    await supabase.from("scheduled_posts").update({ status }).eq("id", postId);
+    const { error } = await supabase.from("scheduled_posts").update({ status }).eq("id", postId);
+    if (error) logError("post." + status, error.message, { area: "queue", label: "Could not set a post to " + status, detail: { postId } });
+    else log("post." + status, { area: "queue", label: (status === "approved" ? "Approved" : "Cancelled") + " a post", detail: { postId } });
     setActing(null);
     void load();
   }

@@ -139,15 +139,18 @@ final class Repo {
         let say: String?
         let ui: [UIDirective]?
         let needsConfirm: Confirm?
+        /// What she actually did, in order, in plain words.
+        let steps: [StepInfo]?
         struct UIDirective: Decodable { let type: String; let tab: String?; let kind: String?; let id: String? }
         struct Confirm: Decodable { let tool: String; let prompt: String }
+        struct StepInfo: Decodable, Hashable { let tool: String; let label: String; let ok: Bool; let ms: Int? }
     }
     func act(_ history: [ChatMessage], confirm: Bool = false) async throws -> ActResponse {
         if demo {
             try await Task.sleep(for: .seconds(1))
             let t = (history.last?.text ?? "").lowercased()
             let ui: [ActResponse.UIDirective] = t.contains("queue") || t.contains("post") ? [.init(type: "navigate", tab: "queue", kind: nil, id: nil), .init(type: "highlight", tab: nil, kind: "post", id: "p1")] : t.contains("client") ? [.init(type: "navigate", tab: "clients", kind: nil, id: nil)] : []
-            return ActResponse(say: MockData.reply(to: t), ui: ui, needsConfirm: nil)
+            return ActResponse(say: MockData.reply(to: t), ui: ui, needsConfirm: nil, steps: ui.isEmpty ? [] : [ActResponse.StepInfo(tool: "list_queue", label: "Reading the queue", ok: true, ms: 210)])
         }
         let msgs = history.map { ["role": $0.kind == .user ? "user" : "assistant", "content": $0.text] }
         return try await sb.api("api/aera/act", body: ["messages": msgs, "confirm": confirm], as: ActResponse.self)

@@ -1,68 +1,134 @@
 import SwiftUI
 
-/// The floating AERA presence: slides under the header on any tab and stays while you move around.
+/// AERA's presence while you talk to her. Sits at the bottom, just above the tabs,
+/// out of the way of what she is changing on screen. Shows exactly one thing at a
+/// time: who is talking, what was heard or said, and what she is doing about it.
 struct VoiceCapsule: View {
     @Environment(AeraVoice.self) private var aera
 
-    private var label: String {
+    private var stateLabel: String {
         switch aera.state {
-        case .idle: return "Tap to talk"
+        case .idle:      return "Ready"
         case .listening: return aera.muted ? "Muted" : "Listening"
-        case .thinking: return "Thinking"
-        case .speaking: return "AERA"
+        case .thinking:  return aera.doing ?? "Thinking"
+        case .speaking:  return "AERA"
         }
     }
-    private var body_text: String {
+
+    private var stateColor: Color {
+        if aera.muted { return Theme.rose }
         switch aera.state {
-        case .listening: return aera.heard.isEmpty ? (aera.realtime || aera.ears.transcript.isEmpty ? "I am listening." : aera.ears.transcript) : aera.heard
-        case .thinking: return aera.heard
-        case .speaking: return aera.said
-        case .idle: return ""
+        case .listening: return Theme.cyan
+        case .thinking:  return Theme.amber
+        case .speaking:  return Theme.cyan
+        case .idle:      return Theme.text3
+        }
+    }
+
+    private var line: String {
+        switch aera.state {
+        case .listening: return aera.heard.isEmpty ? "Go ahead." : aera.heard
+        case .thinking:  return aera.heard.isEmpty ? "Working on it." : aera.heard
+        case .speaking:  return aera.said
+        case .idle:      return ""
         }
     }
 
     var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle().fill(Theme.surface2).overlay(Circle().stroke(Theme.cyan.opacity(0.5), lineWidth: 1))
-                    if aera.state == .speaking { Circle().stroke(Theme.cyan.opacity(0.5), lineWidth: 2).scaleEffect(1.25).opacity(0.6) }
-                    Image("ApexMark").resizable().scaledToFit().frame(width: 16)
+        VStack(spacing: 7) {
+            if let e = aera.error {
+                Text(e)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.rose)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if aera.pendingConfirm != nil {
+                Text("Say yes to confirm, or no to leave it.")
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(Theme.amber)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack(spacing: 11) {
+                // Mark. Tap to cut her off.
+                Button {
+                    if aera.state == .speaking { aera.interrupt() }
+                } label: {
+                    ZStack {
+                        Circle().fill(Theme.surface2)
+                        Circle().stroke(stateColor.opacity(0.55), lineWidth: 1)
+                        if aera.state == .speaking {
+                            Circle().stroke(Theme.cyan.opacity(0.35), lineWidth: 2)
+                                .scaleEffect(1.3)
+                                .opacity(0.7)
+                        }
+                        Image("ApexMark").resizable().scaledToFit().frame(width: 15)
+                    }
+                    .frame(width: 36, height: 36)
                 }
-                .frame(width: 34, height: 34)
-                .onTapGesture { if aera.state == .speaking { aera.interrupt() } }
+                .buttonStyle(.plain)
+
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(label.uppercased()).font(.system(size: 10, weight: .bold)).tracking(2).foregroundStyle(Theme.cyanSoft)
-                    if !body_text.isEmpty {
-                        Text(body_text).font(.system(size: 13.5)).foregroundStyle(Theme.text).lineLimit(3)
+                    HStack(spacing: 6) {
+                        Circle().fill(stateColor).frame(width: 5, height: 5)
+                        Text(stateLabel.uppercased())
+                            .font(.system(size: 9.5, weight: .bold))
+                            .tracking(1.6)
+                            .foregroundStyle(stateColor)
+                            .lineLimit(1)
+                    }
+                    if !line.isEmpty {
+                        Text(line)
+                            .font(.system(size: 13))
+                            .foregroundStyle(Theme.text)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                            .animation(nil, value: line)
                     }
                 }
-                Spacer()
-                WaveformBars(level: aera.state == .listening ? aera.level : (aera.state == .speaking ? 0.5 : 0), active: aera.state == .listening || aera.state == .speaking, bars: 9)
-                    .frame(width: 56)
+
+                Spacer(minLength: 4)
+
+                WaveformBars(
+                    level: aera.state == .listening ? aera.level : (aera.state == .speaking ? 0.55 : 0.12),
+                    active: aera.state == .listening || aera.state == .speaking,
+                    bars: 11
+                )
+                .frame(width: 52, height: 22)
+
                 Button { aera.toggleMute() } label: {
-                    Image(systemName: aera.muted ? "mic.slash.fill" : "mic.fill").font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(aera.muted ? Theme.rose : Theme.text3).frame(width: 28, height: 28)
+                    Image(systemName: aera.muted ? "mic.slash.fill" : "mic.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(aera.muted ? Theme.rose : Theme.text3)
+                        .frame(width: 30, height: 30)
                         .background(aera.muted ? Theme.rose.opacity(0.15) : Theme.surface2, in: Circle())
                         .overlay(Circle().stroke(aera.muted ? Theme.rose.opacity(0.5) : .clear, lineWidth: 1))
                 }
+                .buttonStyle(.plain)
+
                 Button { aera.close() } label: {
-                    Image(systemName: "xmark").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.text3).frame(width: 28, height: 28)
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Theme.text3)
+                        .frame(width: 30, height: 30)
                         .background(Theme.surface2, in: Circle())
                 }
-            }
-            if let e = aera.error { Text(e).font(.system(size: 11)).foregroundStyle(Theme.rose) }
-            if aera.pendingConfirm != nil {
-                Text("Say yes to confirm, or no to leave it.").font(.system(size: 11.5)).foregroundStyle(Theme.amber)
+                .buttonStyle(.plain)
             }
         }
-        .padding(12)
-        .background(Theme.surface.opacity(0.96), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Theme.cyan.opacity(0.35), lineWidth: 1))
-        .overlay(OrbitBeam(color: Theme.cyan, radius: 18, speed: aera.state == .thinking ? 1.2 : 0.35))
-        .shadow(color: Theme.cyan.opacity(0.25), radius: 24, y: 8)
-        .padding(.horizontal, 14)
-        .animation(.easeInOut(duration: 0.25), value: aera.state)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(Theme.surface.opacity(0.82), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(stateColor.opacity(aera.state == .idle ? 0.18 : 0.4), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.35), radius: 18, y: 6)
+        .shadow(color: stateColor.opacity(0.18), radius: 22, y: 0)
+        .padding(.horizontal, 12)
+        .animation(.easeInOut(duration: 0.22), value: aera.state)
+        .animation(.easeInOut(duration: 0.22), value: aera.muted)
     }
 }
 

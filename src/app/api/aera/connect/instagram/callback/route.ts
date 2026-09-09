@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { connectContext } from "@/lib/connect/finish";
+import { logServer } from "@/lib/log/server";
 
 /**
  * Instagram connect — step 2. Exchanges the code for a long-lived token,
@@ -28,6 +29,7 @@ export async function GET(request: Request) {
     const description = url.searchParams.get("error_description") ?? "";
     console.error("[Instagram Connect] denied", { denied, reason, description });
     const detail = [description, reason].filter(Boolean).join(" | ").slice(0, 300);
+    void logServer(user.id, { event: "connect.instagram", area: "connect", ok: false, brandId: brandId || null, label: "Instagram refused the connection", detail: { denied, reason, description } });
     return back("denied", detail ? { reason: detail } : undefined);
   }
   if (!code || !nonce) return back("invalid");
@@ -103,10 +105,12 @@ export async function GET(request: Request) {
     );
     if (error) throw new Error("save: " + error.message);
 
+    void logServer(user.id, { event: "connect.instagram", area: "connect", ok: true, brandId: brandId || null, label: "Connected Instagram " + account, detail: { account, account_type: mj.account_type ?? null } });
     return back("connected", { account });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[Instagram Connect]", msg);
+    void logServer(user.id, { event: "connect.instagram", area: "connect", ok: false, brandId: brandId || null, label: "Instagram connection failed", detail: { error: msg.slice(0, 500) } });
     return back("failed", { reason: msg.slice(0, 300) });
   }
 }

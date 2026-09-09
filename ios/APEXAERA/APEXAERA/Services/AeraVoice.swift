@@ -37,6 +37,8 @@ final class AeraVoice {
     var said = ""
     var error: String?
     var pendingConfirm: String?
+    /// What she is doing this second, when she is doing something.
+    var doing: String?
 
     let ears = SpeechEngine()
     let mouth = VoiceOut()
@@ -62,6 +64,7 @@ final class AeraVoice {
             }
             self.heard = self.live.heard
             self.said = self.live.said
+            self.doing = self.live.doing
         }
         live.onDirective = { [weak self] d in
             guard let self else { return }
@@ -75,6 +78,7 @@ final class AeraVoice {
             self.onExchange?(u, a)
         }
         live.onClosed = { [weak self] reason in
+            Log.failure("voice.rt.dropped", nil, area: "voice", label: "Realtime voice dropped: " + reason)
             // The socket dropped mid-conversation: keep her talking on the Deepgram loop.
             guard let self, self.active, self.realtime else { return }
             self.realtime = false
@@ -86,19 +90,34 @@ final class AeraVoice {
     /// A finished spoken turn, so the chat screen can keep the transcript.
     var onExchange: ((String, String) -> Void)?
 
+    private var openedAt = Date()
+
     func open() {
         active = true; error = nil
         state = .thinking
+        openedAt = Date()
+        Log.event("voice.open", area: "voice", label: "Opened the voice layer")
         Task { @MainActor in
             // Real time first. If it cannot open, fall back to listen, think, speak.
             let ok = await live.start()
             guard self.active else { if ok { self.live.stop() }; return }
             self.realtime = ok
-            if ok { self.state = .listening } else { self.listen() }
+            if ok {
+                self.state = .listening
+            } else {
+                Log.event("voice.fallback", area: "voice", label: "Realtime unavailable, using the Deepgram loop")
+                self.listen()
+            }
         }
     }
 
     func close() {
+        if active {
+            Log.event("voice.close", area: "voice", label: "Closed the voice layer",
+                      ms: Int(Date().timeIntervalSince(openedAt) * 1000),
+                      detail: ["engine": realtime ? "xai" : "deepgram"])
+            Log.flush()
+        }
         active = false
         realtime = false
         live.stop()
@@ -107,10 +126,14 @@ final class AeraVoice {
     }
 
     var muted: Bool { realtime ? live.muted : ears.muted }
-    func toggleMute() { if realtime { live.toggleMute() } else { ears.muted.toggle() } }
+    func toggleMute() {
+        if realtime { live.toggleMute() } else { ears.muted.toggle() }
+        Log.event("voice.mute", area: "voice", label: muted ? "Muted the mic" : "Unmuted the mic")
+    }
 
     /// Tap while she is talking: interrupt and listen.
     func interrupt() {
+        Log.event("voice.interrupt", area: "voice", label: "Interrupted AERA")
         if realtime { live.interrupt(); return }
         mouth.stop()
         listen()
@@ -142,8 +165,12 @@ final class AeraVoice {
     }
 
     private func respond(confirm: Bool) async {
+        let t0 = Date()
         do {
             let r = try await Repo.shared.act(history, confirm: confirm)
+            Log.event("voice.turn", area: "voice", label: String(heard.prefix(200)),
+                      ms: Int(Date().timeIntervalSince(t0) * 1000),
+                      detail: ["engine": "deepgram", "reply": String((r.say ?? "").prefix(200))])
             pendingConfirm = nil
             for d in r.ui ?? [] { await MainActor.run { nav?.apply(d, role: role) } }
             if let c = r.needsConfirm { pendingConfirm = c.tool }
@@ -151,6 +178,7 @@ final class AeraVoice {
             history.append(ChatMessage(kind: .aera, text: text))
             await MainActor.run { speak(text) }
         } catch {
+            Log.failure("voice.turn", error, area: "voice", label: String(heard.prefix(200)), ms: Int(Date().timeIntervalSince(t0) * 1000), detail: ["engine": "deepgram"])
             await MainActor.run {
                 self.error = error.localizedDescription
                 speak("I could not reach the server just now.")

@@ -9,6 +9,10 @@ import { PagePad } from "@/components/layout/PagePad";
 import { ApexMark } from "@/components/chat/ApexMark";
 import { DictateButton } from "@/components/voice/DictateButton";
 import { useAeraVoice, AERA_VOICES, type UIDirective } from "@/components/aera/useAeraVoice";
+import { askAera } from "@/lib/aera/stream";
+import { StepTrail } from "@/components/aera/StepTrail";
+import type { Step } from "@/lib/aera/steps";
+import { log } from "@/lib/log/client";
 
 /**
  * AERA. One brain (tools, memory, sight, search), private threads shared with the phone,
@@ -16,7 +20,7 @@ import { useAeraVoice, AERA_VOICES, type UIDirective } from "@/components/aera/u
  */
 
 type Thread = { id: string; name: string | null; updated_at: string | null };
-type Msg = { id: string; role: "user" | "aera"; content: string };
+type Msg = { id: string; role: "user" | "aera"; content: string; steps?: Step[] };
 
 const TAB_HREF: Record<string, string> = { dashboard: "/dashboard", clients: "/clients", brand: "/brand", content: "/content", queue: "/approvals", aera: "/chat" };
 
@@ -33,6 +37,8 @@ export default function AERAPage() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [draft, setDraft] = useState("");
   const [thinking, setThinking] = useState(false);
+  const [phase, setPhase] = useState("Thinking");
+  const [liveSteps, setLiveSteps] = useState<Step[]>([]);
   const [pendingConfirm, setPendingConfirm] = useState(false);
   const [voiceId, setVoiceId] = useState(AERA_VOICES[0].id);
   const [voiceMenu, setVoiceMenu] = useState(false);
@@ -62,6 +68,7 @@ export default function AERAPage() {
     const t: Thread = { id: "thread-" + crypto.randomUUID(), name: "New chat", updated_at: new Date().toISOString() };
     await supabase.from("aera_threads").insert({ id: t.id, user_id: uid, name: t.name });
     setThreads((p) => [t, ...p]); setThread(t); setMessages([]); setPendingConfirm(false);
+    log("chat.new_thread", { area: "chat", label: "Started a new chat" });
   }, [supabase, uid]);
 
   const deleteThread = useCallback(async (t: Thread) => {
@@ -102,18 +109,18 @@ export default function AERAPage() {
     const mine: Msg = { id: crypto.randomUUID(), role: "user", content: text };
     setMessages((p) => [...p, mine]); void persist(mine);
     if (messages.length === 0) { void supabase.from("aera_threads").update({ name: text.slice(0, 40) }).eq("id", thread.id).then(() => loadThreads()); }
-    setThinking(true);
-    try {
-      const history = [...messages, mine].slice(-16).map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
-      const r = await fetch("/api/aera/act", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: history, confirm }) });
-      const j = (await r.json()) as { say?: string; ui?: UIDirective[]; needsConfirm?: unknown };
-      for (const d of j.ui ?? []) applyDirective(d);
-      if (j.needsConfirm) setPendingConfirm(true);
-      const reply: Msg = { id: crypto.randomUUID(), role: "aera", content: j.say ?? "Done." };
-      setMessages((p) => [...p, reply]); void persist(reply);
-    } catch {
-      setMessages((p) => [...p, { id: crypto.randomUUID(), role: "aera", content: "I could not reach the server just now." }]);
-    }
+    setThinking(true); setPhase("Thinking"); setLiveSteps([]);
+    const history = [...messages, mine].slice(-16).map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
+    const done = await askAera(history, {
+      confirm,
+      onPhase: (label) => setPhase(label),
+      onStep: (st) => setLiveSteps((p) => [...p, st]),
+    });
+    for (const d of done.ui ?? []) applyDirective(d as UIDirective);
+    if (done.needsConfirm) setPendingConfirm(true);
+    const reply: Msg = { id: crypto.randomUUID(), role: "aera", content: done.say, steps: done.steps };
+    setMessages((p) => [...p, reply]); void persist(reply);
+    setLiveSteps([]);
     setThinking(false);
   }, [draft, thinking, thread, messages, persist, supabase, loadThreads, applyDirective]);
 
@@ -227,10 +234,20 @@ export default function AERAPage() {
               {messages.map((m) => (
                 <div key={m.id} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-end", gap: 8 }}>
                   {m.role === "aera" && <ApexMark size={14} opacity={0.8} />}
-                  <div style={{ maxWidth: "72%", padding: "12px 16px", borderRadius: 18, fontSize: 15, lineHeight: 1.55, whiteSpace: "pre-wrap", background: m.role === "user" ? "var(--cyan)" : "var(--surface-2)", color: m.role === "user" ? "#04131a" : "var(--text)", border: m.role === "user" ? "none" : "1px solid var(--border)" }}>{m.content}</div>
+                  <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", gap: 6, alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
+                    {m.role === "aera" && m.steps && m.steps.length > 0 && <StepTrail steps={m.steps} />}
+                    <div style={{ padding: "12px 16px", borderRadius: 18, fontSize: 15, lineHeight: 1.55, whiteSpace: "pre-wrap", background: m.role === "user" ? "var(--cyan)" : "var(--surface-2)", color: m.role === "user" ? "#04131a" : "var(--text)", border: m.role === "user" ? "none" : "1px solid var(--border)" }}>{m.content}</div>
+                  </div>
                 </div>
               ))}
-              {thinking && <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-5)", fontSize: 12.5 }}><Loader2 className="animate-spin" style={{ width: 14, height: 14, color: "var(--cyan)" }} /> AERA is thinking</div>}
+              {thinking && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
+                  {liveSteps.length > 0 && <StepTrail steps={liveSteps} />}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-5)", fontSize: 12.5 }}>
+                    <Loader2 className="animate-spin" style={{ width: 14, height: 14, color: "var(--cyan)" }} /> {phase}
+                  </div>
+                </div>
+              )}
               {pendingConfirm && (
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => { setDraft("yes"); void send(true); }} className="dash-btn" style={{ padding: "8px 14px", borderRadius: 9, background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.3)", color: "var(--green)", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>Yes, do it</button>

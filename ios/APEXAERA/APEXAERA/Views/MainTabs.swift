@@ -7,7 +7,7 @@ struct MainTabs: View {
 
     var body: some View {
         @Bindable var nav = nav
-        ZStack(alignment: .top) {
+        ZStack(alignment: .bottom) {
             TabView(selection: $nav.tab) {
                 if session.role.seesClients {
                     DashboardView().tabItem { Label("Dashboard", systemImage: "square.grid.2x2.fill") }.tag(AppTab.dashboard)
@@ -24,8 +24,8 @@ struct MainTabs: View {
 
             if aera.active {
                 VoiceCapsule()
-                    .padding(.top, 4)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .padding(.bottom, 56)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(5)
             }
         }
@@ -34,6 +34,10 @@ struct MainTabs: View {
             aera.nav = nav
             aera.role = session.role
             nav.tab = session.role.seesClients ? .dashboard : .brand
+            Log.event("app.open", area: "system", label: "Opened the app")
+        }
+        .onChange(of: nav.tab) { _, tab in
+            Log.event("nav.tab", area: "nav", label: "Opened " + tab.rawValue, detail: ["tab": tab.rawValue])
         }
     }
 }

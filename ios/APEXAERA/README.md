@@ -19,3 +19,17 @@ SwiftUI companion app for the APEX AERA portal. iOS 17+, Xcode 16+.
 ## Notes
 - No third-party packages. Supabase is called over plain URLSession.
 - Public keys only in `Config.swift`. No secrets ship in the app.
+
+## Push notifications (not built yet)
+
+Everything Apple side is ready, the app code is not.
+
+- Bundle ID: `com.apexaera.app`, Push Notifications capability enabled on the App ID
+- Team ID: `NAQW98L457`
+- APNs auth key ID: `W7NTXD9F96`, configured for Sandbox and Production, Team Scoped (all topics)
+- The `.p8` file itself lives with Isaac. Apple only lets it be downloaded once. It never goes in this repo.
+
+Still to build: register for remote notifications in the app, store the device token per user,
+a table for tokens, and a server route that signs a JWT with the key and posts to APNs.
+APNs environments: Xcode debug builds hit sandbox, TestFlight and App Store builds hit production.
+The key above covers both.

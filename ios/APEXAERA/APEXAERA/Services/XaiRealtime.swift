@@ -23,6 +23,8 @@ final class XaiRealtime {
     var error: String?
     var level: CGFloat = 0
     var muted = false { didSet { if muted { level = 0 } } }
+    /// The tool she is running this second, in plain words, for the capsule.
+    var doing: String?
 
     /// Told to the app so she can move the screen while she talks.
     var onDirective: ((Repo.ActResponse.UIDirective) -> Void)?
@@ -39,6 +41,11 @@ final class XaiRealtime {
     private var sessionConfig: [String: Any] = [:]
     private var running = false
     private var turnText = ""
+    /// Buffers handed to the speaker that have not finished playing.
+    private var outstanding = 0
+    private let outLock = NSLock()
+    /// True between the server hearing speech and the transcript landing.
+    private var userSpeaking = false
 
     private let micFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16000, channels: 1, interleaved: true)!
     private let voiceFormat = AVAudioFormat(standardFormatWithSampleRate: 24000, channels: 1)!
@@ -53,9 +60,11 @@ final class XaiRealtime {
         set(.connecting)
 
         guard await micPermission() else {
+            Log.failure("voice.rt.open", nil, area: "voice", label: "Microphone permission is off")
             await MainActor.run { self.error = "Microphone permission is off. Enable it in Settings."; self.state = .idle }
             return false
         }
+        let openedAt = Date()
 
         // 1. Token and session config from our server.
         var token = ""
@@ -68,11 +77,15 @@ final class XaiRealtime {
             let (data, resp) = try await URLSession.shared.data(for: req)
             guard (resp as? HTTPURLResponse)?.statusCode == 200,
                   let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let t = obj["token"] as? String else { return false }
+                  let t = obj["token"] as? String else {
+                Log.failure("voice.rt.open", nil, area: "voice", label: "No realtime token from the server", detail: ["engine": "xai"])
+                return false
+            }
             token = t
             model = (obj["model"] as? String) ?? model
             sessionConfig = (obj["session"] as? [String: Any]) ?? [:]
         } catch {
+            Log.failure("voice.rt.open", error, area: "voice", label: "Could not reach the token route", detail: ["engine": "xai"])
             return false
         }
 
@@ -103,7 +116,11 @@ final class XaiRealtime {
             // Do not hang forever on a silent socket.
             DispatchQueue.main.asyncAfter(deadline: .now() + 12) { if !resumed { resumed = true; cont.resume(returning: false) } }
         }
-        guard opened else { teardown(); return false }
+        guard opened else {
+            Log.failure("voice.rt.open", nil, area: "voice", label: "The xAI socket would not open", detail: ["engine": "xai", "model": model])
+            teardown()
+            return false
+        }
 
         running = true
         receiveLoop()
@@ -111,9 +128,14 @@ final class XaiRealtime {
 
         // 3. Mic and speaker on one engine.
         let ok = await MainActor.run { self.startAudio() }
-        guard ok else { teardown(); return false }
+        guard ok else {
+            Log.failure("voice.rt.open", nil, area: "voice", label: "Could not start the audio engine", detail: ["engine": "xai"])
+            teardown()
+            return false
+        }
 
         set(.listening)
+        Log.event("voice.rt.open", area: "voice", label: "Realtime voice is live", ms: Int(Date().timeIntervalSince(openedAt) * 1000), detail: ["engine": "xai", "model": model])
         return true
     }
 
@@ -129,10 +151,24 @@ final class XaiRealtime {
             try AudioSessionConfig.activate()
             engine.stop()
             engine = AVAudioEngine()
-            engine.attach(player)
-            engine.connect(player, to: engine.mainMixerNode, format: voiceFormat)
 
             let input = engine.inputNode
+            // Echo cancellation. Without it the mic hears her own voice out of the
+            // speaker, the server thinks she is the person talking, and the next
+            // turn takes forever. This also brings automatic gain, so normal
+            // speaking volume is enough and nobody has to raise their voice.
+            do {
+                try input.setVoiceProcessingEnabled(true)
+                try engine.outputNode.setVoiceProcessingEnabled(true)
+            } catch {
+                // Older or unusual hardware: carry on without it.
+            }
+
+            engine.attach(player)
+            engine.connect(player, to: engine.mainMixerNode, format: voiceFormat)
+            engine.mainMixerNode.outputVolume = 1.0
+            player.volume = 1.0
+
             let inFormat = input.inputFormat(forBus: 0)
             guard inFormat.sampleRate > 0, inFormat.channelCount > 0 else {
                 error = "Microphone is not available right now."
@@ -210,10 +246,16 @@ final class XaiRealtime {
         switch type {
         case "input_audio_buffer.speech_started":
             // Barge in: she stops the moment the person starts talking.
+            userSpeaking = true
+            if state == .speaking { send(["type": "response.cancel"]) }
             stopPlayback()
             set(.listening)
 
+        case "input_audio_buffer.speech_stopped":
+            userSpeaking = false
+
         case "conversation.item.input_audio_transcription.completed":
+            userSpeaking = false
             if let t = e["transcript"] as? String, !t.trimmingCharacters(in: .whitespaces).isEmpty {
                 heard = AeraVoice.fixName(t)
                 onState?(state)
@@ -240,15 +282,31 @@ final class XaiRealtime {
             let callId = (e["call_id"] as? String) ?? ""
             let argText = (e["arguments"] as? String) ?? "{}"
             let args = (try? JSONSerialization.jsonObject(with: Data(argText.utf8))) as? [String: Any] ?? [:]
+            doing = ToolWords.label(name, args)
+            set(.thinking)
+            onState?(state)
             Task { await self.runTool(name: name, callId: callId, args: args) }
 
         case "response.done":
-            if !heard.isEmpty || !said.isEmpty { onExchange?(heard, said) }
-            set(.listening)
+            if !heard.isEmpty || !said.isEmpty {
+                onExchange?(heard, said)
+                Log.event("voice.turn", area: "voice", label: String(heard.prefix(200)), detail: ["engine": "xai", "reply": String(said.prefix(200))])
+            }
+            outLock.lock(); let left = outstanding; outLock.unlock()
+            // Her audio usually outlives the model's last token. Stay in speaking
+            // until the speaker is actually quiet, or the turn ends too early and
+            // the next thing the person says lands in the gap.
+            if left <= 0 { set(.listening) }
 
         case "error":
             let m = ((e["error"] as? [String: Any])?["message"] as? String) ?? "Voice error"
-            error = m
+            // Cancelling when she had already finished is normal, not worth showing.
+            if m.lowercased().contains("cancel") || m.lowercased().contains("no active response") {
+                Log.event("voice.rt.notice", area: "voice", label: m, detail: ["engine": "xai"])
+            } else {
+                error = m
+                Log.failure("voice.rt.error", nil, area: "voice", label: m, detail: ["engine": "xai"])
+            }
 
         default:
             break
@@ -284,6 +342,8 @@ final class XaiRealtime {
         } catch {
             output = "{\"ok\":false,\"error\":\"\(error.localizedDescription)\"}"
         }
+        await MainActor.run { self.doing = nil; self.onState?(self.state) }
+        Log.event("voice.tool", area: "voice", label: name, ok: !output.contains("\"ok\":false"), detail: ["tool": name, "args": String(String(describing: args).prefix(300))])
         send([
             "type": "conversation.item.create",
             "item": ["type": "function_call_output", "call_id": callId, "output": output],
@@ -303,11 +363,26 @@ final class XaiRealtime {
             for i in 0..<frames { out[i] = Float(Int16(littleEndian: src[i])) / 32768.0 }
         }
         if !player.isPlaying { player.play() }
-        player.scheduleBuffer(buf, completionHandler: nil)
+        outLock.lock(); outstanding += 1; outLock.unlock()
+        player.scheduleBuffer(buf, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+            guard let self else { return }
+            self.outLock.lock(); self.outstanding -= 1; let left = self.outstanding; self.outLock.unlock()
+            if left <= 0 { DispatchQueue.main.async { self.playbackDrained() } }
+        }
+    }
+
+    /// Her last word has actually left the speaker. Only now is it her turn to listen.
+    private func playbackDrained() {
+        guard running, state == .speaking else { return }
+        set(.listening)
+        // Drop whatever leaked into the buffer while she was talking, unless the
+        // person is mid sentence right now.
+        if !userSpeaking { send(["type": "input_audio_buffer.clear"]) }
     }
 
     private func stopPlayback() {
         player.stop()
+        outLock.lock(); outstanding = 0; outLock.unlock()
         player.play()
     }
 
@@ -346,6 +421,33 @@ final class XaiRealtime {
             onState?(s)
         } else {
             DispatchQueue.main.async { self.set(s) }
+        }
+    }
+}
+
+
+/// The same plain words the portal uses for AERA's steps.
+enum ToolWords {
+    static func label(_ tool: String, _ args: [String: Any] = [:]) -> String {
+        let s: (String) -> String = { args[$0] as? String ?? "" }
+        switch tool {
+        case "navigate":        return "Opening " + (s("tab").isEmpty ? "the app" : s("tab"))
+        case "highlight":       return "Pointing at " + (s("kind").isEmpty ? "an item" : s("kind"))
+        case "list_queue":      return "Reading the queue"
+        case "list_content":    return "Reading recent uploads"
+        case "brand_summary":   return "Reading the brand"
+        case "look_at_content": return "Looking at the content"
+        case "social_search":   return "Searching " + (s("platform").isEmpty ? "the web" : s("platform"))
+        case "remember":        return "Remembering that"
+        case "reschedule_post": return "Moving the post"
+        case "retitle_post":    return "Renaming the post"
+        case "approve_post":    return "Approving the post"
+        case "cancel_post":     return "Pulling the post"
+        case "set_autopilot":   return "Turning autopilot " + ((args["on"] as? Bool) == false ? "off" : "on")
+        case "update_voice":    return "Updating the brand voice"
+        case "read_voice":      return "Re-reading the brand voice"
+        case "publish_now":     return "Publishing now"
+        default:                return tool.replacingOccurrences(of: "_", with: " ")
         }
     }
 }

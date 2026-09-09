@@ -82,6 +82,8 @@ struct ContentListView: View {
     private func upload() async {
         guard let pick else { return }
         uploading = true; message = nil
+        let t0 = Date()
+        Log.event("content.upload.start", area: "content", label: "Uploading from the phone", brandId: brandId, detail: ["title": title])
         do {
             let isVideo = pick.supportedContentTypes.contains { $0.conforms(to: .movie) || $0.conforms(to: .video) }
             if isVideo {
@@ -95,10 +97,14 @@ struct ContentListView: View {
             } else if let data = try await pick.loadTransferable(type: Data.self), let img = UIImage(data: data) {
                 try await Repo.shared.uploadImage(brandId: brandId, image: img, title: title, note: note.isEmpty ? nil : note)
             } else { throw SupabaseError.decoding("Unsupported file") }
+            Log.event("content.upload", area: "content", label: "Uploaded " + (title.isEmpty ? "a file" : title), ms: Int(Date().timeIntervalSince(t0) * 1000), brandId: brandId)
             isError = false; message = "Uploaded. AERA will analyze it on the next heartbeat."
             self.pick = nil; title = ""; note = ""
             await load()
-        } catch { isError = true; message = error.localizedDescription }
+        } catch {
+            Log.failure("content.upload", error, area: "content", label: "Upload failed on the phone", ms: Int(Date().timeIntervalSince(t0) * 1000), detail: ["title": title])
+            isError = true; message = error.localizedDescription
+        }
         uploading = false
     }
 }

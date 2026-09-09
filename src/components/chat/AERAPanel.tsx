@@ -19,8 +19,12 @@ import { useAERA } from "@/context/AERAContext";
 import { ApexMark } from "./ApexMark";
 import { DictateButton } from "@/components/voice/DictateButton";
 import { useAeraVoice, type UIDirective } from "@/components/aera/useAeraVoice";
+import { askAera } from "@/lib/aera/stream";
+import { StepTrail } from "@/components/aera/StepTrail";
+import type { Step } from "@/lib/aera/steps";
+import { log } from "@/lib/log/client";
 
-type Msg = { id: string; role: "user" | "aera"; content: string };
+type Msg = { id: string; role: "user" | "aera"; content: string; steps?: Step[] };
 
 const TAB_HREF: Record<string, string> = {
   dashboard: "/dashboard",
@@ -56,6 +60,8 @@ export function AERAPanel() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [draft, setDraft] = useState("");
   const [thinking, setThinking] = useState(false);
+  const [phase, setPhase] = useState("Thinking");
+  const [liveSteps, setLiveSteps] = useState<Step[]>([]);
   const [pendingConfirm, setPendingConfirm] = useState(false);
   const [ready, setReady] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -88,7 +94,12 @@ export function AERAPanel() {
   }, [isOpen, uid, threadId, ready, supabase]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, thinking, isOpen]);
-  useEffect(() => { if (isOpen) setTimeout(() => inputRef.current?.focus(), 380); }, [isOpen]);
+  useEffect(() => {
+    if (!isOpen) return;
+    log("panel.open", { area: "chat", label: "Opened the quick ask panel" });
+    const t = setTimeout(() => inputRef.current?.focus(), 380);
+    return () => clearTimeout(t);
+  }, [isOpen]);
 
   const persist = useCallback(async (m: Msg) => {
     if (!uid || !threadId) return;
@@ -112,22 +123,18 @@ export function AERAPanel() {
     setDraft(""); setPendingConfirm(false);
     const mine: Msg = { id: crypto.randomUUID(), role: "user", content: body };
     setMessages((p) => [...p, mine]); void persist(mine);
-    setThinking(true);
-    try {
-      const history = [...messages, mine].slice(-12).map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
-      const r = await fetch("/api/aera/act", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history, confirm }),
-      });
-      const j = (await r.json()) as { say?: string; ui?: UIDirective[]; needsConfirm?: unknown };
-      for (const d of j.ui ?? []) applyDirective(d);
-      if (j.needsConfirm) setPendingConfirm(true);
-      const reply: Msg = { id: crypto.randomUUID(), role: "aera", content: j.say ?? "Done." };
-      setMessages((p) => [...p, reply]); void persist(reply);
-    } catch {
-      setMessages((p) => [...p, { id: crypto.randomUUID(), role: "aera", content: "I could not reach the server just now." }]);
-    }
+    setThinking(true); setPhase("Thinking"); setLiveSteps([]);
+    const history = [...messages, mine].slice(-12).map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
+    const done = await askAera(history, {
+      confirm,
+      onPhase: (label) => setPhase(label),
+      onStep: (st) => setLiveSteps((p) => [...p, st]),
+    });
+    for (const d of done.ui ?? []) applyDirective(d as UIDirective);
+    if (done.needsConfirm) setPendingConfirm(true);
+    const reply: Msg = { id: crypto.randomUUID(), role: "aera", content: done.say, steps: done.steps };
+    setMessages((p) => [...p, reply]); void persist(reply);
+    setLiveSteps([]);
     setThinking(false);
   }, [thinking, messages, persist, applyDirective]);
 
@@ -291,22 +298,28 @@ export function AERAPanel() {
               {messages.map((m) => (
                 <div key={m.id} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-end", gap: 7 }}>
                   {m.role === "aera" && <ApexMark size={12} opacity={0.8} />}
-                  <div
-                    style={{
-                      maxWidth: "85%", padding: "10px 13px", borderRadius: 15, fontSize: 13.5, lineHeight: 1.55, whiteSpace: "pre-wrap",
-                      background: m.role === "user" ? "var(--cyan)" : "var(--surface-2)",
-                      color: m.role === "user" ? "#04131a" : "var(--text)",
-                      border: m.role === "user" ? "none" : "1px solid var(--border)",
-                    }}
-                  >
-                    {m.content}
+                  <div style={{ maxWidth: "85%", display: "flex", flexDirection: "column", gap: 5, alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
+                    {m.role === "aera" && m.steps && m.steps.length > 0 && <StepTrail steps={m.steps} />}
+                    <div
+                      style={{
+                        padding: "10px 13px", borderRadius: 15, fontSize: 13.5, lineHeight: 1.55, whiteSpace: "pre-wrap",
+                        background: m.role === "user" ? "var(--cyan)" : "var(--surface-2)",
+                        color: m.role === "user" ? "#04131a" : "var(--text)",
+                        border: m.role === "user" ? "none" : "1px solid var(--border)",
+                      }}
+                    >
+                      {m.content}
+                    </div>
                   </div>
                 </div>
               ))}
 
               {thinking && (
-                <div style={{ display: "flex", alignItems: "center", gap: 7, color: "var(--text-5)", fontSize: 12 }}>
-                  <Loader2 className="animate-spin" style={{ width: 13, height: 13, color: "var(--cyan)" }} /> AERA is thinking
+                <div style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-start" }}>
+                  {liveSteps.length > 0 && <StepTrail steps={liveSteps} />}
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, color: "var(--text-5)", fontSize: 12 }}>
+                    <Loader2 className="animate-spin" style={{ width: 13, height: 13, color: "var(--cyan)" }} /> {phase}
+                  </div>
                 </div>
               )}
 
