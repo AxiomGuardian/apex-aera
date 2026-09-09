@@ -1,59 +1,49 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { adminClient } from "@/lib/engines/core";
-import { completeText, type ChatTurn } from "@/lib/ai/llm";
+import { completeText, stepWithTools, type ToolDef, type ToolTurn } from "@/lib/ai/llm";
 import { publishOne } from "@/lib/engines/publisher";
 import { readBrandVoice } from "@/lib/engines/voice";
 
 /**
- * AERA voice layer: talk, decide, act.
+ * AERA: talk, decide, act. Native tool calling on Grok.
  * POST { messages, confirm?: boolean }
- * -> { say, actions: [{tool, args, result}], ui: [{type, ...}], needsConfirm?: {tool,args,prompt} }
+ * -> { say, actions, ui, needsConfirm? }
  *
- * The model answers in JSON with a short spoken reply plus zero or more tool calls
- * from a fixed whitelist. Reads and safe edits run immediately under the user's RLS.
- * Irreversible tools (publish_now, cancel_post, disconnect) come back as needsConfirm
- * until the client sends confirm: true.
+ * Reads and safe edits run immediately under the user's own RLS. Irreversible
+ * tools (publish_now, cancel_post) come back as needsConfirm until confirm: true.
  */
 
 export const maxDuration = 60;
 
-type Tool =
-  | "navigate" | "highlight"
-  | "list_queue" | "list_content" | "brand_summary"
-  | "reschedule_post" | "retitle_post" | "approve_post" | "cancel_post"
-  | "set_autopilot" | "update_voice" | "read_voice"
-  | "publish_now";
+const DANGEROUS = new Set(["publish_now", "cancel_post"]);
 
-const DANGEROUS: Tool[] = ["publish_now", "cancel_post"];
+const TOOLS: ToolDef[] = [
+  { name: "navigate", description: "Move the app to a screen.", parameters: { type: "object", properties: { tab: { type: "string", enum: ["dashboard", "clients", "brand", "content", "queue", "aera"] } }, required: ["tab"] } },
+  { name: "highlight", description: "Draw attention to one item on screen.", parameters: { type: "object", properties: { kind: { type: "string", enum: ["post", "brand", "asset"] }, id: { type: "string" } }, required: ["kind", "id"] } },
+  { name: "list_queue", description: "Posts scheduled or waiting for approval.", parameters: { type: "object", properties: { brandId: { type: "string" } } } },
+  { name: "list_content", description: "Recent uploads for a brand.", parameters: { type: "object", properties: { brandId: { type: "string" } } } },
+  { name: "brand_summary", description: "Voice, platforms, autopilot, billing for a brand (or all).", parameters: { type: "object", properties: { brandId: { type: "string" } } } },
+  { name: "look_at_content", description: "Actually look at an uploaded image or video frames and describe what is in it.", parameters: { type: "object", properties: { assetId: { type: "string" } }, required: ["assetId"] } },
+  { name: "social_search", description: "Search what is trending or being posted right now on Instagram, TikTok, X, YouTube or the open web for a topic.", parameters: { type: "object", properties: { query: { type: "string" }, platform: { type: "string", enum: ["instagram", "tiktok", "x", "youtube", "web", "all"] } }, required: ["query"] } },
+  { name: "remember", description: "Save something worth remembering about this person or brand for future conversations.", parameters: { type: "object", properties: { note: { type: "string" }, brandId: { type: "string" } }, required: ["note"] } },
+  { name: "reschedule_post", description: "Move a post to a new time.", parameters: { type: "object", properties: { postId: { type: "string" }, scheduledAt: { type: "string", description: "ISO 8601 with timezone offset" } }, required: ["postId", "scheduledAt"] } },
+  { name: "retitle_post", description: "Rename the content behind a post.", parameters: { type: "object", properties: { postId: { type: "string" }, title: { type: "string" } }, required: ["postId", "title"] } },
+  { name: "approve_post", description: "Approve a proposed post.", parameters: { type: "object", properties: { postId: { type: "string" } }, required: ["postId"] } },
+  { name: "cancel_post", description: "Pull a post from the queue. Irreversible.", parameters: { type: "object", properties: { postId: { type: "string" } }, required: ["postId"] } },
+  { name: "set_autopilot", description: "Turn autopilot on or off for a brand.", parameters: { type: "object", properties: { brandId: { type: "string" }, on: { type: "boolean" } }, required: ["brandId", "on"] } },
+  { name: "update_voice", description: "Update tone, audience or website for a brand.", parameters: { type: "object", properties: { brandId: { type: "string" }, tone: { type: "string" }, audience: { type: "string" }, website: { type: "string" } }, required: ["brandId"] } },
+  { name: "read_voice", description: "Ask the Voice Reader engine to re-read and interpret the brand voice.", parameters: { type: "object", properties: { brandId: { type: "string" } }, required: ["brandId"] } },
+  { name: "publish_now", description: "Publish a queued post immediately. Irreversible.", parameters: { type: "object", properties: { postId: { type: "string" } }, required: ["postId"] } },
+];
 
-const TOOL_DOC = `
-TOOLS (call by name with args; only these exist):
-- navigate {tab: "dashboard"|"clients"|"brand"|"content"|"queue"|"aera"}  moves the app to a screen
-- highlight {kind: "post"|"brand"|"asset", id}  draws attention to one item on screen
-- list_queue {brandId?}  posts scheduled or waiting
-- list_content {brandId?}  recent uploads
-- brand_summary {brandId?}  voice, platforms, autopilot, billing
-- reschedule_post {postId, scheduledAt (ISO 8601 with timezone)}  move a post
-- retitle_post {postId, title}  rename the content behind a post
-- approve_post {postId}  approve a proposed post
-- cancel_post {postId}  pull a post (irreversible)
-- set_autopilot {brandId, on: boolean}
-- update_voice {brandId, tone?, audience?, website?}
-- read_voice {brandId}  ask the Voice Reader engine to re-read the brand
-- publish_now {postId}  publish immediately (irreversible)
-`;
-
-const SYSTEM = `You are AERA, the APEX AERA marketing intelligence, speaking out loud to the person who runs this brand.
-Answer ONLY with JSON: {"say": string, "tools": [{"tool": string, "args": object}]}.
-"say" is what you will speak: one to three short sentences, natural, warm, specific, no lists, no markdown, no em dashes, spell your name AERA.
-Use tools whenever the request needs data or a change. Read tools first when unsure of ids; the results come back to you and you answer again.
-When you change something, say what changed. When you navigate or highlight, mention it briefly ("I have pulled up the queue.").
-Infer the brand's industry from its voice, audience and website and shape suggestions for it (real estate, construction, e-commerce, creator, fitness, restaurant, services).
-Never invent posts, numbers or ids. If there is nothing scheduled, say so and suggest one concrete next post.
-${TOOL_DOC}`;
-
-type Call = { tool: Tool; args: Record<string, unknown> };
+const SYSTEM = `You are AERA, the marketing intelligence at the heart of APEX AERA, speaking out loud to the person who runs this brand. Your name is AERA, spelled A E R A. Never call yourself Sarah.
+Speak in one to three short, natural sentences. No lists, no markdown, no em dashes. Lead with the answer.
+Use tools whenever a request needs data or a change. Call read tools first when you need ids. After a change, say exactly what changed.
+When you navigate or highlight, say so briefly ("I have the queue up.").
+Infer the brand's industry from its voice, audience and website and shape suggestions for it. Suggest concrete next posts, not generic advice.
+Never invent posts, numbers or ids. If nothing is scheduled, say so and propose one specific post.
+Use remember when you learn a preference, a goal, a deadline, or a fact about the business that will matter later.`;
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -63,56 +53,53 @@ export async function POST(request: Request) {
   const { messages, confirm } = (await request.json()) as { messages: { role: string; content: string }[]; confirm?: boolean };
   if (!Array.isArray(messages) || messages.length === 0) return NextResponse.json({ error: "messages required" }, { status: 400 });
 
-  // Live context: brands the user can see
-  const { data: brands } = await supabase.from("brands").select("id,name,tone_of_voice,target_audience,website_url,autopilot,billing_status,status").neq("status", "archived").limit(8);
+  // Live context + memory
+  const [{ data: brands }, { data: mems }] = await Promise.all([
+    supabase.from("brands").select("id,name,tone_of_voice,target_audience,website_url,autopilot,billing_status,status").neq("status", "archived").limit(8),
+    supabase.from("aera_memories").select("note,brand_id,created_at").order("created_at", { ascending: false }).limit(25),
+  ]);
   const brandList = (brands ?? []).map((b) => `- ${b.name} (id ${b.id}) tone: ${b.tone_of_voice ?? "unset"}; audience: ${b.target_audience ?? "unset"}; site: ${b.website_url ?? "none"}; autopilot ${b.autopilot === false ? "off" : "on"}; billing ${b.billing_status ?? "active"}`).join("\n");
-  const context = `BRANDS YOU CAN ACT ON:\n${brandList || "(none)"}\nToday: ${new Date().toISOString()} (Phoenix time is UTC-7).`;
+  const memory = (mems ?? []).map((m) => `- ${m.note}`).join("\n");
+  const context = `BRANDS YOU CAN ACT ON:\n${brandList || "(none)"}\n\nWHAT YOU REMEMBER:\n${memory || "(nothing yet)"}\n\nNow: ${new Date().toISOString()} (Phoenix is UTC-7).`;
 
-  const turns: ChatTurn[] = messages.map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
-  const executed: { tool: Tool; args: Record<string, unknown>; result: unknown }[] = [];
+  const turns: ToolTurn[] = messages.slice(-16).map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
+  const executed: { tool: string; args: Record<string, unknown>; result: unknown }[] = [];
   const ui: Record<string, unknown>[] = [];
-  let say = "";
 
-  // Up to 3 rounds: model -> tools -> model
-  for (let round = 0; round < 3; round++) {
-    const raw = await completeText({ system: SYSTEM + "\n\n" + context, messages: turns, maxTokens: 700 });
-    const parsed = parseJson(raw);
-    say = parsed.say || say;
-    const calls = parsed.tools ?? [];
-    if (calls.length === 0) break;
-
-    const results: string[] = [];
-    for (const c of calls) {
-      if (DANGEROUS.includes(c.tool) && !confirm) {
-        const prompt = c.tool === "publish_now" ? "Publish this post right now?" : "Pull this post from the queue?";
-        return NextResponse.json({ say: say || prompt, actions: executed, ui, needsConfirm: { tool: c.tool, args: c.args, prompt } });
+  try {
+    for (let round = 0; round < 4; round++) {
+      const step = await stepWithTools({ system: SYSTEM + "\n\n" + context, turns, tools: TOOLS, maxTokens: 400, reasoning: "low" });
+      if (step.calls.length === 0) {
+        return NextResponse.json({ say: (step.text ?? "").trim() || "Done.", actions: executed, ui });
       }
-      const r = await run(c, supabase, u.user.id, ui);
-      executed.push({ tool: c.tool, args: c.args, result: r });
-      results.push(`${c.tool} -> ${JSON.stringify(r).slice(0, 900)}`);
+      if (step.raw) turns.push(step.raw);
+      for (const c of step.calls) {
+        if (DANGEROUS.has(c.name) && !confirm) {
+          const prompt = c.name === "publish_now" ? "Publish this post right now?" : "Pull this post from the queue?";
+          return NextResponse.json({ say: prompt, actions: executed, ui, needsConfirm: { tool: c.name, args: c.args, prompt } });
+        }
+        const r = await run(c.name, c.args, supabase, u.user.id, ui);
+        executed.push({ tool: c.name, args: c.args, result: r });
+        turns.push({ role: "tool", tool_call_id: c.id, content: JSON.stringify(r).slice(0, 4000) });
+      }
     }
-    turns.push({ role: "assistant", content: JSON.stringify(parsed) });
-    turns.push({ role: "user", content: "TOOL RESULTS:\n" + results.join("\n") + "\nNow answer the person with the final JSON (say + any further tools)." });
+    return NextResponse.json({ say: "I did that. Anything else?", actions: executed, ui });
+  } catch (e) {
+    console.error("[AERA act]", e);
+    return NextResponse.json({ say: "I hit a snag reaching my tools. Try that again in a moment.", actions: executed, ui, error: e instanceof Error ? e.message : String(e) }, { status: 200 });
   }
-
-  return NextResponse.json({ say: say || "Done.", actions: executed, ui });
 }
 
-function parseJson(raw: string): { say?: string; tools?: Call[] } {
-  const m = raw.match(/\{[\s\S]*\}/);
-  if (!m) return { say: raw.trim() };
-  try { return JSON.parse(m[0]) as { say?: string; tools?: Call[] }; } catch { return { say: raw.trim() }; }
-}
+type SB = Awaited<ReturnType<typeof createClient>>;
 
-async function run(c: Call, sb: Awaited<ReturnType<typeof createClient>>, userId: string, ui: Record<string, unknown>[]): Promise<unknown> {
-  const a = c.args ?? {};
+async function run(tool: string, a: Record<string, unknown>, sb: SB, userId: string, ui: Record<string, unknown>[]): Promise<unknown> {
   const s = (k: string) => (typeof a[k] === "string" ? (a[k] as string) : undefined);
   const log = async (brandId: string | undefined, event: string, reason: string) => {
     if (!brandId) return;
     await adminClient().from("lifecycle_events").insert({ brand_id: brandId, event, reason, actor: "aera:" + userId }).then(() => {}, () => {});
   };
 
-  switch (c.tool) {
+  switch (tool) {
     case "navigate": ui.push({ type: "navigate", tab: s("tab") ?? "dashboard" }); return { ok: true };
     case "highlight": ui.push({ type: "highlight", kind: s("kind") ?? "post", id: s("id") }); return { ok: true };
 
@@ -124,7 +111,7 @@ async function run(c: Call, sb: Awaited<ReturnType<typeof createClient>>, userId
       return data ?? [];
     }
     case "list_content": {
-      let q = sb.from("content_assets").select("id,brand_id,title,type,status,created_at").order("created_at", { ascending: false }).limit(15);
+      let q = sb.from("content_assets").select("id,brand_id,title,type,status,description,created_at").order("created_at", { ascending: false }).limit(15);
       if (s("brandId")) q = q.eq("brand_id", s("brandId")!);
       const { data } = await q;
       return data ?? [];
@@ -139,6 +126,39 @@ async function run(c: Call, sb: Awaited<ReturnType<typeof createClient>>, userId
         out.push({ ...b, platforms: conns ?? [] });
       }
       return out;
+    }
+    case "look_at_content": {
+      const id = s("assetId"); if (!id) return { ok: false, error: "assetId required" };
+      const { data: asset } = await sb.from("content_assets").select("id,title,type,storage_path,metadata,transcript").eq("id", id).maybeSingle();
+      if (!asset?.storage_path) return { ok: false, error: "No file for that content" };
+      const admin = adminClient();
+      const urls: string[] = [];
+      const frames = ((asset.metadata as { frames?: string[] } | null)?.frames ?? []).slice(0, 3);
+      if (String(asset.type).startsWith("video") && frames.length) {
+        for (const f of frames) { const { data } = await admin.storage.from("thumbnails").createSignedUrl(f, 600); if (data?.signedUrl) urls.push(data.signedUrl); }
+      } else {
+        const { data } = await admin.storage.from("media").createSignedUrl(asset.storage_path, 600); if (data?.signedUrl) urls.push(data.signedUrl);
+      }
+      if (!urls.length) return { ok: false, error: "Could not open the file" };
+      const seen = await completeText({ system: "Describe this marketing content precisely in 3 sentences: subject, setting, mood, text on screen, and what platform it suits.", messages: [{ role: "user", content: "What is in this?" + (asset.transcript ? " Transcript: " + String(asset.transcript).slice(0, 800) : "") }], imageUrls: urls, maxTokens: 300 });
+      ui.push({ type: "navigate", tab: "content" }, { type: "highlight", kind: "asset", id });
+      return { ok: true, title: asset.title, description: seen };
+    }
+    case "social_search": {
+      const query = s("query"); if (!query) return { ok: false, error: "query required" };
+      const platform = s("platform") ?? "all";
+      const site = platform === "instagram" ? "site:instagram.com" : platform === "tiktok" ? "site:tiktok.com" : platform === "youtube" ? "site:youtube.com" : platform === "x" ? "" : "";
+      const text = await completeText({
+        system: "You are a social media trend researcher. Use live search. Return 4 to 6 concrete findings: what formats, hooks, sounds or angles are getting traction right now for the topic, with the platform each comes from. Plain sentences, no markdown, no links.",
+        messages: [{ role: "user", content: `${platform === "all" ? "Across Instagram, TikTok, X and YouTube" : "On " + platform}: what is trending right now about "${query}"? ${site}`.trim() }],
+        liveSearch: true, maxTokens: 600,
+      });
+      return { ok: true, platform, findings: text };
+    }
+    case "remember": {
+      const note = s("note"); if (!note) return { ok: false, error: "note required" };
+      const { error } = await sb.from("aera_memories").insert({ user_id: userId, brand_id: s("brandId") ?? null, note: note.slice(0, 400) });
+      return error ? { ok: false, error: error.message } : { ok: true };
     }
     case "reschedule_post": {
       const id = s("postId"); const when = s("scheduledAt");

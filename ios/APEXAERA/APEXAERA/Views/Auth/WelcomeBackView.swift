@@ -7,6 +7,7 @@ struct WelcomeBackView: View {
     @State private var step = 0
     @State private var counts = PipelineCounts()
     @State private var drift: CGFloat = 0
+    @State private var brief: String?
 
     private var gone: String {
         guard let l = session.lastSeen else { return "" }
@@ -37,7 +38,9 @@ struct WelcomeBackView: View {
                     .opacity(step >= 1 ? 1 : 0).offset(y: step >= 1 ? 0 : 14)
                     .shadow(color: Theme.cyan.opacity(0.25), radius: 24)
                 VStack(alignment: .leading, spacing: 10) {
-                    if counts.published + counts.scheduled + counts.analyzed == 0 {
+                    if let brief {
+                        Text(brief).font(.system(size: 15.5)).foregroundStyle(Theme.text2).multilineTextAlignment(.center).lineSpacing(4).padding(.horizontal, 28)
+                    } else if counts.published + counts.scheduled + counts.analyzed == 0 {
                         line("AERA kept watch. Nothing needed you.", delay: 0)
                     } else {
                         if counts.published > 0 { line("\(counts.published) published while you were away", delay: 0) }
@@ -56,11 +59,14 @@ struct WelcomeBackView: View {
         }
         .task {
             withAnimation(.easeInOut(duration: 6).repeatForever(autoreverses: true)) { drift = 1 }
-            counts = (try? await Repo.shared.pipeline()) ?? PipelineCounts()
+            async let c = Repo.shared.pipeline()
+            async let b = Repo.shared.brief()
+            counts = (try? await c) ?? PipelineCounts()
+            brief = (try? await b) ?? nil
             withAnimation(.spring(duration: 0.9, bounce: 0.2)) { step = 1 }
             try? await Task.sleep(for: .seconds(1.1))
             withAnimation(.easeOut(duration: 0.7)) { step = 2 }
-            try? await Task.sleep(for: .seconds(5))
+            try? await Task.sleep(for: .seconds(brief == nil ? 5 : 8))
             if session.phase == .welcomeBack { session.enter() }
         }
         .contentShape(Rectangle()).onTapGesture { session.enter() }

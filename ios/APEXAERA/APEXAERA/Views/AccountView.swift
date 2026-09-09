@@ -7,6 +7,8 @@ struct AccountView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var brand: Brand?
     @State private var check: [String] = []
+    @AppStorage("aera.voice") private var voiceId: String = AeraVoices.all[0].id
+    @State private var previewing = false
     @State private var checking = false
 
     var body: some View {
@@ -48,6 +50,29 @@ struct AccountView: View {
                         }
                         ApexCard(quiet: true) {
                             VStack(alignment: .leading, spacing: 12) {
+                                SectionLabel(text: "AERA's voice")
+                                ForEach(AeraVoices.all) { v in
+                                    Button {
+                                        voiceId = v.id
+                                        Task { await preview(v) }
+                                    } label: {
+                                        HStack(spacing: 12) {
+                                            Image(systemName: voiceId == v.id ? "checkmark.circle.fill" : "circle").foregroundStyle(voiceId == v.id ? Theme.cyan : Theme.text4)
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(v.name).font(.system(size: 14, weight: .bold)).foregroundStyle(Theme.text)
+                                                Text(v.note).font(.system(size: 12)).foregroundStyle(Theme.text3)
+                                            }
+                                            Spacer()
+                                            if previewing && voiceId == v.id { ProgressView().tint(Theme.cyan) }
+                                        }
+                                        .padding(.vertical, 6)
+                                    }
+                                }
+                                Text("Tap one to hear it.").font(.system(size: 11.5)).foregroundStyle(Theme.text4)
+                            }
+                        }
+                        ApexCard(quiet: true) {
+                            VStack(alignment: .leading, spacing: 12) {
                                 SectionLabel(text: "Voice check")
                                 Text("Tests the three pieces AERA needs to talk: speech credential, voice, and the action brain.").font(.system(size: 13)).foregroundStyle(Theme.text3)
                                 GhostButton(title: checking ? "Checking…" : "Run voice check", icon: "waveform.badge.magnifyingglass") { Task { await runCheck() } }
@@ -78,6 +103,15 @@ struct AccountView: View {
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() }.foregroundStyle(Theme.cyan) } }
         }
         .task { brand = try? await Repo.shared.myBrand() }
+    }
+
+    private func preview(_ v: AeraVoices.V) async {
+        guard !session.isDemo else { return }
+        previewing = true
+        let out = VoiceOut(); out.enabled = true
+        await out.say("Hi \(session.firstName). I am AERA, and this is how I sound as \(v.name).")
+        try? await Task.sleep(for: .seconds(4))
+        previewing = false
     }
 
     private struct Cred: Decodable { let mode: String?; let access_token: String?; let error: String? }

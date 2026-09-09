@@ -7,8 +7,10 @@ import Observation
 enum AudioSessionConfig {
     static func activate() throws {
         let s = AVAudioSession.sharedInstance()
-        try s.setCategory(.playAndRecord, mode: .voiceChat, options: [.defaultToSpeaker, .allowBluetooth, .duckOthers])
+        // .default mode keeps full output gain (voiceChat mode quietly attenuates playback).
+        try s.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth, .duckOthers])
         try s.setActive(true, options: [])
+        try? s.overrideOutputAudioPort(.speaker)
     }
 }
 
@@ -226,7 +228,8 @@ final class VoiceOut: NSObject, AVAudioPlayerDelegate {
             req.httpMethod = "POST"
             req.setValue("Bearer " + s.accessToken, forHTTPHeaderField: "Authorization")
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            req.httpBody = try JSONSerialization.data(withJSONObject: ["text": text])
+            let voice = UserDefaults.standard.string(forKey: "aera.voice") ?? AeraVoices.all[0].id
+            req.httpBody = try JSONSerialization.data(withJSONObject: ["text": text, "voice": voice])
             let (data, resp) = try await URLSession.shared.data(for: req)
             guard (resp as? HTTPURLResponse)?.statusCode == 200 else { return }
             try AudioSessionConfig.activate()
@@ -244,4 +247,19 @@ final class VoiceOut: NSObject, AVAudioPlayerDelegate {
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         DispatchQueue.main.async { self.speaking = false; self.onFinished?() }
     }
+}
+
+
+/// Deepgram Aura voices AERA can speak with. Stored under "aera.voice".
+enum AeraVoices {
+    struct V: Identifiable { let id: String; let name: String; let note: String }
+    static let all: [V] = [
+        V(id: "aura-2-thalia-en", name: "Thalia", note: "Clear, confident, warm. The default."),
+        V(id: "aura-2-athena-en", name: "Athena", note: "Calm and measured, a little lower."),
+        V(id: "aura-2-luna-en", name: "Luna", note: "Soft, poetic, unhurried."),
+        V(id: "aura-2-asteria-en", name: "Asteria", note: "Bright and energetic."),
+        V(id: "aura-2-hera-en", name: "Hera", note: "Mature, authoritative."),
+        V(id: "aura-2-orion-en", name: "Orion", note: "Male. Smooth and grounded."),
+        V(id: "aura-2-arcas-en", name: "Arcas", note: "Male. Natural, conversational."),
+    ]
 }

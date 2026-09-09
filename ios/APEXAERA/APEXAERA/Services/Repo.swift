@@ -153,6 +153,48 @@ final class Repo {
         return try await sb.api("api/aera/act", body: ["messages": msgs, "confirm": confirm], as: ActResponse.self)
     }
 
+    // MARK: Chat threads (shared with the web portal: aera_threads / aera_messages)
+    struct Thread: Decodable, Identifiable, Hashable { let id: String; let name: String?; let updated_at: String? }
+    struct StoredMessage: Decodable { let msg_id: String?; let role: String; let content: String; let created_at: String? }
+
+    func threads() async throws -> [Thread] {
+        if demo { return [Thread(id: "demo", name: "Demo chat", updated_at: nil)] }
+        return try await sb.select("aera_threads", query: "select=id,name,updated_at&order=updated_at.desc&limit=50", as: [Thread].self)
+    }
+    func createThread(name: String = "New chat") async throws -> Thread {
+        let id = "thread-" + UUID().uuidString.lowercased()
+        if demo { return Thread(id: id, name: name, updated_at: nil) }
+        let s = try await sb.refreshIfNeeded()
+        try await sb.insert("aera_threads", body: ["id": id, "user_id": s.userId, "name": name])
+        return Thread(id: id, name: name, updated_at: nil)
+    }
+    func renameThread(_ id: String, name: String) async throws {
+        if demo { return }
+        try await sb.update("aera_threads", match: "id=eq.\(id)", body: ["name": name, "updated_at": ISO8601DateFormatter().string(from: Date())])
+    }
+    func deleteThread(_ id: String) async throws {
+        if demo { return }
+        try await sb.delete("aera_messages", match: "session_id=eq.\(id)")
+        try await sb.delete("aera_threads", match: "id=eq.\(id)")
+    }
+    func messages(thread: String) async throws -> [ChatMessage] {
+        if demo { return [] }
+        let rows = try await sb.select("aera_messages", query: "select=msg_id,role,content,created_at&session_id=eq.\(thread)&order=created_at.asc&limit=200", as: [StoredMessage].self)
+        return rows.map { ChatMessage(kind: $0.role == "user" ? .user : .aera, text: $0.content) }
+    }
+    func saveMessage(thread: String, _ m: ChatMessage) async {
+        if demo { return }
+        guard let s = try? await sb.refreshIfNeeded() else { return }
+        try? await sb.insert("aera_messages", body: ["user_id": s.userId, "session_id": thread, "role": m.kind == .user ? "user" : "aera", "content": m.text, "msg_id": m.id.uuidString.lowercased()])
+        try? await sb.update("aera_threads", match: "id=eq.\(thread)", body: ["updated_at": ISO8601DateFormatter().string(from: Date())])
+    }
+
+    struct Brief: Decodable { let brief: String? }
+    func brief() async throws -> String? {
+        if demo { return "Two posts are waiting for your yes on IsaacOriginals, and Daisy Fitness has a Reel going out at 4 PM." }
+        return try await sb.api("api/aera/brief", method: "GET", as: Brief.self).brief
+    }
+
     struct HeartbeatResult: Decodable { let ok: Bool?; let summary: String? }
     func runHeartbeat() async throws -> String {
         if demo { try await Task.sleep(for: .seconds(2)); return "trends 1, analyzed 2, captioned 2, scheduled 1, due 0" }

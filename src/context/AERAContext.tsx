@@ -48,6 +48,7 @@ const THREADS_KEY       = "aera_threads_v1";
 const FOLDERS_KEY       = "aera_folders_v1";
 const ACTIVE_THREAD_KEY = "aera_active_thread_v1";
 const LEGACY_MSG_KEY    = "aera_messages_v2";
+const OWNER_KEY         = "aera_owner_uid"; // which account the local cache belongs to
 const MAX_STORED        = 100;
 
 const GREETING: Message = {
@@ -305,8 +306,21 @@ export function AERAProvider({ children }: { children: ReactNode }) {
     messagesRef.current     = activeThread.messages;
 
     // ── Cloud hydrate — Supabase is source of truth when signed in ──
-    void cloud.loadCloud().then((data) => {
+    void (async () => {
+      // The local cache belongs to exactly one account. A different account on the
+      // same browser must never see it, and must never have it migrated into its history.
+      const uid = await cloud.currentUserId();
+      const owner = typeof window !== "undefined" ? localStorage.getItem(OWNER_KEY) : null;
+      if (uid && owner !== uid) {
+        try { localStorage.removeItem(THREADS_KEY); localStorage.removeItem(FOLDERS_KEY); localStorage.removeItem(ACTIVE_THREAD_KEY); localStorage.removeItem(LEGACY_MSG_KEY); } catch { /* ignore */ }
+        const fresh = makeDefaultThread([GREETING]);
+        threadsRef.current = [fresh]; foldersRef.current = []; activeThreadRef.current = fresh.id; messagesRef.current = fresh.messages;
+        setThreads([fresh]); setFolders([]); setActiveThreadId(fresh.id); setMessages(fresh.messages);
+        try { localStorage.setItem(OWNER_KEY, uid); } catch { /* ignore */ }
+      }
+      const data = await cloud.loadCloud();
       if (!data) return; // signed out or offline → stay on local cache
+      const ownedByMe = uid !== null && owner === uid;
       if (data.threads.length) {
         threadsRef.current = data.threads;
         foldersRef.current = data.folders;
@@ -317,11 +331,11 @@ export function AERAProvider({ children }: { children: ReactNode }) {
         setActiveThreadId(active.id);
         messagesRef.current = active.messages;
         setMessages(active.messages);
-      } else {
-        // First signed-in load: move pre-cloud local history up
+      } else if (ownedByMe) {
+        // First signed-in load for the account that owns this cache: move local history up
         void cloud.migrateLocal(threadsRef.current, foldersRef.current);
       }
-    });
+    })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persist whenever threads, folders, or active thread changes

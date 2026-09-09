@@ -16,6 +16,8 @@ function sb() {
   return createClient();
 }
 
+export async function currentUserId(): Promise<string | null> { return userId(); }
+
 async function userId(): Promise<string | null> {
   try {
     const { data } = await sb().auth.getUser();
