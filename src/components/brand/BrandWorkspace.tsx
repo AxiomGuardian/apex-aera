@@ -167,7 +167,9 @@ export function BrandWorkspace({ brandId, mode }: { brandId: string; mode: "agen
     const text =
       r === "connected" ? label + " connected" + (account ? " as " + account : "") + ". AERA can publish here now." :
       r === "connected_fb_only" ? "Facebook Page connected" + (account ? " (" + account + ")" : "") + ". No Instagram business account is linked to that Page." :
-      r === "denied" ? "You cancelled the " + label + " connection. Nothing changed." :
+      r === "denied" ? (reason
+        ? label + " would not grant the connection: " + reason + " (if this mentions permissions or scopes, the account needs a role on the APEX app, or the app needs Advanced Access from " + label + ".)"
+        : "You cancelled the " + label + " connection. Nothing changed.") :
       r === "state_mismatch" ? "That " + label + " sign-in link expired. Try Connect again." :
       r === "no_access" ? "You do not have access to that workspace." :
       r === "not_configured" ? label + " is not configured on the server yet." :

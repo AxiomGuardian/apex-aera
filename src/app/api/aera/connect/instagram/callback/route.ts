@@ -21,7 +21,15 @@ export async function GET(request: Request) {
   if ("redirect" in ctx && ctx.redirect) return ctx.redirect;
   const { admin, back, user } = ctx as Required<typeof ctx>;
 
-  if (denied) return back("denied");
+  if (denied) {
+    // Keep Instagram's own words: "denied" alone hides whether the person said no
+    // or the app is not allowed to ask them for these permissions yet.
+    const reason = url.searchParams.get("error_reason") ?? "";
+    const description = url.searchParams.get("error_description") ?? "";
+    console.error("[Instagram Connect] denied", { denied, reason, description });
+    const detail = [description, reason].filter(Boolean).join(" | ").slice(0, 300);
+    return back("denied", detail ? { reason: detail } : undefined);
+  }
   if (!code || !nonce) return back("invalid");
 
   const jar = await cookies();
