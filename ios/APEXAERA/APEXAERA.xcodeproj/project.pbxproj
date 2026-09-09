@@ -180,6 +180,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "APEX AERA";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "APEX listens when you tap the microphone so you can talk to AERA.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "APEX uploads the photos and videos you choose so AERA can publish them.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "APEX turns your voice into text so you can talk to AERA.";
@@ -213,6 +214,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "APEX AERA";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "APEX listens when you tap the microphone so you can talk to AERA.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "APEX uploads the photos and videos you choose so AERA can publish them.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "APEX turns your voice into text so you can talk to AERA.";
