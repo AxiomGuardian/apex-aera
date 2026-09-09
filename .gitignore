@@ -54,3 +54,7 @@ ios/**/xcuserdata/
 ios/**/*.xcuserstate
 ios/**/DerivedData/
 _to_delete/
+
+# Apple push auth keys. Never commit these.
+*.p8
+AuthKey_*.p8
