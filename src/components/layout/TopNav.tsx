@@ -18,6 +18,7 @@ import {
   LogOut,
   Settings,
   ScrollText,
+  Target,
   ChevronDown,
   Fingerprint,
 } from "lucide-react";
@@ -26,6 +27,7 @@ const ICONS = {
   dashboard: LayoutDashboard,
   clients: Users,
   onboard: Plus,
+  leads: Target,
   content: Upload,
   brand: Fingerprint,
   queue: CheckCircle2,

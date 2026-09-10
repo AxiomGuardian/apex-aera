@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, Fingerprint, CheckCircle2, Wand2, LayoutDashboard, Users, Plus, ArrowRight } from "lucide-react";
+import { Upload, Fingerprint, CheckCircle2, Wand2, LayoutDashboard, Users, Plus, Target, ArrowRight } from "lucide-react";
 import { useSession } from "@/components/layout/SessionProvider";
 import { navFor, homeFor, type NavKey } from "@/lib/roles";
 
@@ -14,13 +14,14 @@ import { navFor, homeFor, type NavKey } from "@/lib/roles";
  */
 
 const ICONS: Record<NavKey, typeof Upload> = {
-  dashboard: LayoutDashboard, clients: Users, onboard: Plus,
+  dashboard: LayoutDashboard, clients: Users, onboard: Plus, leads: Target,
   content: Upload, brand: Fingerprint, queue: CheckCircle2, aera: Wand2,
 };
 const BLURB: Record<NavKey, string> = {
   dashboard: "Everything across your brands in one glance: pipeline, clients, and what needs you.",
   clients:   "Every workspace you run. Open one to tune its voice, connections, and intelligence.",
   onboard:   "Bring a new client in. One form, one email, and their workspace is live.",
+  leads:     "Name a city and a trade. AERA finds local businesses whose social needs the help.",
   content:   "Drop in videos and images. AERA watches, writes, and schedules from here.",
   brand:     "Your voice, your audience, your connected accounts. AERA reads this before every post.",
   queue:     "What is going out and when, in your timezone. Pull anything before it publishes.",

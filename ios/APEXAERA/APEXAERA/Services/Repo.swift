@@ -192,6 +192,72 @@ final class Repo {
         try? await sb.update("aera_threads", match: "id=eq.\(thread)", body: ["updated_at": ISO8601DateFormatter().string(from: Date())])
     }
 
+    // MARK: Onboarding (same route the web portal calls, so both stay in step)
+    struct OnboardResult: Decodable {
+        let ok: Bool?
+        let error: String?
+        let brand: BrandStub?
+        struct BrandStub: Decodable { let id: String; let name: String }
+    }
+    func onboardClient(brandName: String, email: String, tier: String = "client", orgName: String? = nil) async throws -> OnboardResult {
+        if demo { try await Task.sleep(for: .seconds(1)); return OnboardResult(ok: true, error: nil, brand: .init(id: "demo", name: brandName)) }
+        var body: [String: Any] = ["brandName": brandName, "email": email, "tier": tier]
+        if let orgName, !orgName.isEmpty { body["orgName"] = orgName }
+        return try await sb.api("api/agency/onboard", body: body, as: OnboardResult.self)
+    }
+
+    struct Invite: Decodable, Identifiable, Hashable {
+        let id: String
+        let email: String
+        let status: String
+        let role: String
+        let accepted_at: String?
+        let created_at: String
+    }
+    func invites(limit: Int = 20) async throws -> [Invite] {
+        if demo { return [] }
+        return try await sb.select("invites", query: "select=id,email,status,role,accepted_at,created_at&order=created_at.desc&limit=\(limit)", as: [Invite].self)
+    }
+
+    // MARK: Leads (agency pipeline, same route as the portal)
+    struct Lead: Decodable, Identifiable, Hashable {
+        let id: String
+        let name: String
+        let category: String?
+        let city: String?
+        let state: String?
+        let website: String?
+        let phone: String?
+        let instagram: String?
+        let tiktok: String?
+        let followers: Int?
+        let presence: String?
+        let gap: String?
+        let pitch: String?
+        let score: Int?
+        let status: String
+        let created_at: String?
+    }
+    private struct LeadList: Decodable { let leads: [Lead] }
+    private struct LeadSearchResult: Decodable { let ok: Bool?; let added: Int?; let error: String?; let note: String? }
+    private struct OkResult: Decodable { let ok: Bool? }
+
+    func leads(status: String = "all", limit: Int = 100) async throws -> [Lead] {
+        if demo { return [] }
+        return try await sb.api("api/agency/leads?status=\(status)&limit=\(limit)", method: "GET", as: LeadList.self).leads
+    }
+    /// Returns how many new ones landed, or a note when everything was already there.
+    func findLeads(city: String, industry: String) async throws -> (added: Int, note: String?) {
+        if demo { try await Task.sleep(for: .seconds(2)); return (0, "Demo mode does not search for real businesses.") }
+        let r = try await sb.api("api/agency/leads", body: ["city": city, "industry": industry, "count": 10], as: LeadSearchResult.self)
+        if let e = r.error { throw SupabaseError.decoding(e) }
+        return (r.added ?? 0, r.note)
+    }
+    func setLeadStatus(_ id: String, status: String) async throws {
+        if demo { return }
+        _ = try await sb.api("api/agency/leads", method: "PATCH", body: ["id": id, "status": status], as: OkResult.self)
+    }
+
     struct Brief: Decodable { let brief: String? }
     func brief() async throws -> String? {
         if demo { return "Two posts are waiting for your yes on IsaacOriginals, and Daisy Fitness has a Reel going out at 4 PM." }

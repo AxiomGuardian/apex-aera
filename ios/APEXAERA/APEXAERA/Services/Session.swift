@@ -21,13 +21,36 @@ final class Session {
     func boot() async {
         if let s = await SupabaseClient.shared.session {
             do {
-                _ = try await SupabaseClient.shared.refreshIfNeeded()
-                profile = try await Repo.shared.profile(userId: s.userId, email: s.email)
+                // Hard ceiling. Reopening the app is exactly when the network is
+                // half awake, and without this the whole app waits on it.
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    group.addTask {
+                        _ = try await SupabaseClient.shared.refreshIfNeeded()
+                        let p = try await Repo.shared.profile(userId: s.userId, email: s.email)
+                        await MainActor.run { self.profile = p }
+                    }
+                    group.addTask {
+                        try await Task.sleep(for: .seconds(12))
+                        throw SupabaseError.decoding("Timed out reaching the server")
+                    }
+                    try await group.next()
+                    group.cancelAll()
+                }
                 lastSeen = UserDefaults.standard.object(forKey: lastSeenKey) as? Date
+                error = nil
                 phase = .welcomeBack
                 return
-            } catch { /* fall through to sign in */ }
+            } catch {
+                // Signed in but unreachable. Say why rather than sitting on a blank screen.
+                self.error = "Could not reach APEX. Check your connection and try again."
+            }
         }
+        phase = UserDefaults.standard.bool(forKey: introKey) ? .signedOut : .intro
+    }
+
+    /// The booting screen's escape hatch.
+    func giveUpBooting() {
+        error = nil
         phase = UserDefaults.standard.bool(forKey: introKey) ? .signedOut : .intro
     }
 

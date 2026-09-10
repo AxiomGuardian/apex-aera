@@ -26,6 +26,16 @@ actor SupabaseClient {
     static let shared = SupabaseClient()
     private let base = Config.supabaseURL
     private let anon = Config.supabaseAnonKey
+
+    /// One session with real timeouts. URLSession.shared waits seven days on a
+    /// stalled resource, which is how a half awake network froze the whole app.
+    static let net: URLSession = {
+        let c = URLSessionConfiguration.default
+        c.timeoutIntervalForRequest = 25
+        c.timeoutIntervalForResource = 300
+        c.waitsForConnectivity = false
+        return URLSession(configuration: c)
+    }()
     private(set) var session: SupabaseSession?
 
     private let store = UserDefaults.standard
@@ -53,7 +63,7 @@ actor SupabaseClient {
         req.setValue(anon, forHTTPHeaderField: "apikey")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONEncoder().encode(["email": email, "password": password])
-        let (data, resp) = try await URLSession.shared.data(for: req)
+        let (data, resp) = try await SupabaseClient.net.data(for: req)
         guard let http = resp as? HTTPURLResponse, http.statusCode < 300 else {
             let msg = (try? JSONDecoder().decode([String: String].self, from: data))?["error_description"] ?? (try? JSONDecoder().decode([String: String].self, from: data))?["msg"] ?? "Sign-in failed"
             throw SupabaseError.http((resp as? HTTPURLResponse)?.statusCode ?? 0, msg == "Invalid login credentials" ? "That email or password is not right." : msg)
@@ -71,7 +81,7 @@ actor SupabaseClient {
         req.setValue(anon, forHTTPHeaderField: "apikey")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONEncoder().encode(["refresh_token": s.refreshToken])
-        let (data, resp) = try await URLSession.shared.data(for: req)
+        let (data, resp) = try await SupabaseClient.net.data(for: req)
         guard let http = resp as? HTTPURLResponse, http.statusCode < 300 else { persist(nil); throw SupabaseError.noSession }
         let t = try JSONDecoder().decode(TokenResponse.self, from: data)
         let n = SupabaseSession(accessToken: t.access_token, refreshToken: t.refresh_token, expiresAt: Date().addingTimeInterval(TimeInterval(t.expires_in - 60)), userId: t.user.id, email: t.user.email ?? s.email)
@@ -82,7 +92,7 @@ actor SupabaseClient {
         if let s = session {
             var req = URLRequest(url: base.appending(path: "auth/v1/logout"))
             req.httpMethod = "POST"; req.setValue(anon, forHTTPHeaderField: "apikey"); req.setValue("Bearer " + s.accessToken, forHTTPHeaderField: "Authorization")
-            _ = try? await URLSession.shared.data(for: req)
+            _ = try? await SupabaseClient.net.data(for: req)
         }
         persist(nil)
     }
@@ -99,7 +109,7 @@ actor SupabaseClient {
     }
 
     private func run<T: Decodable>(_ req: URLRequest, as: T.Type) async throws -> T {
-        let (data, resp) = try await URLSession.shared.data(for: req)
+        let (data, resp) = try await SupabaseClient.net.data(for: req)
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
         guard code < 300 else {
             let msg = (try? JSONDecoder().decode([String: String?].self, from: data))?["message"] ?? nil

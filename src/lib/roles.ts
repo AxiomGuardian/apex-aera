@@ -7,12 +7,13 @@
  */
 export type Role = "agency_admin" | "enterprise_admin" | "enterprise_member" | "client";
 
-export type NavKey = "dashboard" | "clients" | "onboard" | "content" | "brand" | "queue" | "aera";
+export type NavKey = "dashboard" | "clients" | "onboard" | "leads" | "content" | "brand" | "queue" | "aera";
 
 export const NAV_ALL: { key: NavKey; label: string; href: string }[] = [
   { key: "dashboard", label: "Dashboard", href: "/dashboard" },
   { key: "clients",   label: "Clients",   href: "/clients" },
   { key: "onboard",   label: "Onboard",   href: "/onboard" },
+  { key: "leads",     label: "Leads",     href: "/leads" },
   { key: "content",   label: "Content",   href: "/content" },
   { key: "brand",     label: "My Brand",  href: "/brand" },
   { key: "queue",     label: "Queue",     href: "/approvals" },
@@ -20,7 +21,7 @@ export const NAV_ALL: { key: NavKey; label: string; href: string }[] = [
 ];
 
 const ALLOWED: Record<Role, NavKey[]> = {
-  agency_admin:      ["dashboard", "clients", "onboard", "content", "queue", "aera"],
+  agency_admin:      ["dashboard", "clients", "onboard", "leads", "content", "queue", "aera"],
   enterprise_admin:  ["dashboard", "clients", "content", "queue", "aera"],
   enterprise_member: ["content", "brand", "queue", "aera"],
   client:            ["content", "brand", "queue", "aera"],

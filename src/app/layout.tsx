@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
 import { SessionProvider } from "@/components/layout/SessionProvider";
@@ -17,6 +17,13 @@ export const metadata: Metadata = {
   title: "APEX AERA — Agentic AI Marketing",
   description:
     "Marketing that runs itself. AERA researches your market, writes platform-native content, schedules, publishes, and reports — 24/7.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0b0b0e",
 };
 
 export default function RootLayout({

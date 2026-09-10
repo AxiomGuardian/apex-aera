@@ -8,7 +8,7 @@ struct RootView: View {
         ZStack {
             switch session.phase {
             case .booting:
-                ApexBackground().overlay(ProgressView().tint(Theme.cyan))
+                BootingView()
             case .intro:
                 IntroView()
             case .signedOut:
@@ -24,14 +24,49 @@ struct RootView: View {
         }
         .animation(.easeInOut(duration: 0.55), value: phaseKey)
         .task {
+            // The launch film runs on its own clock. It used to wait for boot() to
+            // finish, so a slow or dropped network on resume left the overlay up
+            // forever and the app looked frozen on a blank screen.
             async let boot: () = session.boot()
             try? await Task.sleep(for: .seconds(3.9))
-            _ = await boot
             launching = false
+            await boot
         }
         .onChange(of: session.isDemo, initial: true) { _, v in Repo.shared.demo = v }
     }
     private var phaseKey: Int {
         switch session.phase { case .booting: 0; case .intro: 1; case .signedOut: 2; case .welcomeBack: 3; case .ready: 4; case .signingOut: 5 }
+    }
+}
+
+
+/// Shown while the app is working out who is signed in. If that takes longer than
+/// a few seconds something is wrong with the connection, so say so and offer a way out
+/// instead of sitting on a blank screen.
+struct BootingView: View {
+    @Environment(Session.self) private var session
+    @State private var slow = false
+
+    var body: some View {
+        ZStack {
+            ApexBackground()
+            VStack(spacing: 16) {
+                ProgressView().tint(Theme.cyan)
+                if slow {
+                    Text(session.error ?? "This is taking longer than it should.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.text3)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                    Button("Go to sign in") { session.giveUpBooting() }
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.cyan)
+                }
+            }
+        }
+        .task {
+            try? await Task.sleep(for: .seconds(6))
+            withAnimation { slow = true }
+        }
     }
 }

@@ -1322,3 +1322,24 @@ body {
 .intro-fade { animation: intro-fade 0.9s cubic-bezier(0.22, 0.8, 0.3, 1) both; will-change: opacity, transform; }
 .intro-out  { animation: intro-out 0.7s ease forwards; }
 .intro-veil { animation: intro-veil 0.5s ease both; }
+
+
+/* ── Phones ───────────────────────────────────────────────────────────
+   iOS Safari zooms the whole page when a focused field is under 16px.
+   On the invite and sign in screens that made the form jump and feel broken.
+   Anything a person types into is 16px on a phone. Marker: apex-mobile-input-zoom */
+@media (max-width: 640px) {
+  .auth-input,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="number"],
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  .auth-card { padding: 22px 18px; }
+}

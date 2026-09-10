@@ -119,7 +119,7 @@ export default function WelcomePage() {
   }
 
   return (
-    <main className="auth-bg mkt-grid min-h-screen flex items-center justify-center px-4 py-12 relative overflow-hidden">
+    <main className="auth-bg mkt-grid min-h-[100dvh] flex items-center justify-center px-4 py-8 sm:py-12 relative overflow-hidden">
       <div className="auth-orb" />
 
       <div className="relative w-full max-w-[440px]">
@@ -135,7 +135,7 @@ export default function WelcomePage() {
           </p>
         </div>
 
-        <div className="mkt-card mkt-line-cyan auth-card mkt-reveal p-8 sm:p-9" style={{ animationDelay: "0.1s" }}>
+        <div className="mkt-card mkt-line-cyan auth-card mkt-reveal p-6 sm:p-9" style={{ animationDelay: "0.1s" }}>
           {ready === "checking" && (
             <div className="flex items-center justify-center gap-2 py-6 text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
               <Loader2 className="animate-spin" style={{ width: 15, height: 15 }} /> Verifying your invite
@@ -164,7 +164,7 @@ export default function WelcomePage() {
                 )}
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <input placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoComplete="given-name" required className="auth-input" />
                 <input placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} autoComplete="family-name" required className="auth-input" />
               </div>
