@@ -8,6 +8,7 @@ struct WelcomeBackView: View {
     @State private var counts = PipelineCounts()
     @State private var drift: CGFloat = 0
     @State private var brief: String?
+    @State private var loadingBrief = true
 
     private var gone: String {
         guard let l = session.lastSeen else { return "" }
@@ -40,6 +41,12 @@ struct WelcomeBackView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     if let brief {
                         Text(brief).font(.system(size: 15.5)).foregroundStyle(Theme.text2).multilineTextAlignment(.center).lineSpacing(4).padding(.horizontal, 28)
+                            .transition(.opacity)
+                    } else if loadingBrief {
+                        Text("Catching up on what happened.")
+                            .font(.system(size: 15)).foregroundStyle(Theme.text4)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .transition(.opacity)
                     } else if counts.published + counts.scheduled + counts.analyzed == 0 {
                         line("AERA kept watch. Nothing needed you.", delay: 0)
                     } else {
@@ -59,14 +66,27 @@ struct WelcomeBackView: View {
         }
         .task {
             withAnimation(.easeInOut(duration: 6).repeatForever(autoreverses: true)) { drift = 1 }
-            async let c = Repo.shared.pipeline()
-            async let b = Repo.shared.brief()
-            counts = (try? await c) ?? PipelineCounts()
-            brief = (try? await b) ?? nil
-            withAnimation(.spring(duration: 0.9, bounce: 0.2)) { step = 1 }
-            try? await Task.sleep(for: .seconds(1.1))
-            withAnimation(.easeOut(duration: 0.7)) { step = 2 }
-            try? await Task.sleep(for: .seconds(brief == nil ? 5 : 8))
+
+            // Show the screen first. This used to wait on the pipeline count and on
+            // AERA writing the brief, which is a live model call, so the app sat on a
+            // blank background for ten or twenty seconds before anything appeared.
+            withAnimation(.spring(duration: 0.7, bounce: 0.2)) { step = 1 }
+            try? await Task.sleep(for: .seconds(0.45))
+            withAnimation(.easeOut(duration: 0.5)) { step = 2 }
+
+            // The brief arrives when it arrives and fades in behind the reveal.
+            Task {
+                let c = (try? await Repo.shared.pipeline()) ?? PipelineCounts()
+                await MainActor.run { withAnimation(.easeOut(duration: 0.4)) { counts = c } }
+            }
+            Task {
+                let b = try? await Repo.shared.brief()
+                await MainActor.run {
+                    withAnimation(.easeOut(duration: 0.5)) { brief = b; loadingBrief = false }
+                }
+            }
+            // Do not hold someone on a greeting. Tapping anywhere still skips it.
+            try? await Task.sleep(for: .seconds(4.5))
             if session.phase == .welcomeBack { session.enter() }
         }
         .contentShape(Rectangle()).onTapGesture { session.enter() }

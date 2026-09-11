@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Onboard a client from the phone. Calls the same route the web portal calls,
 /// so the brand, the invite record and the invite email are identical either way.
@@ -15,6 +16,8 @@ struct OnboardClientView: View {
     @State private var done: String?
     @State private var error: String?
     @State private var invites: [Repo.Invite] = []
+    @State private var rowBusy = ""
+    @State private var rowMessage: [String: String] = [:]
     @FocusState private var focused: Field?
 
     private enum Field { case brand, email, org }
@@ -136,21 +139,44 @@ struct OnboardClientView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("RECENT INVITES").font(.system(size: 10, weight: .bold)).tracking(1.8).foregroundStyle(Theme.text4)
                                 ForEach(invites) { inv in
-                                    HStack(spacing: 10) {
-                                        Circle()
-                                            .fill(inv.accepted_at != nil ? Theme.green : Theme.amber)
-                                            .frame(width: 6, height: 6)
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(inv.email).font(.system(size: 13)).foregroundStyle(Theme.text2).lineLimit(1)
-                                            Text(inv.accepted_at != nil ? "Set up their account" : "Waiting on them")
-                                                .font(.system(size: 11)).foregroundStyle(Theme.text4)
+                                    VStack(alignment: .leading, spacing: 9) {
+                                        HStack(spacing: 10) {
+                                            Circle()
+                                                .fill(inv.accepted_at != nil ? Theme.green : Theme.amber)
+                                                .frame(width: 6, height: 6)
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(inv.email).font(.system(size: 13)).foregroundStyle(Theme.text2).lineLimit(1)
+                                                Text(inv.accepted_at != nil ? "Set up their account" : "Waiting on them")
+                                                    .font(.system(size: 11)).foregroundStyle(Theme.text4)
+                                            }
+                                            Spacer()
+                                            Text(inv.role == "enterprise_admin" ? "Enterprise" : "Client")
+                                                .font(.system(size: 10, weight: .semibold))
+                                                .foregroundStyle(Theme.text4)
                                         }
-                                        Spacer()
-                                        Text(inv.role == "enterprise_admin" ? "Enterprise" : "Client")
-                                            .font(.system(size: 10, weight: .semibold))
-                                            .foregroundStyle(Theme.text4)
+
+                                        // When the email does not land, these are the way out.
+                                        if inv.accepted_at == nil {
+                                            HStack(spacing: 7) {
+                                                inviteChip("Copy link", icon: "link", busy: rowBusy == inv.id + "link") {
+                                                    act(inv, "link")
+                                                }
+                                                inviteChip("Resend", icon: "paperplane", busy: rowBusy == inv.id + "resend") {
+                                                    act(inv, "resend")
+                                                }
+                                                Spacer()
+                                                inviteChip("Delete", icon: "trash", color: Theme.rose, busy: rowBusy == inv.id + "delete") {
+                                                    act(inv, "delete")
+                                                }
+                                            }
+                                        }
+
+                                        if let m = rowMessage[inv.id] {
+                                            Text(m).font(.system(size: 11.5)).foregroundStyle(Theme.cyanSoft)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                        }
                                     }
-                                    .padding(.vertical, 9).padding(.horizontal, 12)
+                                    .padding(.vertical, 10).padding(.horizontal, 12)
                                     .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
                                 }
                             }
@@ -170,6 +196,48 @@ struct OnboardClientView: View {
             }
         }
         .task { invites = (try? await Repo.shared.invites()) ?? [] }
+    }
+
+    @ViewBuilder
+    private func inviteChip(_ title: String, icon: String, color: Color = Theme.cyan, busy: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                if busy { ProgressView().tint(color).scaleEffect(0.55) }
+                else { Image(systemName: icon).font(.system(size: 10, weight: .bold)) }
+                Text(title).font(.system(size: 11, weight: .semibold))
+            }
+            .foregroundStyle(color)
+            .padding(.horizontal, 10).padding(.vertical, 6)
+            .background(color.opacity(0.10), in: Capsule())
+            .overlay(Capsule().stroke(color.opacity(0.28), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .disabled(!rowBusy.isEmpty)
+    }
+
+    private func act(_ inv: Repo.Invite, _ action: String) {
+        guard rowBusy.isEmpty else { return }
+        rowBusy = inv.id + action
+        Task {
+            do {
+                let link = try await Repo.shared.inviteAction(inv.id, action: action)
+                switch action {
+                case "link":
+                    if let link { UIPasteboard.general.string = link }
+                    rowMessage[inv.id] = "Link copied. Send it to them yourself. It replaces any earlier link."
+                case "resend":
+                    rowMessage[inv.id] = "Invite email sent again."
+                default:
+                    rowMessage[inv.id] = nil
+                }
+                Log.event("invite." + action, area: "clients", label: action.capitalized + " invite for " + inv.email)
+                invites = (try? await Repo.shared.invites()) ?? invites
+            } catch {
+                rowMessage[inv.id] = error.localizedDescription
+                Log.failure("invite." + action, error, area: "clients", label: "Invite " + action + " failed for " + inv.email)
+            }
+            rowBusy = ""
+        }
     }
 
     private func send() {

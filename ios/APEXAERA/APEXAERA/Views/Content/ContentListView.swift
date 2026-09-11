@@ -11,6 +11,8 @@ struct ContentListView: View {
     @State private var title = ""
     @State private var note = ""
     @State private var uploading = false
+    @State private var engineBusy = ""
+    @State private var confirmDelete = ""
     @State private var message: String?
     @State private var isError = false
 
@@ -57,7 +59,13 @@ struct ContentListView: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 SectionLabel(text: "Library")
                                 if assets.isEmpty { Text("Nothing uploaded yet.").font(.system(size: 13)).foregroundStyle(Theme.text3) }
-                                ForEach(assets) { a in AssetRow(asset: a) }
+                                ForEach(assets) { a in
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        AssetRow(asset: a)
+                                        pipelineRow(for: a)
+                                    }
+                                    .padding(.vertical, 2)
+                                }
                             }
                         }
                         .padding(.horizontal, 20)
@@ -77,6 +85,108 @@ struct ContentListView: View {
     private func load() async {
         guard !brandId.isEmpty else { return }
         assets = (try? await Repo.shared.assets(brandId: brandId)) ?? []
+    }
+
+    /// The same three engines the portal runs, in the order the asset moves through them.
+    @ViewBuilder
+    private func pipelineRow(for a: ContentAsset) -> some View {
+        let busy = engineBusy == a.id
+        HStack(spacing: 7) {
+            switch a.status {
+            case "uploaded":
+                engineButton("Analyze", icon: "eye", busy: busy) { runEngine("analyze", a) }
+            case "analyzed":
+                engineButton("Write captions", icon: "text.quote", busy: busy) { runEngine("captions", a) }
+            case "captioned":
+                engineButton("Schedule", icon: "calendar.badge.plus", busy: busy) { runEngine("schedule", a) }
+            case "scheduled":
+                Text("Queued").font(.system(size: 11.5)).foregroundStyle(Theme.cyan)
+            case "published":
+                Text("Published").font(.system(size: 11.5)).foregroundStyle(Theme.green)
+            default:
+                EmptyView()
+            }
+
+            Spacer()
+
+            if confirmDelete == a.id {
+                Button { remove(a) } label: {
+                    Label(busy ? "Deleting" : "Confirm delete", systemImage: "trash.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Theme.rose)
+                        .padding(.horizontal, 11).padding(.vertical, 7)
+                        .background(Theme.rose.opacity(0.14), in: Capsule())
+                        .overlay(Capsule().stroke(Theme.rose.opacity(0.45), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            } else {
+                Button {
+                    withAnimation { confirmDelete = a.id }
+                    Task { try? await Task.sleep(for: .seconds(4)); if confirmDelete == a.id { withAnimation { confirmDelete = "" } } }
+                } label: {
+                    Image(systemName: "trash").font(.system(size: 12)).foregroundStyle(Theme.text4)
+                        .frame(width: 28, height: 28)
+                        .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .disabled(engineBusy != "")
+    }
+
+    @ViewBuilder
+    private func engineButton(_ title: String, icon: String, busy: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                if busy { ProgressView().tint(Theme.cyan).scaleEffect(0.6) }
+                else { Image(systemName: icon).font(.system(size: 10.5, weight: .bold)) }
+                Text(busy ? "Working" : title).font(.system(size: 11.5, weight: .bold))
+            }
+            .foregroundStyle(Theme.cyan)
+            .padding(.horizontal, 11).padding(.vertical, 7)
+            .background(Theme.cyan.opacity(0.10), in: Capsule())
+            .overlay(Capsule().stroke(Theme.cyan.opacity(0.32), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func runEngine(_ engine: String, _ a: ContentAsset) {
+        guard engineBusy.isEmpty else { return }
+        engineBusy = a.id; message = nil
+        let t0 = Date()
+        Task {
+            do {
+                try await Repo.shared.runEngine(engine, assetId: a.id)
+                Log.event("content." + engine, area: "content", label: engine.capitalized + " ran on " + (a.title ?? "an upload"),
+                          ms: Int(Date().timeIntervalSince(t0) * 1000), brandId: brandId, detail: ["assetId": a.id])
+                isError = false
+                message = engine == "analyze" ? "AERA looked at it." : engine == "captions" ? "Captions written." : "Scheduled. Check the Queue."
+                await load()
+            } catch {
+                isError = true
+                message = error.localizedDescription
+                Log.failure("content." + engine, error, area: "content", label: engine.capitalized + " failed",
+                            ms: Int(Date().timeIntervalSince(t0) * 1000), brandId: brandId, detail: ["assetId": a.id])
+            }
+            engineBusy = ""
+        }
+    }
+
+    private func remove(_ a: ContentAsset) {
+        guard engineBusy.isEmpty else { return }
+        engineBusy = a.id
+        Task {
+            do {
+                try await Repo.shared.deleteAsset(a)
+                Log.event("content.delete", area: "content", label: "Deleted " + (a.title ?? "an upload"), brandId: brandId, detail: ["assetId": a.id])
+                isError = false; message = "Deleted."
+                await load()
+            } catch {
+                isError = true; message = error.localizedDescription
+                Log.failure("content.delete", error, area: "content", label: "Delete failed", brandId: brandId, detail: ["assetId": a.id])
+            }
+            engineBusy = ""; confirmDelete = ""
+        }
     }
 
     private func upload() async {

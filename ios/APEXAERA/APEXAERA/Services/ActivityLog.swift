@@ -55,10 +55,10 @@ enum Log {
     }
 
     /// Something went wrong, with the reason attached.
-    static func failure(_ event: String, _ error: Error?, area: String? = nil, label: String? = nil, ms: Int? = nil, detail: [String: Any] = [:]) {
+    static func failure(_ event: String, _ error: Error?, area: String? = nil, label: String? = nil, ms: Int? = nil, brandId: String? = nil, detail: [String: Any] = [:]) {
         var d = detail
         if let error { d["error"] = String(error.localizedDescription.prefix(500)) }
-        self.event(event, area: area, label: label, ok: false, ms: ms, detail: d)
+        self.event(event, area: area, label: label, ok: false, ms: ms, brandId: brandId, detail: d)
     }
 
     /// Times a block of work and logs how long it took.

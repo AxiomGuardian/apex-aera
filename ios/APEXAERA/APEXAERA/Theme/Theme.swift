@@ -111,11 +111,13 @@ struct GhostButton: View {
     let title: String
     var icon: String? = nil
     var color: Color = Theme.cyan
+    var busy: Bool = false
     let action: () -> Void
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
-                if let icon { Image(systemName: icon) }
+                if busy { ProgressView().tint(color).scaleEffect(0.7) }
+                else if let icon { Image(systemName: icon) }
                 Text(title).fontWeight(.semibold)
             }
             .font(.system(size: 13))
@@ -172,37 +174,30 @@ struct OrbitBeam: View {
     }
 }
 
-/// Which element currently holds the light. Shared app-wide so only one glows at a time.
-@Observable
-final class GlowFocus {
-    static let shared = GlowFocus()
-    var id: UUID? = nil
-}
-
-/// Touch a card or button and it lights with the orbiting beam, and stays lit until you touch another.
+/// Touch a card or button and it lights with the orbiting beam while your finger is down.
 /// A press detector that yields to scrolling, so lists still scroll normally.
 struct TouchGlow: ViewModifier {
     var color: Color = Theme.cyan
     var radius: CGFloat = 20
-    @State private var me = UUID()
     @State private var pressing = false
-    private var focus: GlowFocus { GlowFocus.shared }
-    private var lit: Bool { pressing || focus.id == me }
 
+    // This used to read GlowFocus.shared so a card could stay lit after you let go.
+    // Because that is one @Observable object, every card on screen was watching it,
+    // and a single touch invalidated all of them at once. On a list that reads as the
+    // whole screen stuttering. The glow is now local to the card being pressed, and
+    // the shadow only exists while it is lit rather than being drawn at zero opacity.
     func body(content: Content) -> some View {
         content
             .overlay(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(color.opacity(lit ? 0.35 : 0), lineWidth: 1)
+                    .stroke(color.opacity(pressing ? 0.35 : 0), lineWidth: 1)
             )
-            .overlay { if lit { OrbitBeam(color: color, radius: radius, speed: pressing ? 0.8 : 0.35).transition(.opacity) } }
-            .shadow(color: color.opacity(lit ? 0.22 : 0), radius: lit ? 22 : 0)
-            .scaleEffect(pressing ? 1.01 : 1)
-            .animation(.easeOut(duration: 0.25), value: lit)
-            .animation(.easeOut(duration: 0.25), value: pressing)
-            .onLongPressGesture(minimumDuration: 0.06, maximumDistance: 12, perform: {}, onPressingChanged: { p in
-                pressing = p
-                if p { focus.id = me }
+            .overlay { if pressing { OrbitBeam(color: color, radius: radius, speed: 0.8).transition(.opacity) } }
+            .compositingGroup()
+            .shadow(color: pressing ? color.opacity(0.22) : .clear, radius: pressing ? 18 : 0)
+            .animation(.easeOut(duration: 0.22), value: pressing)
+            .onLongPressGesture(minimumDuration: 0.05, maximumDistance: 14, perform: {}, onPressingChanged: { p in
+                if pressing != p { pressing = p }
             })
     }
 }

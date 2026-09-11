@@ -14,6 +14,12 @@ struct BrandWorkspaceView: View {
     @State private var website = ""
     @State private var autopilot = true
     @State private var notice: String?
+    @State private var lifeBusy = ""
+    @State private var dropBusy = ""
+    @State private var archStep = 0
+    @State private var delStep = 0
+    @State private var lifeError: String?
+    @Environment(\.dismiss) private var dismiss
     @Environment(AppNav.self) private var nav
 
     private let platforms: [(key: String, label: String, req: String)] = [
@@ -121,8 +127,24 @@ struct BrandWorkspaceView: View {
                                     if session.isDemo {
                                         Chip(text: ok ? "Live" : "Demo", color: ok ? Theme.green : Theme.text4)
                                     } else {
-                                        Link(ok ? "Reconnect" : "Connect", destination: connectURL(p.key))
-                                            .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.cyan)
+                                        HStack(spacing: 12) {
+                                            if ok && p.key == "instagram" {
+                                                Button { testInstagram() } label: {
+                                                    Text(dropBusy == "test" ? "Testing" : "Test")
+                                                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.cyan)
+                                                }
+                                                .buttonStyle(.plain).disabled(dropBusy != "")
+                                            }
+                                            Link(ok ? "Reconnect" : "Connect", destination: connectURL(p.key))
+                                                .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.cyan)
+                                            if c != nil {
+                                                Button { drop(p.key, label: p.label) } label: {
+                                                    Text(dropBusy == p.key ? "…" : "Disconnect")
+                                                        .font(.system(size: 12)).foregroundStyle(Theme.text4)
+                                                }
+                                                .buttonStyle(.plain).disabled(dropBusy != "")
+                                            }
+                                        }
                                     }
                                 }
                                 .padding(12)
@@ -153,6 +175,13 @@ struct BrandWorkspaceView: View {
                         }
                     }
                     .padding(.horizontal, 20)
+
+                    // Lifecycle. Agency only, same rules as the portal.
+                    if session.role.seesClients {
+                        lifecycleSection
+                            .padding(.horizontal, 20)
+                    }
+
                     Spacer().frame(height: 30)
                 }
             }
@@ -173,6 +202,135 @@ struct BrandWorkspaceView: View {
                 }
                 await load()
             }
+        }
+    }
+
+    @ViewBuilder
+    private var lifecycleSection: some View {
+        VStack(spacing: 12) {
+            if let lifeError {
+                Text(lifeError).font(.system(size: 12.5)).foregroundStyle(Theme.rose)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            if brand.isArchived {
+                ApexCard(accent: Theme.amber, padding: 16) {
+                    VStack(alignment: .leading, spacing: 9) {
+                        SectionLabel(text: "Archived")
+                        Text("Everything is kept and AERA is paused. It is deleted for good 30 days after archiving unless you restore it.")
+                            .font(.system(size: 12.5)).foregroundStyle(Theme.text3).lineSpacing(2)
+                        GhostButton(title: lifeBusy == "restore" ? "Restoring" : "Restore client",
+                                    icon: "arrow.uturn.backward", color: Theme.green, busy: lifeBusy == "restore") {
+                            run("restore")
+                        }
+                    }
+                }
+            } else {
+                ApexCard(accent: Theme.amber, padding: 16) {
+                    VStack(alignment: .leading, spacing: 9) {
+                        SectionLabel(text: "Archive this client")
+                        Text("Pauses AERA and hides the workspace, but keeps everything for 30 days. Restore any time in that window.")
+                            .font(.system(size: 12.5)).foregroundStyle(Theme.text3).lineSpacing(2)
+                        GhostButton(title: lifeBusy == "archive" ? "Archiving" : archStep == 1 ? "Yes, archive \(brand.name)" : "Archive client",
+                                    icon: "archivebox", color: Theme.amber, busy: lifeBusy == "archive") {
+                            if archStep == 0 {
+                                withAnimation { archStep = 1 }
+                                Task { try? await Task.sleep(for: .seconds(5)); withAnimation { archStep = 0 } }
+                            } else {
+                                run("archive")
+                            }
+                        }
+                    }
+                }
+            }
+
+            ApexCard(accent: Theme.rose, padding: 16) {
+                VStack(alignment: .leading, spacing: 9) {
+                    SectionLabel(text: "Delete permanently")
+                    Text("Removes the workspace, its content and its queue. This cannot be undone.")
+                        .font(.system(size: 12.5)).foregroundStyle(Theme.text3).lineSpacing(2)
+                    Button {
+                        if delStep == 0 {
+                            withAnimation { delStep = 1 }
+                            Task { try? await Task.sleep(for: .seconds(6)); withAnimation { delStep = 0 } }
+                        } else {
+                            run("delete")
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            if lifeBusy == "delete" { ProgressView().tint(Theme.rose) }
+                            else { Image(systemName: "trash") }
+                            Text(lifeBusy == "delete" ? "Deleting" : delStep == 1 ? "Yes, delete \(brand.name) forever" : "Delete permanently")
+                                .fontWeight(.bold)
+                        }
+                        .font(.system(size: 14))
+                        .frame(maxWidth: .infinity).padding(.vertical, 13)
+                        .foregroundStyle(Theme.rose)
+                        .background(Theme.rose.opacity(delStep == 1 ? 0.16 : 0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Theme.rose.opacity(0.45), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(lifeBusy != "")
+                }
+            }
+        }
+    }
+
+    private func run(_ action: String) {
+        guard lifeBusy.isEmpty else { return }
+        lifeBusy = action; lifeError = nil
+        Log.event("brand." + action, area: "clients", label: action.capitalized + " " + brand.name, brandId: brand.id)
+        Task {
+            do {
+                try await Repo.shared.brandLifecycle(brand.id, action: action)
+                if action == "delete" {
+                    dismiss()
+                } else {
+                    if let fresh = try? await Repo.shared.brands(includeArchived: true).first(where: { $0.id == brand.id }) { brand = fresh }
+                    notice = action == "archive" ? "Archived. Restore any time in the next 30 days." : "Restored. AERA is running again."
+                    archStep = 0; delStep = 0
+                    Task { try? await Task.sleep(for: .seconds(4)); notice = nil }
+                }
+            } catch {
+                lifeError = error.localizedDescription
+                Log.failure("brand." + action, error, area: "clients", label: "Could not " + action + " " + brand.name, brandId: brand.id)
+            }
+            lifeBusy = ""
+        }
+    }
+
+    private func drop(_ platform: String, label: String) {
+        guard dropBusy.isEmpty else { return }
+        dropBusy = platform
+        Log.event("platform.disconnect", area: "brand", label: "Disconnected " + label, brandId: brand.id, detail: ["platform": platform])
+        Task {
+            do {
+                try await Repo.shared.disconnect(brandId: brand.id, platform: platform)
+                notice = label + " disconnected."
+                await load()
+            } catch {
+                notice = "Could not disconnect " + label + "."
+                Log.failure("platform.disconnect", error, area: "brand", label: "Disconnect failed for " + label, brandId: brand.id)
+            }
+            dropBusy = ""
+            Task { try? await Task.sleep(for: .seconds(4)); notice = nil }
+        }
+    }
+
+    private func testInstagram() {
+        guard dropBusy.isEmpty else { return }
+        dropBusy = "test"
+        Task {
+            do {
+                let r = try await Repo.shared.checkInstagram(brandId: brand.id)
+                notice = r.verdict ?? ("Check failed at " + (r.step ?? "unknown") + ": " + (r.detail ?? "no detail"))
+                Log.event("platform.test", area: "brand", label: notice ?? "Instagram check", ok: r.ok ?? false, brandId: brand.id)
+            } catch {
+                notice = "Could not run the Instagram check."
+                Log.failure("platform.test", error, area: "brand", label: "Instagram check failed", brandId: brand.id)
+            }
+            dropBusy = ""
+            Task { try? await Task.sleep(for: .seconds(6)); notice = nil }
         }
     }
 

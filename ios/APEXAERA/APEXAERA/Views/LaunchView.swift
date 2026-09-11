@@ -29,15 +29,17 @@ struct LaunchView: View {
         .scaleEffect(out ? 1.06 : 1)
         .allowsHitTesting(!out)
         .task {
-            withAnimation(.easeOut(duration: 1.1)) { mark = true }
+            // Same beats, about half the running time. A cold open should feel like
+            // a signature, not a loading screen.
+            withAnimation(.easeOut(duration: 0.55)) { mark = true }
+            try? await Task.sleep(for: .seconds(0.14))
+            withAnimation(.easeOut(duration: 0.5)) { glow = true }
+            try? await Task.sleep(for: .seconds(0.12))
+            withAnimation(.easeOut(duration: 0.45)) { title = true }
+            try? await Task.sleep(for: .seconds(0.1))
+            withAnimation(.easeInOut(duration: 0.45)) { line = 1 }
             try? await Task.sleep(for: .seconds(0.35))
-            withAnimation(.easeOut(duration: 1.0)) { glow = true }
-            try? await Task.sleep(for: .seconds(0.3))
-            withAnimation(.easeOut(duration: 0.9)) { title = true }
-            try? await Task.sleep(for: .seconds(0.25))
-            withAnimation(.easeInOut(duration: 0.8)) { line = 1 }
-            try? await Task.sleep(for: .seconds(1.2))
-            withAnimation(.easeInOut(duration: 0.7)) { out = true }
+            withAnimation(.easeInOut(duration: 0.4)) { out = true }
         }
     }
 }

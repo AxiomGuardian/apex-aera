@@ -40,7 +40,14 @@ export function homeFor(role: Role | null | undefined): string {
 /** Routes that stay open to every signed-in user regardless of tier. */
 const SHARED_PREFIXES = ["/account", "/chat", "/content", "/approvals"];
 
+/** Reachable, but not worth a slot in the nav. Agency side only. */
+const AGENCY_EXTRA_PREFIXES = ["/logs"];
+
 export function canVisit(role: Role | null | undefined, pathname: string): boolean {
   if (SHARED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"))) return true;
+  if (
+    (role === "agency_admin" || role === "enterprise_admin") &&
+    AGENCY_EXTRA_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"))
+  ) return true;
   return navFor(role).some((n) => pathname === n.href || pathname.startsWith(n.href + "/"));
 }

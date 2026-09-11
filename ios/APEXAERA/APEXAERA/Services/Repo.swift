@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import AVFoundation
 
 /// One place for every read and write. Routes to Supabase, or to MockData in demo mode.
 final class Repo {
@@ -93,10 +94,25 @@ final class Repo {
         let ext = fileURL.pathExtension.isEmpty ? "mp4" : fileURL.pathExtension
         let path = "\(brandId)/\(assetId)/\(title.isEmpty ? "video" : title).\(ext)"
         try await sb.upload(bucket: "media", path: path, data: data, contentType: ext == "mov" ? "video/quicktime" : "video/mp4")
+
+        // Stills, so AERA can actually see the video. The portal does this on upload
+        // and without it a video uploaded from the phone gets analyzed blind.
+        var framePaths: [String] = []
+        let frames = await Self.stills(from: fileURL, count: 3)
+        for (i, jpeg) in frames.enumerated() {
+            let fp = "\(brandId)/\(assetId)/frame-\(i).jpg"
+            if (try? await sb.upload(bucket: "thumbnails", path: fp, data: jpeg, contentType: "image/jpeg")) != nil {
+                framePaths.append(fp)
+            }
+        }
+
+        let duration = await Self.duration(of: fileURL)
         try await sb.insert("content_assets", body: [
-            "id": assetId, "brand_id": brandId, "uploaded_by": s.userId, "type": "video_short", "status": "uploaded",
+            "id": assetId, "brand_id": brandId, "uploaded_by": s.userId,
+            "type": duration > 90 ? "video_long" : "video_short", "status": "uploaded",
             "title": title.isEmpty ? "Video" : title, "description": note ?? NSNull(), "storage_path": path,
-            "metadata": ["size": data.count, "mime": "video/mp4", "source": "ios"],
+            "duration_seconds": duration > 0 ? Int(duration) : NSNull(),
+            "metadata": ["size": data.count, "mime": "video/mp4", "source": "ios", "frames": framePaths],
         ])
     }
 
@@ -192,6 +208,55 @@ final class Repo {
         try? await sb.update("aera_threads", match: "id=eq.\(thread)", body: ["updated_at": ISO8601DateFormatter().string(from: Date())])
     }
 
+    // MARK: Content pipeline (the same engines the portal runs)
+    private struct EngineResult: Decodable { let ok: Bool?; let error: String? }
+
+    /// analyze -> captions -> schedule. Each one moves the asset to the next status.
+    func runEngine(_ engine: String, assetId: String) async throws {
+        if demo { try await Task.sleep(for: .seconds(1.5)); return }
+        let path = engine == "analyze" ? "api/aera/analyze" : engine == "captions" ? "api/aera/captions" : "api/aera/schedule"
+        let r = try await sb.api(path, body: ["assetId": assetId], as: EngineResult.self)
+        if let e = r.error, r.ok != true { throw SupabaseError.decoding(e) }
+    }
+
+    /// Removes the file from storage and then the row.
+    func deleteAsset(_ asset: ContentAsset) async throws {
+        if demo { return }
+        if let path = asset.storage_path, !path.isEmpty {
+            try? await sb.removeStorage(bucket: "media", paths: [path])
+        }
+        try await sb.delete("content_assets", match: "id=eq.\(asset.id)")
+    }
+
+    // MARK: Platform connections
+    private struct PlainOk: Decodable { let ok: Bool?; let error: String? }
+    func disconnect(brandId: String, platform: String) async throws {
+        if demo { try await Task.sleep(for: .seconds(1)); return }
+        let r = try await sb.api("api/aera/connect/disconnect", body: ["brandId": brandId, "platform": platform], as: PlainOk.self)
+        if let e = r.error, r.ok != true { throw SupabaseError.decoding(e) }
+    }
+
+    struct InstagramCheck: Decodable {
+        let ok: Bool?
+        let verdict: String?
+        let step: String?
+        let detail: String?
+    }
+    func checkInstagram(brandId: String) async throws -> InstagramCheck {
+        if demo { try await Task.sleep(for: .seconds(1)); return InstagramCheck(ok: true, verdict: "Demo mode. Connect a real account to test it.", step: nil, detail: nil) }
+        return try await sb.api("api/aera/connect/instagram/check?brandId=\(brandId)", method: "GET", as: InstagramCheck.self)
+    }
+
+    // MARK: Client lifecycle (same routes as the portal)
+    private struct LifecycleResult: Decodable { let ok: Bool?; let error: String? }
+
+    /// archive keeps everything for 30 days, restore brings it back, delete is forever.
+    func brandLifecycle(_ brandId: String, action: String) async throws {
+        if demo { try await Task.sleep(for: .seconds(1)); return }
+        let r = try await sb.api("api/agency/clients/\(action)", body: ["brandId": brandId], as: LifecycleResult.self)
+        if let e = r.error, r.ok != true { throw SupabaseError.decoding(e) }
+    }
+
     // MARK: Onboarding (same route the web portal calls, so both stay in step)
     struct OnboardResult: Decodable {
         let ok: Bool?
@@ -214,6 +279,16 @@ final class Repo {
         let accepted_at: String?
         let created_at: String
     }
+    struct InviteAction: Decodable { let ok: Bool?; let link: String?; let error: String? }
+    /// "link" hands back a fresh sign in link, "resend" emails it again, "delete" removes it.
+    @discardableResult
+    func inviteAction(_ inviteId: String, action: String) async throws -> String? {
+        if demo { try await Task.sleep(for: .seconds(1)); return action == "link" ? "https://www.apexaera.com/welcome" : nil }
+        let r = try await sb.api("api/agency/invite", body: ["inviteId": inviteId, "action": action], as: InviteAction.self)
+        if let e = r.error, r.ok != true { throw SupabaseError.decoding(e) }
+        return r.link
+    }
+
     func invites(limit: Int = 20) async throws -> [Invite] {
         if demo { return [] }
         return try await sb.select("invites", query: "select=id,email,status,role,accepted_at,created_at&order=created_at.desc&limit=\(limit)", as: [Invite].self)
@@ -269,5 +344,34 @@ final class Repo {
         if demo { try await Task.sleep(for: .seconds(2)); return "trends 1, analyzed 2, captioned 2, scheduled 1, due 0" }
         let r = try await sb.api("api/heartbeat", body: [:], as: HeartbeatResult.self)
         return r.summary ?? "Heartbeat ran."
+    }
+
+    // MARK: Video stills
+
+    /// Evenly spaced JPEG frames from a video, for the analyzer to look at.
+    static func stills(from url: URL, count: Int) async -> [Data] {
+        let asset = AVURLAsset(url: url)
+        guard let seconds = try? await asset.load(.duration).seconds, seconds.isFinite, seconds > 0 else { return [] }
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 720, height: 720)
+        generator.requestedTimeToleranceBefore = .init(seconds: 0.4, preferredTimescale: 600)
+        generator.requestedTimeToleranceAfter = .init(seconds: 0.4, preferredTimescale: 600)
+
+        var out: [Data] = []
+        for i in 0..<count {
+            // A fifth in, the middle, four fifths in. Skips black intro frames.
+            let fraction = Double(i + 1) / Double(count + 1)
+            let time = CMTime(seconds: seconds * fraction, preferredTimescale: 600)
+            guard let cg = try? await generator.image(at: time).image else { continue }
+            if let jpeg = UIImage(cgImage: cg).jpegData(compressionQuality: 0.7) { out.append(jpeg) }
+        }
+        return out
+    }
+
+    static func duration(of url: URL) async -> Double {
+        let asset = AVURLAsset(url: url)
+        guard let d = try? await asset.load(.duration).seconds, d.isFinite, d > 0 else { return 0 }
+        return d
     }
 }

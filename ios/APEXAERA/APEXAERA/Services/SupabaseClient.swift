@@ -148,6 +148,13 @@ actor SupabaseClient {
     }
 
     // MARK: Storage
+    /// Removes files from a storage bucket.
+    func removeStorage(bucket: String, paths: [String]) async throws {
+        var req = try await authed(base.appending(path: "storage/v1/object/" + bucket), method: "DELETE")
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["prefixes": paths])
+        _ = try await run(req, as: EmptyResponse.self)
+    }
+
     func upload(bucket: String, path: String, data: Data, contentType: String) async throws {
         var req = try await authed(base.appending(path: "storage/v1/object/" + bucket + "/" + path), method: "POST")
         req.setValue(contentType, forHTTPHeaderField: "Content-Type")

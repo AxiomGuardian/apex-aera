@@ -24,13 +24,22 @@ struct RootView: View {
         }
         .animation(.easeInOut(duration: 0.55), value: phaseKey)
         .task {
-            // The launch film runs on its own clock. It used to wait for boot() to
-            // finish, so a slow or dropped network on resume left the overlay up
-            // forever and the app looked frozen on a blank screen.
-            async let boot: () = session.boot()
-            try? await Task.sleep(for: .seconds(3.9))
-            launching = false
-            await boot
+            // The film is a floor, not a wait. It used to hold for a flat 3.9 seconds
+            // and, worse, waited for boot() to finish, so a slow network meant staring
+            // at a frozen screen. Now it shows for one beat, leaves as soon as the
+            // session is known, and never holds past the cap whatever the network does.
+            let boot = Task { await session.boot() }
+
+            try? await Task.sleep(for: .seconds(1.25))
+
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { await boot.value }
+                group.addTask { try? await Task.sleep(for: .seconds(1.75)) }
+                await group.next()
+                group.cancelAll()
+            }
+
+            withAnimation(.easeOut(duration: 0.35)) { launching = false }
         }
         .onChange(of: session.isDemo, initial: true) { _, v in Repo.shared.demo = v }
     }
